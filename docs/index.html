@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>남코녀 1:1 패션 컨설팅 사전질문</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500&display=swap">
+<style>
+:root { --bg:#f6f4f1; --card:#ffffff; --fg:#1d1b19; --muted:#6f6a64; --line:#e3ded7; --accent:#2b2a28; --accent-fg:#fff; --bad:#b3261e; --ok:#2e6b3f; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --bg:#151413; --card:#1f1e1c; --fg:#f1eee9; --muted:#a39d95; --line:#34312d; --accent:#f1eee9; --accent-fg:#151413; --bad:#f2b8b5; --ok:#9fd3a9; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font-family:"Noto Sans KR", system-ui, sans-serif; font-size:16px; line-height:1.6; }
+.wrap { max-width:640px; margin:0 auto; padding-block:32px 80px; padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right)); }
+header h1 { font-family:"Noto Serif KR", serif; font-weight:500; font-size:1.7rem; margin:0 0 6px; text-wrap:balance; }
+header p { margin:0; color:var(--muted); }
+.brand { font-size:.8rem; letter-spacing:.15em; color:var(--muted); margin-bottom:12px; }
+form { display:flex; flex-direction:column; gap:14px; margin-top:28px; }
+.q { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:8px; }
+.q > label, .q > .t { font-weight:500; }
+.q .req { color:var(--bad); margin-left:2px; }
+.hint { color:var(--muted); font-size:.88rem; margin:0; }
+input[type=text], input[type=tel], input[type=number], textarea, select { width:100%; font:inherit; color:var(--fg); background:transparent; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+textarea { min-height:84px; resize:vertical; }
+input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible { outline:2px solid var(--fg); outline-offset:2px; }
+.opts { display:flex; flex-direction:column; gap:6px; }
+.opts label { display:flex; gap:10px; align-items:flex-start; font-weight:400; cursor:pointer; }
+.opts input { margin-top:5px; width:18px; height:18px; flex:none; }
+.photos { display:grid; grid-template-columns:repeat(auto-fill, minmax(76px, 1fr)); gap:8px; }
+.photos figure { margin:0; position:relative; aspect-ratio:3/4; border-radius:8px; overflow:hidden; background:var(--line); }
+.photos img { width:100%; height:100%; object-fit:cover; display:block; }
+.photos button { position:absolute; top:4px; right:4px; width:26px; height:26px; border-radius:50%; border:0; background:rgba(0,0,0,.6); color:#fff; cursor:pointer; font-size:14px; line-height:1; }
+.pick { display:inline-flex; align-items:center; justify-content:center; gap:6px; border:1px dashed var(--muted); border-radius:10px; padding:12px; cursor:pointer; color:var(--fg); background:transparent; font:inherit; }
+.consent { font-size:.9rem; }
+.consent details { color:var(--muted); }
+.submit { font:inherit; font-weight:700; font-size:1.05rem; padding:16px; border:0; border-radius:12px; background:var(--accent); color:var(--accent-fg); cursor:pointer; }
+.submit[disabled] { opacity:.5; cursor:progress; }
+.err { color:var(--bad); font-size:.9rem; }
+.done { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:28px; text-align:center; margin-top:28px; }
+.done h2 { font-family:"Noto Serif KR", serif; font-weight:500; margin:0 0 8px; }
+.hp { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+@media (prefers-reduced-motion: no-preference) { .q { transition:border-color .2s; } }
+.q.invalid { border-color:var(--bad); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">NAMCONYEO · 남코녀</div>
+    <h1>1:1 패션 컨설팅 사전질문</h1>
+    <p>당신에게 꼭 맞는 코디를 위한, 몇 가지 질문을 드립니다. 작성에 5~10분 정도 걸려요.</p>
+  </header>
+
+  <form id="f" novalidate>
+    <div class="q"><label for="name">성함<span class="req">*</span></label><input id="name" name="name" type="text" autocomplete="name" required maxlength="40"></div>
+    <div class="q"><label for="phone">연락처<span class="req">*</span></label><p class="hint">연락 받으실 개인 전화번호 ('-' 없이 숫자만)</p><input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" required pattern="[0-9]{9,12}"></div>
+    <div class="q"><label for="age">나이<span class="req">*</span></label><input id="age" name="age" type="number" inputmode="numeric" min="15" max="80" required placeholder="예) 27"></div>
+    <div class="q"><label for="job">직업<span class="req">*</span></label><p class="hint">전공이나 분야까지 자세히 적어주세요. 회사원이시라면 보통 어떤 복장으로 출근하는지도 적어주세요.</p><input id="job" name="job" type="text" required maxlength="100" placeholder="예) 회사원(IT계열, 셔츠+슬랙스 출근)"></div>
+    <div class="q"><label for="region">거주 지역<span class="req">*</span></label><input id="region" name="region" type="text" required maxlength="100" placeholder="예) 서울 강남구"></div>
+    <div class="q"><label for="hw">키 / 몸무게<span class="req">*</span></label><input id="hw" name="height_weight" type="text" required maxlength="40" placeholder="예) 178 / 70"></div>
+    <div class="q"><label for="sizes">상의 / 하의 / 신발 사이즈<span class="req">*</span></label><input id="sizes" name="sizes" type="text" required maxlength="100" placeholder="예) 상의 XL / 하의 M(32) / 280"></div>
+    <div class="q"><span class="t">보완하고 싶은 신체 특징 (복수 선택)<span class="req">*</span></span>
+      <div class="opts" data-group="body_concerns" data-min="1">
+        <label><input type="checkbox" value="뱃살">뱃살</label>
+        <label><input type="checkbox" value="좁은 어깨">좁은 어깨</label>
+        <label><input type="checkbox" value="짧은 다리">짧은 다리</label>
+        <label><input type="checkbox" value="두꺼운 다리">두꺼운 다리</label>
+        <label><input type="checkbox" value="작은 키">작은 키</label>
+        <label><input type="checkbox" value="큰 키">큰 키</label>
+        <label><input type="checkbox" value="마른 몸">마른 몸</label>
+        <label><input type="checkbox" value="큰 얼굴">큰 얼굴</label>
+        <label><input type="checkbox" value="기타" data-other="concern_other">기타</label>
+        <input id="concern_other" type="text" maxlength="100" placeholder="기타 내용" hidden>
+      </div>
+    </div>
+    <div class="q"><span class="t">의류 구매 예산 (컨설팅 비용 제외)<span class="req">*</span></span>
+      <p class="hint">예산이 클수록 코디의 퀄리티도 높아집니다.<br>SPA(가성비): 유니클로, 자라, 에잇세컨즈, 무탠다드 · 컨템포러리(준수한 퀄리티): 쿠어, 엘무드, 토니웩, 인사일런스, 렉토 · 하이엔드: 시스템옴므, 타임옴므, 솔리드옴므, 지오송지오</p>
+      <div class="opts" data-group="budget" data-radio>
+        <label><input type="radio" name="budget" value="LEVEL1 (~30만 원)">LEVEL1 (~30만 원)</label>
+        <label><input type="radio" name="budget" value="LEVEL2 (30~50만 원)">LEVEL2 (30~50만 원)</label>
+        <label><input type="radio" name="budget" value="LEVEL3 (50~100만 원)">LEVEL3 (50~100만 원)</label>
+        <label><input type="radio" name="budget" value="LEVEL4 (100~300만 원)">LEVEL4 (100~300만 원)</label>
+        <label><input type="radio" name="budget" value="LEVEL5 (300~500만 원)">LEVEL5 (300~500만 원)</label>
+        <label><input type="radio" name="budget" value="기타" data-other="budget_other">기타</label>
+        <input id="budget_other" type="text" maxlength="100" placeholder="예산 직접 입력" hidden>
+      </div>
+    </div>
+    <div class="q"><span class="t">패션에 대해서 얼마나 알고 계신가요?<span class="req">*</span></span>
+      <div class="opts" data-group="fashion_level" data-radio>
+        <label><input type="radio" name="fashion_level" value="1단계: 옷을 거의 사본 적 없다">1단계: 옷을 거의 사본 적 없다 (색 조합, 핏 잘 모름)</label>
+        <label><input type="radio" name="fashion_level" value="2단계: 유튜브는 가끔 보지만 기본템이 거의 없다">2단계: 패션 유튜브를 가끔 보지만, 기본템이 거의 없다</label>
+        <label><input type="radio" name="fashion_level" value="3단계: 기본템은 있는데 그 이상 코디가 어렵다">3단계: 기본템은 있는데, 그 이상 코디하기가 어렵다</label>
+        <label><input type="radio" name="fashion_level" value="4단계: 남자 브랜드를 알고 포인트템을 활용한다">4단계: 남자 브랜드(엘무드, 렉토)를 알고, 포인트템을 활용할 수 있다</label>
+        <label><input type="radio" name="fashion_level" value="5단계: 내 체형·분위기에 맞게 스타일링할 수 있다">5단계: 내 체형과 분위기에 맞는 스타일링을 할 수 있다</label>
+      </div>
+    </div>
+    <div class="q"><label for="exp">컨설팅을 통해 어떤 것이 가장 기대되나요? 솔직하게 말해주세요.<span class="req">*</span></label><textarea id="exp" name="expectation" required maxlength="500" placeholder="예) 연애하고 싶어요. 옷 잘 입는다는 소리 듣고 싶어요."></textarea></div>
+    <div class="q"><span class="t">받아본 적 있는 것을 선택해주세요 (복수 선택)</span>
+      <div class="opts" data-group="prior_services">
+        <label><input type="checkbox" value="퍼스널컬러 진단">퍼스널컬러 진단</label>
+        <label><input type="checkbox" value="골격 진단">골격 진단</label>
+        <label><input type="checkbox" value="코디 컨설팅">코디 컨설팅</label>
+        <label><input type="checkbox" value="없음">이 중에 받아본 게 없다</label>
+      </div>
+    </div>
+    <div class="q"><label for="prior">위에서 받으신 것이 있다면 결과를 알려주세요 (없다면 패스)</label><input id="prior" name="prior_result" type="text" maxlength="200" placeholder="예) 가을 뮤트톤, 웨이브 체형"></div>
+
+    <div class="q" data-photos="body" data-min="1"><span class="t">체형이 잘 드러나는 전신사진<span class="req">*</span></span><p class="hint">최대한 딱 붙는 옷 또는 반팔·반바지로, 1~2m 거리에서 찍은 정면/측면 사진 (최대 5장)</p><div class="photos"></div><button type="button" class="pick">＋ 사진 추가</button><input type="file" accept="image/*" multiple hidden></div>
+    <div class="q" data-photos="style" data-min="1"><span class="t">평소 스타일이 잘 드러나는 전신사진<span class="req">*</span></span><p class="hint">다양한 스타일로 가능한 많이 (최대 5장)</p><div class="photos"></div><button type="button" class="pick">＋ 사진 추가</button><input type="file" accept="image/*" multiple hidden></div>
+    <div class="q" data-photos="face" data-min="1"><span class="t">이미지가 잘 드러나는 셀카<span class="req">*</span></span><p class="hint">정면/오른쪽/왼쪽 사진. 이마를 드러내 주시고, 안경은 벗고, 후면 카메라 2배 줌으로 찍어주세요. (최대 5장)</p><div class="photos"></div><button type="button" class="pick">＋ 사진 추가</button><input type="file" accept="image/*" multiple hidden></div>
+
+    <div class="q"><label for="shoes">가지고 있는 신발</label><input id="shoes" name="shoes" type="text" maxlength="200" placeholder="예) 에어포스 화이트, 독일군 스니커즈"></div>
+    <div class="q"><label for="pants">가지고 있는 바지</label><input id="pants" name="pants" type="text" maxlength="200" placeholder="예) 흑청 와이드, 블랙 와이드 슬랙스"></div>
+
+    <div class="q consent">
+      <div class="opts">
+        <label><input id="c1" type="checkbox"><span>[필수] 개인정보 수집·이용에 동의합니다.</span></label>
+        <label><input id="c2" type="checkbox"><span>[필수] 컨설팅 준비를 위해 제출한 사진과 답변을 AI(Anthropic Claude)로 분석하는 것에 동의합니다.</span></label>
+      </div>
+      <details><summary>자세히 보기</summary>
+        <p>수집 항목: 성함, 연락처, 나이, 직업, 거주 지역, 신체 정보, 사진, 설문 답변 · 목적: 1:1 패션 컨설팅 준비와 진행, 상담 연락 · 보관: 컨설팅 종료 후 1년 (요청 시 즉시 삭제) · AI 분석: 사진과 답변은 컨설팅 계획서 초안 작성에만 쓰이며, 대표 컨설턴트가 검수합니다. 동의하지 않으면 사전질문 제출이 어렵습니다.</p>
+      </details>
+    </div>
+
+    <div class="hp" aria-hidden="true"><label>비워두세요<input id="website" type="text" tabindex="-1" autocomplete="off"></label></div>
+    <p class="err" id="err" role="alert" hidden></p>
+    <button class="submit" id="submit" type="submit">제출하기</button>
+  </form>
+
+  <div class="done" id="done" hidden>
+    <h2>제출해 주셔서 감사합니다</h2>
+    <p>꼼꼼히 확인하고 곧 연락드리겠습니다 :)</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+  const cfg = window.NK_CONFIG;
+  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  const MAX = 5;
+  const files = { body: [], style: [], face: [] };
+
+  // '기타' 선택 시 직접 입력칸 표시
+  document.querySelectorAll('[data-other]').forEach((inp) => {
+    const box = document.getElementById(inp.dataset.other);
+    const sync = () => { box.hidden = !inp.checked; };
+    inp.closest('.opts').addEventListener('change', sync);
+  });
+
+  // 사진 고르기 + 미리보기
+  document.querySelectorAll('[data-photos]').forEach((q) => {
+    const key = q.dataset.photos, grid = q.querySelector('.photos'), input = q.querySelector('input[type=file]');
+    q.querySelector('.pick').addEventListener('click', () => input.click());
+    const render = () => {
+      grid.replaceChildren();
+      files[key].forEach((f, i) => {
+        const fig = document.createElement('figure');
+        const img = document.createElement('img'); img.alt = ''; img.src = URL.createObjectURL(f);
+        const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.setAttribute('aria-label', '사진 삭제');
+        del.addEventListener('click', () => { files[key].splice(i, 1); render(); });
+        fig.append(img, del); grid.append(fig);
+      });
+      q.querySelector('.pick').hidden = files[key].length >= MAX;
+    };
+    input.addEventListener('change', () => {
+      for (const f of input.files) if (f.type.startsWith('image/') && files[key].length < MAX) files[key].push(f);
+      input.value = ''; render(); q.classList.remove('invalid');
+    });
+  });
+
+  // 업로드 전 휴대폰에서 사진 줄이기 (긴 변 1600px JPEG)
+  async function shrink(file) {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => null);
+    if (!bmp) return file;
+    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return await new Promise((res) => c.toBlob((b) => res(b || file), 'image/jpeg', 0.85));
+  }
+
+  const checked = (group) => [...document.querySelectorAll(`[data-group="${group}"] input:checked`)];
+  const val = (id) => document.getElementById(id).value.trim();
+  const fail = (msg, el) => { const e = document.getElementById('err'); e.textContent = msg; e.hidden = false; if (el) { el.classList.add('invalid'); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } return false; };
+
+  function validate() {
+    document.querySelectorAll('.q.invalid').forEach((q) => q.classList.remove('invalid'));
+    for (const el of document.querySelectorAll('#f [required]')) {
+      if (!el.value.trim() || !el.checkValidity()) return fail('필수 항목을 확인해 주세요.', el.closest('.q'));
+    }
+    if (!checked('body_concerns').length) return fail('보완하고 싶은 신체 특징을 하나 이상 골라 주세요.', document.querySelector('[data-group="body_concerns"]').closest('.q'));
+    for (const g of ['budget', 'fashion_level']) if (!checked(g).length) return fail('필수 항목을 선택해 주세요.', document.querySelector(`[data-group="${g}"]`).closest('.q'));
+    for (const q of document.querySelectorAll('[data-photos]')) if (!files[q.dataset.photos].length) return fail('사진을 1장 이상 올려 주세요.', q);
+    if (!document.getElementById('c1').checked || !document.getElementById('c2').checked) return fail('필수 동의 항목에 체크해 주세요.', document.querySelector('.consent'));
+    return true;
+  }
+
+  document.getElementById('f').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    document.getElementById('err').hidden = true;
+    if (val('website')) return; // 자동 스팸 차단
+    if (!validate()) return;
+    const btn = document.getElementById('submit'); btn.disabled = true; btn.textContent = '사진 올리는 중…';
+    const id = crypto.randomUUID();
+    try {
+      const photos = { body: [], style: [], face: [] };
+      for (const key of Object.keys(files)) {
+        for (let i = 0; i < files[key].length; i++) {
+          const blob = await shrink(files[key][i]);
+          const path = `${id}/${key}_${i + 1}.jpg`;
+          const { error } = await sb.storage.from('survey-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+          if (error) throw error;
+          photos[key].push(path);
+        }
+      }
+      btn.textContent = '제출하는 중…';
+      const other = (group, id) => checked(group).map((i) => i.value === '기타' && val(id) ? `기타: ${val(id)}` : i.value);
+      const row = {
+        id, name: val('name'), phone: val('phone'), age: parseInt(val('age'), 10) || null, job: val('job'), region: val('region'),
+        height_weight: val('hw'), sizes: val('sizes'), body_concerns: other('body_concerns', 'concern_other'),
+        budget: other('budget', 'budget_other')[0], fashion_level: checked('fashion_level')[0].value,
+        expectation: val('exp'), prior_services: checked('prior_services').map((i) => i.value), prior_result: val('prior'),
+        shoes: val('shoes'), pants: val('pants'), photos, consent_privacy: true, consent_ai: true,
+      };
+      const { error } = await sb.from('surveys').insert(row);
+      if (error) throw error;
+      document.getElementById('f').hidden = true;
+      document.getElementById('done').hidden = false;
+      window.scrollTo({ top: 0 });
+    } catch (e) {
+      console.error(e);
+      fail('제출하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요. 계속 안 되면 카카오톡으로 알려주세요.');
+      btn.disabled = false; btn.textContent = '제출하기';
+    }
+  });
+})();
+</script>
+</body>
+</html>
