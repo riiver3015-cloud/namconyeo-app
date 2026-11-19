@@ -11,6 +11,7 @@
 :root { --bg:#f4f2ee; --panel:#fff; --fg:#1d1b19; --muted:#6f6a64; --line:#e3ded7; --accent:#2b2a28; --accent-fg:#fff; --ok:#2e6b3f; --warn:#8a5a00; --bad:#b3261e; color-scheme: light; }
 @media (prefers-color-scheme: dark) { :root { --bg:#151413; --panel:#1f1e1c; --fg:#f1eee9; --muted:#a39d95; --line:#34312d; --accent:#f1eee9; --accent-fg:#151413; --ok:#9fd3a9; --warn:#f0c674; --bad:#f2b8b5; color-scheme: dark; } }
 * { box-sizing:border-box; }
+[hidden] { display:none !important; }
 body { margin:0; background:var(--bg); color:var(--fg); font-family:"Noto Sans KR", system-ui, sans-serif; font-size:15px; line-height:1.55; }
 .wrap { max-width:1280px; margin:0 auto; padding-block:24px 64px; padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right)); display:flex; flex-direction:column; gap:20px; }
 h1 { font-family:"Noto Serif KR", serif; font-weight:500; font-size:1.6rem; margin:0; }
