@@ -62,7 +62,14 @@ create or replace function public.is_admin() returns boolean
 language sql stable security definer set search_path = public as
 $$ select exists (select 1 from public.admins where user_id = auth.uid()) $$;
 
--- 5) 접근 권한 (RLS) ---------------------------------------------------------
+-- 5) 접근 권한 ---------------------------------------------------------------
+-- (프로젝트의 '새 표 자동 공개' 설정과 상관없이 동작하도록 명시적으로 허용, 실제 범위는 아래 RLS가 정함)
+grant usage on schema public to anon, authenticated;
+grant insert on public.surveys to anon;
+grant select, insert, update, delete on public.surveys, public.plans, public.onsite, public.settings to authenticated;
+grant select on public.admins to authenticated;
+grant execute on function public.is_admin() to anon, authenticated;
+
 alter table public.surveys enable row level security;
 alter table public.plans enable row level security;
 alter table public.onsite enable row level security;
