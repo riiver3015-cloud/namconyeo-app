@@ -1,0 +1,4 @@
+# 분석 기준(사업 노하우)은 공개 저장소에 올리지 않고 Supabase settings 표에만 넣습니다.
+supabase/criteria_seed.sql
+.env
+*.local
