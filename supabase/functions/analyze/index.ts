@@ -11,7 +11,17 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const MODEL = "claude-opus-5-5";
 const BUCKET = "survey-photos";
 
-const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+// 관리자 키: 예전 이름(SUPABASE_SERVICE_ROLE_KEY)과 새 이름(SUPABASE_SECRET_KEY / SUPABASE_SECRET_KEYS) 모두 지원
+function adminKey(): string {
+  const direct = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SECRET_KEY");
+  if (direct) return direct;
+  const many = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (many) {
+    try { const v = JSON.parse(many); return (Array.isArray(v) ? v[0] : Object.values(v)[0]) as string; } catch { return many; }
+  }
+  throw new Error("Supabase 관리자 키 환경변수를 찾을 수 없음");
+}
+const supabase = createClient(Deno.env.get("SUPABASE_URL")!, adminKey());
 const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 
 const cors = {
