@@ -309,7 +309,8 @@ ul, ol { margin:0; padding-left:1.2em; }
     const day = card('당일 진행'); const t4 = el('table'); (P.timeline || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.time), el('td', null, r.task)); t4.append(tr); }); day.append(t4, el('p', null, '쇼핑 지역: ' + (P.area || '')), el('h3', null, '고객에게 전할 한마디'), el('p', 'quote', P.one_liner));
   }
 
-  sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_IN' && $('#app').hidden && $('#noadmin').hidden) location.reload(); });
+  // 로그인 화면이 떠 있는 상태에서 로그인이 완료됐을 때만 새로고침 (시작 중에는 새로고침하지 않음)
+  sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_IN' && !$('#login').hidden) location.reload(); });
   boot();
 })();
 </script>
