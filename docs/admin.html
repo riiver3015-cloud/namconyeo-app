@@ -68,16 +68,35 @@ ul, ol { margin:0; padding-left:1.2em; }
 
   <section id="login" class="card login" hidden>
     <h2>대표님 로그인</h2>
-    <p class="muted">이메일을 입력하면 로그인 링크를 보내드려요. 메일의 링크를 누르면 이 화면으로 돌아옵니다.</p>
-    <input id="email" type="email" autocomplete="email" placeholder="이메일 주소">
-    <button class="btn primary" id="send">로그인 링크 받기</button>
+    <form id="pwform" style="display:flex;flex-direction:column;gap:10px">
+      <input id="email" type="email" autocomplete="username" placeholder="이메일 주소" required>
+      <input id="pw" type="password" autocomplete="current-password" placeholder="비밀번호" required>
+      <button class="btn primary" type="submit">로그인</button>
+    </form>
     <p class="cap" id="loginmsg"></p>
+    <details>
+      <summary class="cap" style="cursor:pointer">비밀번호를 아직 안 정했거나 잊으셨나요?</summary>
+      <p class="cap" style="margin:8px 0">위에 이메일을 입력하고 아래 버튼을 누르면 로그인 링크를 메일로 보내드려요. 링크로 들어온 뒤 오른쪽 위 "비밀번호 설정"에서 새 비밀번호를 정하세요. (메일은 1시간에 몇 통만 보낼 수 있어요)</p>
+      <button class="btn" id="send" type="button">로그인 링크 받기</button>
+    </details>
   </section>
 
   <section id="noadmin" class="card login" hidden>
     <h2>관리자 권한이 없어요</h2>
     <p class="muted">이 계정은 아직 관리자로 등록되지 않았어요. Claude에게 "이 이메일을 관리자로 등록해줘"라고 말해 주세요.</p>
     <button class="btn" id="logout2">로그아웃</button>
+  </section>
+
+  <section id="pwset" class="card login" hidden>
+    <h2>비밀번호 설정</h2>
+    <p class="muted">다음부터 이메일과 이 비밀번호로 바로 로그인할 수 있어요. 8자 이상으로 정해 주세요.</p>
+    <form id="pwsetform" style="display:flex;flex-direction:column;gap:10px">
+      <input type="email" autocomplete="username" id="pwset-email" readonly hidden>
+      <input id="newpw" type="password" autocomplete="new-password" placeholder="새 비밀번호 (8자 이상)" minlength="8" required>
+      <input id="newpw2" type="password" autocomplete="new-password" placeholder="새 비밀번호 한 번 더" minlength="8" required>
+      <div style="display:flex;gap:8px"><button class="btn primary" type="submit">저장</button><button class="btn" type="button" id="pwcancel">닫기</button></div>
+    </form>
+    <p class="cap" id="pwmsg"></p>
   </section>
 
   <div id="app" class="layout" hidden>
@@ -156,7 +175,7 @@ ul, ol { margin:0; padding-left:1.2em; }
   async function boot() {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) { $('#login').hidden = false; return; }
-    $('#who').replaceChildren(el('span', null, session.user.email + ' · '), Object.assign(el('button', 'btn', '로그아웃'), { onclick: logout }));
+    $('#who').replaceChildren(el('span', null, session.user.email + ' · '), Object.assign(el('button', 'btn', '비밀번호 설정'), { onclick: () => { $('#pwset-email').value = session.user.email; $('#pwset').hidden = false; $('#newpw').focus(); } }), el('span', null, ' '), Object.assign(el('button', 'btn', '로그아웃'), { onclick: logout }));
     const { data: adm } = await sb.from('admins').select('user_id').eq('user_id', session.user.id);
     if (!adm || !adm.length) { $('#noadmin').hidden = false; return; }
     $('#app').hidden = false;
@@ -165,8 +184,26 @@ ul, ol { margin:0; padding-left:1.2em; }
   }
   async function logout() { await sb.auth.signOut(); location.reload(); }
   $('#logout2').onclick = logout;
+  $('#pwform').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const email = $('#email').value.trim(), password = $('#pw').value;
+    $('#loginmsg').textContent = '로그인 중…';
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { $('#loginmsg').textContent = /Invalid login/i.test(error.message) ? '이메일 또는 비밀번호가 맞지 않아요. 비밀번호를 아직 안 정하셨다면 아래 "로그인 링크 받기"를 이용해 주세요.' : '로그인 실패: ' + error.message; return; }
+    location.reload();
+  });
+  $('#pwcancel').onclick = () => { $('#pwset').hidden = true; };
+  $('#pwsetform').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const a = $('#newpw').value, b = $('#newpw2').value;
+    if (a.length < 8) { $('#pwmsg').textContent = '8자 이상으로 정해 주세요.'; return; }
+    if (a !== b) { $('#pwmsg').textContent = '두 비밀번호가 서로 달라요.'; return; }
+    const { error } = await sb.auth.updateUser({ password: a });
+    $('#pwmsg').textContent = error ? '저장하지 못했어요: ' + error.message : '저장했어요. 다음부터 이메일과 비밀번호로 로그인하세요.';
+    if (!error) { $('#newpw').value = ''; $('#newpw2').value = ''; }
+  });
   $('#send').onclick = async () => {
-    const email = $('#email').value.trim(); if (!email) return;
+    const email = $('#email').value.trim(); if (!email) { $('#loginmsg').textContent = '위에 이메일을 먼저 입력해 주세요.'; return; }
     const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split('#')[0], shouldCreateUser: true } });
     $('#loginmsg').textContent = error ? '보내지 못했어요: ' + error.message : '메일함을 확인해 주세요. 링크를 누르면 로그인돼요.';
   };
