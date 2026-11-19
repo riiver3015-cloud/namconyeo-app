@@ -1,7 +1,7 @@
 # 남코녀 사전설문 · 컨설팅 준비판
 
 - `docs/index.html` — 고객용 사전설문 폼 (사진 업로드, 동의 포함)
-- `docs/admin.html` — 대표용 준비판 (이메일 링크 로그인, AI 계획서, 사진, 현장 기록)
+- `docs/admin.html` — 대표용 준비판 (이메일+비밀번호 로그인, 메일 링크 로그인, AI 계획서, 사진, 현장 기록)
 - `docs/config.js` — Supabase 주소와 공개(anon) 키
 - `supabase/schema.sql` — 표, 접근 규칙(RLS), 사진 저장소, 설문 → AI 자동 호출 트리거
 - `supabase/functions/analyze/index.ts` — 설문이 들어오면 Claude(claude-opus-5-5)로 계획서 초안을 만드는 함수
