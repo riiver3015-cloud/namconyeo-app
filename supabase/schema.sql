@@ -1,5 +1,5 @@
 -- 남코녀 사전설문 · 준비판 데이터베이스 (Supabase SQL Editor에 통째로 붙여 넣어 실행)
--- 실행 전에 맨 아래 __FUNCTION_URL__ 을 실제 Edge Function 주소로 바꿉니다.
+-- 실행 전에 맨 아래 함수 주소 자리표시자를 실제 Edge Function 주소(https://<프로젝트>.supabase.co/functions/v1/analyze)로 바꿉니다.
 
 create extension if not exists pg_net;
 
@@ -69,6 +69,8 @@ grant insert on public.surveys to anon;
 grant select, insert, update, delete on public.surveys, public.plans, public.onsite, public.settings to authenticated;
 grant select on public.admins to authenticated;
 grant execute on function public.is_admin() to anon, authenticated;
+grant usage on schema public to service_role;
+grant all on public.surveys, public.plans, public.onsite, public.admins, public.settings to service_role;
 
 alter table public.surveys enable row level security;
 alter table public.plans enable row level security;
