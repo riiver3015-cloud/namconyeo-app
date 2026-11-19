@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>남코녀 컨설팅 준비판</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500&display=swap">
+<style>
+:root { --bg:#f4f2ee; --panel:#fff; --fg:#1d1b19; --muted:#6f6a64; --line:#e3ded7; --accent:#2b2a28; --accent-fg:#fff; --ok:#2e6b3f; --warn:#8a5a00; --bad:#b3261e; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --bg:#151413; --panel:#1f1e1c; --fg:#f1eee9; --muted:#a39d95; --line:#34312d; --accent:#f1eee9; --accent-fg:#151413; --ok:#9fd3a9; --warn:#f0c674; --bad:#f2b8b5; color-scheme: dark; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font-family:"Noto Sans KR", system-ui, sans-serif; font-size:15px; line-height:1.55; }
+.wrap { max-width:1280px; margin:0 auto; padding-block:24px 64px; padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right)); display:flex; flex-direction:column; gap:20px; }
+h1 { font-family:"Noto Serif KR", serif; font-weight:500; font-size:1.6rem; margin:0; }
+h2 { font-size:1.05rem; margin:0 0 8px; } h3 { font-size:.95rem; margin:0 0 6px; }
+p { margin:0; }
+.muted { color:var(--muted); } .cap { font-size:.82rem; color:var(--muted); }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:12px; min-width:0; }
+.top { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; }
+.layout { display:grid; grid-template-columns:minmax(230px, 300px) minmax(0, 1fr); gap:20px; align-items:start; }
+@media (max-width:820px) { .layout { grid-template-columns:minmax(0,1fr); } }
+.list { display:flex; flex-direction:column; gap:6px; max-height:75vh; overflow:auto; }
+.item { text-align:left; width:100%; font:inherit; color:var(--fg); background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; display:flex; flex-direction:column; gap:2px; }
+.item[aria-pressed="true"] { border-color:var(--fg); box-shadow:inset 3px 0 0 var(--fg); }
+.item .row { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+.pill { font-size:.75rem; padding:0 8px; border:1px solid currentColor; border-radius:999px; white-space:nowrap; }
+.ok { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); }
+button.btn { font:inherit; font-size:.88rem; padding:6px 14px; border-radius:8px; border:1px solid var(--line); background:var(--panel); color:var(--fg); cursor:pointer; }
+button.btn.primary { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outline-offset:1px; }
+input, select, textarea { font:inherit; color:var(--fg); background:transparent; border:1px solid var(--line); border-radius:8px; padding:7px 9px; width:100%; }
+textarea { min-height:80px; resize:vertical; }
+dl.facts { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:5px 16px; margin:0; }
+dl.facts dt { color:var(--muted); font-size:.82rem; padding-top:2px; } dl.facts dd { margin:0; overflow-wrap:anywhere; }
+.wrapx { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; }
+th, td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { font-size:.8rem; color:var(--muted); font-weight:500; white-space:nowrap; }
+td.k { white-space:nowrap; color:var(--muted); font-size:.82rem; }
+.grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; }
+.styles { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; }
+.style { border:1px solid var(--line); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:3px; } .style.first { border-color:var(--fg); }
+.quote { border-left:3px solid var(--line); padding:3px 0 3px 12px; }
+ul, ol { margin:0; padding-left:1.2em; }
+.photos { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:12px; } @media (max-width:640px) { .photos { grid-template-columns:minmax(0,1fr); } }
+.big { border:1px solid var(--line); border-radius:10px; min-height:260px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--bg); }
+.big img { max-width:100%; max-height:560px; display:block; }
+.thumbs { display:flex; flex-wrap:wrap; gap:6px; }
+.thumb { width:64px; height:84px; padding:0; border:2px solid transparent; border-radius:6px; overflow:hidden; cursor:pointer; background:none; }
+.thumb img { width:100%; height:100%; object-fit:cover; display:block; } .thumb[aria-pressed="true"] { border-color:var(--fg); }
+.form { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; }
+.field { display:flex; flex-direction:column; gap:4px; font-size:.82rem; color:var(--muted); }
+.result { border:1px dashed var(--line); border-radius:10px; padding:10px 12px; display:flex; flex-wrap:wrap; gap:10px; align-items:baseline; }
+.result .type { font-family:"Noto Serif KR", serif; font-size:1.5rem; }
+.checks { list-style:none; padding:0; display:flex; flex-direction:column; gap:5px; } .checks label { display:flex; gap:8px; align-items:flex-start; cursor:pointer; } .checks input { width:16px; height:16px; margin-top:4px; flex:none; }
+.login { max-width:420px; margin:10vh auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>남코녀 컨설팅 준비판</h1><p class="cap">설문이 들어오면 AI 계획서가 자동으로 만들어지고, 이 화면에 바로 나타나요.</p></div>
+    <div id="who" class="cap"></div>
+  </div>
+
+  <section id="login" class="card login" hidden>
+    <h2>대표님 로그인</h2>
+    <p class="muted">이메일을 입력하면 로그인 링크를 보내드려요. 메일의 링크를 누르면 이 화면으로 돌아옵니다.</p>
+    <input id="email" type="email" autocomplete="email" placeholder="이메일 주소">
+    <button class="btn primary" id="send">로그인 링크 받기</button>
+    <p class="cap" id="loginmsg"></p>
+  </section>
+
+  <section id="noadmin" class="card login" hidden>
+    <h2>관리자 권한이 없어요</h2>
+    <p class="muted">이 계정은 아직 관리자로 등록되지 않았어요. Claude에게 "이 이메일을 관리자로 등록해줘"라고 말해 주세요.</p>
+    <button class="btn" id="logout2">로그아웃</button>
+  </section>
+
+  <div id="app" class="layout" hidden>
+    <nav class="card" aria-label="고객 목록">
+      <div class="top"><h2 style="margin:0">고객</h2><select id="filter" style="width:auto"><option value="upcoming">다가오는 컨설팅</option><option value="new">일정 미정</option><option value="all">전체</option></select></div>
+      <div class="list" id="list"></div>
+    </nav>
+
+    <main style="display:flex;flex-direction:column;gap:16px;min-width:0" id="detail">
+      <p class="muted card">왼쪽에서 고객을 골라 주세요.</p>
+    </main>
+  </div>
+</div>
+
+<template id="tpl">
+  <div class="card">
+    <div class="top"><div><h2 data-f="title" style="margin:0"></h2><p class="cap" data-f="sub"></p></div><span data-f="status"></span></div>
+    <div class="form">
+      <label class="field">컨설팅 날짜<input type="date" data-in="consult_date"></label>
+      <label class="field">시간<input type="text" data-in="consult_time" placeholder="14:00"></label>
+      <label class="field">서비스<select data-in="service"><option value="">선택</option><option>오프라인</option><option>오프라인+헤메</option><option>오프라인+헤메+촬영</option><option>온라인 컨설팅</option></select></label>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" data-act="save-meta">일정 저장</button><button class="btn" data-act="reanalyze">AI 계획서 다시 만들기</button><span class="cap" data-f="metamsg"></span></div>
+  </div>
+  <div class="card"><h3>사전설문</h3><dl class="facts" data-f="facts"></dl></div>
+  <div class="card"><h3>설문 사진</h3><div class="photos" data-f="photos"></div></div>
+  <div data-f="plan" style="display:flex;flex-direction:column;gap:16px"></div>
+  <div class="card">
+    <h3>현장 기록</h3>
+    <p class="cap">어깨·허리·골반은 정면 직선거리(cm). 입력하면 대표님 기준표(O → A → I → V → H)로 체형이 바로 계산돼요.</p>
+    <div class="form">
+      <label class="field">어깨너비<input type="number" step="0.5" data-on="shoulder"></label>
+      <label class="field">허리너비<input type="number" step="0.5" data-on="waist"></label>
+      <label class="field">골반너비<input type="number" step="0.5" data-on="hip"></label>
+      <label class="field">골격 (확정)<select data-on="bone"><option value="">선택</option><option>웨이브</option><option>내추럴</option><option>스트레이트</option><option>혼합</option></select></label>
+      <label class="field">퍼스널컬러 (확정)<select data-on="color"><option value="">선택</option><option>A 후보</option><option>B 후보</option><option>둘 다 아님</option></select></label>
+      <label class="field">스타일 (확정)<select data-on="style"><option value="">선택</option><option>1안</option><option>2안</option><option>3안</option><option>다른 방향</option></select></label>
+    </div>
+    <div class="result" data-f="bodytype"></div>
+    <h3>체크리스트</h3><ul class="checks" data-f="checks"></ul>
+    <label class="field">현장 메모 (구매한 옷, 계획과 달랐던 점)<textarea data-on="memo"></textarea></label>
+    <div style="display:flex;gap:8px;align-items:center"><button class="btn primary" data-act="save-onsite">현장 기록 저장</button><span class="cap" data-f="onmsg"></span></div>
+  </div>
+</template>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+  const cfg = window.NK_CONFIG;
+  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const state = { surveys: [], plans: {}, onsite: {}, current: null, checks: [] };
+  const today = () => { const d = new Date(); return d.toISOString().slice(0, 10); };
+
+  // 대표님 체형 분류 기준 v1.0
+  function classify(h, w, s, wa, hi) {
+    const bmi = w / Math.pow(h / 100, 2), sh = s / h, wh = wa / h, whp = wa / hi, shp = s / hi, wsh = wa / s;
+    let t = 'H형';
+    if (bmi >= 26 && wh >= 0.185 && whp >= 0.90) t = 'O형';
+    else if (shp <= 1.18 && (bmi >= 24 || whp <= 0.90)) t = 'A형';
+    else if (bmi < 24 && sh < 0.24) t = 'I형';
+    else if (wsh <= 0.71 && sh >= 0.23 && (bmi >= 24 || sh >= 0.245)) t = 'V형';
+    return { t, bmi, sh, wh, whp, shp, wsh };
+  }
+  const hw = (s) => { const m = (s.height_weight || '').match(/(\d{3}(?:\.\d)?)\D+(\d{2,3}(?:\.\d)?)/); return m ? [parseFloat(m[1]), parseFloat(m[2])] : [NaN, NaN]; };
+
+  const statusPill = (p) => {
+    const st = p?.status || 'none';
+    const map = { done: ['계획서 완료', 'ok'], processing: ['AI 작성 중', 'warn'], queued: ['대기 중', 'warn'], error: ['오류', 'bad'], none: ['계획서 없음', 'muted'] };
+    const [t, c] = map[st] || map.none; return el('span', 'pill ' + c, t);
+  };
+
+  // ---------- 로그인 ----------
+  async function boot() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { $('#login').hidden = false; return; }
+    $('#who').replaceChildren(el('span', null, session.user.email + ' · '), Object.assign(el('button', 'btn', '로그아웃'), { onclick: logout }));
+    const { data: adm } = await sb.from('admins').select('user_id').eq('user_id', session.user.id);
+    if (!adm || !adm.length) { $('#noadmin').hidden = false; return; }
+    $('#app').hidden = false;
+    await loadAll();
+    subscribe();
+  }
+  async function logout() { await sb.auth.signOut(); location.reload(); }
+  $('#logout2').onclick = logout;
+  $('#send').onclick = async () => {
+    const email = $('#email').value.trim(); if (!email) return;
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split('#')[0], shouldCreateUser: true } });
+    $('#loginmsg').textContent = error ? '보내지 못했어요: ' + error.message : '메일함을 확인해 주세요. 링크를 누르면 로그인돼요.';
+  };
+
+  // ---------- 데이터 ----------
+  async function loadAll() {
+    const [s, p, o] = await Promise.all([
+      sb.from('surveys').select('*').order('created_at', { ascending: false }),
+      sb.from('plans').select('*'),
+      sb.from('onsite').select('*'),
+    ]);
+    state.surveys = s.data || [];
+    state.plans = Object.fromEntries((p.data || []).map((r) => [r.survey_id, r]));
+    state.onsite = Object.fromEntries((o.data || []).map((r) => [r.survey_id, r]));
+    renderList();
+    if (state.current) renderDetail(state.current);
+  }
+  function subscribe() {
+    sb.channel('nk').on('postgres_changes', { event: '*', schema: 'public', table: 'plans' }, loadAll)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'surveys' }, loadAll).subscribe();
+  }
+
+  // ---------- 목록 ----------
+  $('#filter').onchange = renderList;
+  function renderList() {
+    const f = $('#filter').value, t = today();
+    let rows = state.surveys.slice();
+    if (f === 'upcoming') rows = rows.filter((s) => s.consult_date && s.consult_date >= t).sort((a, b) => (a.consult_date + (a.consult_time || '')).localeCompare(b.consult_date + (b.consult_time || '')));
+    if (f === 'new') rows = rows.filter((s) => !s.consult_date);
+    const list = $('#list'); list.replaceChildren();
+    if (!rows.length) list.append(el('p', 'cap', f === 'upcoming' ? '일정이 잡힌 고객이 없어요. "일정 미정"에서 고객을 골라 날짜를 넣어 주세요.' : '아직 설문이 없어요.'));
+    rows.forEach((s) => {
+      const b = el('button', 'item'); b.type = 'button'; b.setAttribute('aria-pressed', String(state.current === s.id));
+      const r1 = el('div', 'row'); r1.append(el('b', null, s.name), statusPill(state.plans[s.id]));
+      const when = s.consult_date ? `${s.consult_date.slice(5).replace('-', '/')} ${s.consult_time || ''}` : '일정 미정';
+      b.append(r1, el('span', 'cap', `${when} · ${s.service || '서비스 미정'} · ${s.height_weight || ''}`));
+      b.onclick = () => { state.current = s.id; renderList(); renderDetail(s.id); };
+      list.append(b);
+    });
+  }
+
+  // ---------- 상세 ----------
+  async function renderDetail(id) {
+    const s = state.surveys.find((x) => x.id === id); if (!s) return;
+    const p = state.plans[id], o = state.onsite[id] || {};
+    const node = $('#tpl').content.cloneNode(true);
+    const f = (k) => node.querySelector(`[data-f="${k}"]`);
+    f('title').textContent = `${s.name} · ${s.age || '?'}세`;
+    f('sub').textContent = `${s.phone} · 제출 ${new Date(s.created_at).toLocaleString('ko-KR')}`;
+    f('status').append(statusPill(p));
+    node.querySelectorAll('[data-in]').forEach((i) => { i.value = s[i.dataset.in] || ''; });
+
+    const facts = [['직업', s.job], ['거주', s.region], ['키 / 몸무게', s.height_weight], ['사이즈', s.sizes], ['보완하고 싶은 점', (s.body_concerns || []).join(', ')], ['의류 예산', s.budget], ['패션 이해도', s.fashion_level], ['기대하는 점', s.expectation], ['받아본 진단', [(s.prior_services || []).join(', '), s.prior_result].filter(Boolean).join(' / ')], ['보유 신발', s.shoes], ['보유 바지', s.pants]];
+    facts.forEach(([k, v]) => f('facts').append(el('dt', null, k), el('dd', null, v || '—')));
+
+    // 사진 (비공개 저장소 → 10분짜리 열람 주소)
+    const ph = f('photos'); const big = el('div', 'big'); const bigImg = document.createElement('img'); bigImg.alt = '선택한 사진'; big.append(bigImg);
+    const side = el('div'); ph.append(big, side);
+    const btns = [];
+    for (const [key, label] of [['body', '체형 전신'], ['face', '셀카'], ['style', '평소 스타일']]) {
+      const paths = s.photos?.[key] || []; if (!paths.length) continue;
+      const { data } = await sb.storage.from('survey-photos').createSignedUrls(paths, 600);
+      const row = el('div', 'thumbs');
+      (data || []).forEach((d, i) => {
+        if (!d.signedUrl) return;
+        const b = el('button', 'thumb'); b.type = 'button'; b.setAttribute('aria-label', `${label} ${i + 1}`);
+        const im = document.createElement('img'); im.src = d.signedUrl; im.alt = ''; im.loading = 'lazy'; b.append(im);
+        b.onclick = () => { bigImg.src = d.signedUrl; btns.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); };
+        btns.push(b); row.append(b);
+      });
+      side.append(el('p', 'cap', `${label} (${paths.length})`), row);
+    }
+    if (btns[0]) btns[0].click(); else ph.replaceChildren(el('p', 'cap', '사진이 없어요.'));
+
+    // 계획서
+    const planBox = f('plan');
+    if (!p || p.status !== 'done' || !p.plan) {
+      const msg = !p ? '아직 계획서 작업이 없어요. "AI 계획서 다시 만들기"를 눌러 주세요.' : p.status === 'error' ? 'AI 작성 중 오류가 났어요: ' + (p.error || '') : 'AI가 계획서를 쓰고 있어요. 1~3분 뒤 자동으로 나타나요.';
+      planBox.append(Object.assign(el('div', 'card'), { textContent: msg }));
+    } else renderPlan(planBox, p.plan, p.model);
+
+    // 현장 기록
+    node.querySelectorAll('[data-on]').forEach((i) => { i.value = o[i.dataset.on] ?? ''; });
+    state.checks = (p?.plan?.checklist || ['어깨·허리·골반 실측', '퍼스널컬러 천 대보기', '보유 옷 확인', '실제 쓸 예산 확인']);
+    const done = new Set(o.checks || []);
+    state.checks.forEach((t, i) => {
+      const li = el('li'); const lab = el('label'); const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = done.has(t); cb.dataset.check = t; cb.id = 'chk' + i;
+      lab.append(cb, el('span', null, t)); li.append(lab); f('checks').append(li);
+    });
+    const bodyBox = f('bodytype');
+    const calc = () => {
+      const [h, w] = hw(s); const v = (k) => parseFloat($('#detail [data-on="' + k + '"]').value);
+      const sh = v('shoulder'), wa = v('waist'), hi = v('hip');
+      bodyBox.replaceChildren();
+      if (!(h > 0 && w > 0)) { bodyBox.append(el('span', 'cap', '설문의 키·몸무게를 읽지 못해 계산할 수 없어요.')); return null; }
+      if (!(sh > 0 && wa > 0 && hi > 0)) { bodyBox.append(el('span', 'cap', `세 너비를 모두 입력하면 계산돼요. (키 ${h} · 몸무게 ${w} · BMI ${(w / Math.pow(h / 100, 2)).toFixed(1)})`)); return null; }
+      const r = classify(h, w, sh, wa, hi); const pct = (x) => (x * 100).toFixed(1) + '%';
+      bodyBox.append(el('span', 'cap', '기준표 결과'), el('span', 'type', r.t), el('span', 'cap', `BMI ${r.bmi.toFixed(1)} · 어깨/키 ${pct(r.sh)} · 허리/키 ${pct(r.wh)} · 어깨/골반 ${r.shp.toFixed(2)} · 허리/골반 ${r.whp.toFixed(2)} · 허리/어깨 ${r.wsh.toFixed(2)}`));
+      return r.t;
+    };
+
+    const detail = $('#detail'); detail.replaceChildren(node);
+    ['shoulder', 'waist', 'hip'].forEach((k) => $('#detail [data-on="' + k + '"]').addEventListener('input', calc)); calc();
+
+    $('#detail [data-act="save-meta"]').onclick = async () => {
+      const upd = {}; detail.querySelectorAll('[data-in]').forEach((i) => { upd[i.dataset.in] = i.value || null; });
+      const { error } = await sb.from('surveys').update(upd).eq('id', id);
+      $('#detail [data-f="metamsg"]').textContent = error ? '저장 실패: ' + error.message : '저장했어요.';
+      if (!error) { Object.assign(s, upd); renderList(); }
+    };
+    $('#detail [data-act="reanalyze"]').onclick = async () => {
+      $('#detail [data-f="metamsg"]').textContent = 'AI에게 다시 요청하는 중…';
+      const { error } = await sb.from('plans').upsert({ survey_id: id, status: 'queued', updated_at: new Date().toISOString() });
+      if (error) { $('#detail [data-f="metamsg"]').textContent = '실패: ' + error.message; return; }
+      const r = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${cfg.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ survey_id: id }) });
+      $('#detail [data-f="metamsg"]').textContent = r.ok ? '요청했어요. 1~3분 뒤 자동으로 바뀌어요.' : '요청 실패 (' + r.status + ')';
+    };
+    $('#detail [data-act="save-onsite"]').onclick = async () => {
+      const row = { survey_id: id, updated_at: new Date().toISOString(), checks: [...detail.querySelectorAll('[data-check]')].filter((c) => c.checked).map((c) => c.dataset.check), body_type: calc() };
+      detail.querySelectorAll('[data-on]').forEach((i) => { row[i.dataset.on] = i.value === '' ? null : (i.type === 'number' ? parseFloat(i.value) : i.value); });
+      const { error } = await sb.from('onsite').upsert(row);
+      $('#detail [data-f="onmsg"]').textContent = error ? '저장 실패: ' + error.message : '저장했어요 ' + new Date().toLocaleTimeString('ko-KR');
+      if (!error) state.onsite[id] = row;
+    };
+  }
+
+  function renderPlan(box, P, model) {
+    const card = (title) => { const c = el('section', 'card'); c.append(el('h3', null, title)); box.append(c); return c; };
+    const sum = card('한 줄 요약'); sum.append(el('p', null, P.summary), el('p', 'cap', `AI 초안 (${model || ''}) · 📏 대표님 기준 · 🔶 사진 추정 · ❓ 현장 확인`));
+    const an = card('분석'); const t1 = el('table'); (P.analysis || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.item), el('td', null, r.judgment)); t1.append(tr); }); an.append(Object.assign(el('div', 'wrapx'), {}).appendChild(t1).parentNode);
+    const g = el('div', 'grid2'); box.append(g);
+    const hair = el('section', 'card'); hair.append(el('h3', null, '헤어'), el('p', null, P.hair?.recommend), el('p', 'cap', '피할 것: ' + (P.hair?.avoid || '')), el('p', 'cap', '헤어 디자이너 전달문'), el('p', 'quote', P.hair?.designer_note));
+    const copy = el('button', 'btn', '전달문 복사'); copy.onclick = () => navigator.clipboard?.writeText(P.hair?.designer_note || '').then(() => { copy.textContent = '복사했어요'; }); hair.append(copy);
+    const col = el('section', 'card'); col.append(el('h3', null, '퍼스널컬러 후보 (현장 천 대보기로 확정)'));
+    const t2 = el('table'); t2.innerHTML = '<thead><tr><th>후보</th><th>근거</th><th>추천 색</th></tr></thead>'; const tb2 = el('tbody'); (P.colors || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.candidate), el('td', null, r.reason), el('td', null, r.colors)); tb2.append(tr); }); t2.append(tb2); col.append(t2);
+    g.append(hair, col);
+    const st = card('스타일 방향 (입혀볼 순서)'); const sg = el('div', 'styles'); (P.styles || []).forEach((r, i) => { const d = el('div', 'style' + (i === 0 ? ' first' : '')); d.append(el('span', 'cap', r.rank), el('b', null, r.direction), el('span', 'cap', r.reason)); sg.append(d); }); st.append(sg, el('h3', null, '코디 원칙'));
+    const ul = el('ul'); (P.principles || []).forEach((t) => ul.append(el('li', null, t))); st.append(ul);
+    const sh = card('쇼핑 리스트'); const t3 = el('table'); t3.innerHTML = '<thead><tr><th>우선</th><th>아이템</th><th>예산</th><th>후보 브랜드</th><th>근거</th></tr></thead>'; const tb3 = el('tbody'); (P.shopping || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.priority), el('td', null, r.item), el('td', null, r.budget), el('td', null, r.brands), el('td', 'cap', r.reason)); tb3.append(tr); }); t3.append(tb3); const w3 = el('div', 'wrapx'); w3.append(t3); sh.append(w3, el('h3', null, '완성 코디'));
+    const ol = el('ol'); (P.outfits || []).forEach((t) => ol.append(el('li', null, t))); sh.append(ol);
+    const day = card('당일 진행'); const t4 = el('table'); (P.timeline || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.time), el('td', null, r.task)); t4.append(tr); }); day.append(t4, el('p', null, '쇼핑 지역: ' + (P.area || '')), el('h3', null, '고객에게 전할 한마디'), el('p', 'quote', P.one_liner));
+  }
+
+  sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_IN' && $('#app').hidden && $('#noadmin').hidden) location.reload(); });
+  boot();
+})();
+</script>
+</body>
+</html>
