@@ -9,3 +9,5 @@
 흐름: 고객이 폼 제출 → 사진은 비공개 저장소, 답변은 `surveys` 표 → 트리거가 `analyze` 함수 호출 → Claude가 남코녀 분석 기준(`settings` 표의 criteria)으로 계획서 작성 → `plans` 표 저장 → 준비판에 실시간 표시.
 
 분석 기준은 공개 저장소에 두지 않고 Supabase `settings` 표에만 저장합니다.
+
+<!-- updated 2026-11-20 photo guide -->
