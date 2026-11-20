@@ -49,6 +49,7 @@ create table if not exists public.onsite (
   survey_id uuid primary key references public.surveys(id) on delete cascade,
   shoulder numeric, waist numeric, hip numeric,
   body_type text, bone text, color text, style text,
+  color_chroma text, color_value text, color_clarity text, color_temp text, exception text,
   checks text[] default '{}',
   memo text,
   updated_at timestamptz not null default now()
@@ -126,3 +127,7 @@ $$;
 drop trigger if exists on_survey_insert on public.surveys;
 create trigger on_survey_insert after insert on public.surveys
 for each row execute function public.queue_plan();
+
+-- 현장 확정값: 퍼스널컬러 4가지 축 + 예외사항 (기존 DB에 추가)
+alter table public.onsite add column if not exists color_chroma text, add column if not exists color_value text,
+  add column if not exists color_clarity text, add column if not exists color_temp text, add column if not exists exception text;
