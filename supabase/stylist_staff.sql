@@ -65,3 +65,8 @@ end
 $$;
 
 grant execute on function public.stylist_customer_ok(uuid), public.staff_info(text), public.staff_register_upload(text, uuid, text, text, text, text) to anon, authenticated;
+
+-- 대표님(관리자)이 사진 파일을 지울 수 있도록
+drop policy if exists "admin delete files" on storage.objects;
+create policy "admin delete files" on storage.objects for delete to authenticated
+  using (bucket_id in ('survey-photos', 'stylist-uploads') and public.is_admin());
