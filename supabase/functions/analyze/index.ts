@@ -34,7 +34,7 @@ const cors = {
 const str = { type: "string" };
 const strs = { type: "array", items: str };
 const obj = (props: Record<string, unknown>) => ({ type: "object", properties: props, required: Object.keys(props), additionalProperties: false });
-const PLAN_SCHEMA = obj({
+const planSchema = (lookKeys: string[]) => obj({
   summary: str,
   analysis: { type: "array", items: obj({ item: str, judgment: str }) },
   hair: obj({ recommend: str, avoid: str, designer_note: str }),
@@ -47,6 +47,18 @@ const PLAN_SCHEMA = obj({
   area: str,
   checklist: strs,
   one_liner: str,
+  // 현장 기록 칸에 미리 골라 둘 값 (대표님이 현장에서 바꿀 수 있음)
+  picks: obj({
+    bone: { type: "string", enum: ["스트레이트", "웨이브", "내추럴"] },
+    color_chroma: { type: "string", enum: ["저채도", "중채도", "고채도"] },
+    color_value: { type: "string", enum: ["고명도", "중명도", "저명도"] },
+    color_clarity: { type: "string", enum: ["청도", "탁도"] },
+    color_temp: { type: "string", enum: ["웜", "쿨", "뉴트럴"] },
+    style: { type: "string", enum: ["캐쥬얼", "댄디", "포멀", "스트리트", "아메카지", "시티보이", "락시크"] },
+    reason: str,
+  }),
+  // 남코녀 코디 사진 모음(lookbook)에서 고른 코디 3개
+  lookbook: { type: "array", items: obj({ key: lookKeys.length ? { type: "string", enum: lookKeys } : str, reason: str }) },
 });
 
 const BASE_INSTRUCTIONS = `당신은 남성 스타일 컨설팅 브랜드 '남코녀'(남자 코디해주는 여자)의 컨설팅 준비 담당입니다.
@@ -59,11 +71,22 @@ const BASE_INSTRUCTIONS = `당신은 남성 스타일 컨설팅 브랜드 '남�
 - 얼굴은 얼굴형, 광대, 무턱 여부(측면 사진 기준), 중안부·하안부 길이, 얼굴 크기를 analysis에 각각 따로 적습니다. 인상은 후보로 적습니다.
 - 퍼스널컬러는 절대 확정하지 않고 colors에 후보 2개만 적습니다.
 - 스타일은 체형 기준과 얼굴 인상 기준 매칭표에서 겹치는 스타일로 styles에 2~3안을 입혀볼 순서대로 적습니다.
+- picks에는 현장 기록 칸에 미리 골라 둘 값을 하나씩 고릅니다: 골격(가장 가까운 것 하나), 퍼스널컬러 4축(채도·명도·청탁도·온도, colors의 1순위 후보와 맞게), 스타일(styles 1순위와 맞게). 사진 기반 임시 판단이며 대표님이 현장에서 바꿉니다. reason에 각 선택 이유를 한두 줄로 적습니다.
 - 예산은 컨설팅비를 뺀 의류 구매 예산입니다. 보유 옷과 겹치지 않게 사고, 보유 옷을 완성 코디에 활용합니다.
 - 서비스에 '헤메'가 있으면 hair.designer_note를 디자이너에게 그대로 전할 문장으로 씁니다. '촬영'이 있으면 checklist에 촬영 자세·각도 메모를 넣습니다.
-- 쇼핑 지역은 거주지 기준으로 여의도/영등포/잠실/강남 중 추천하고 "최종 결정은 대표님"이라고 덧붙입니다.
+- 쇼핑 지역(area)은 여의도와 잠실 중 한 곳만 고릅니다(거주지·동선 기준). 다른 지역은 쓰지 않고, 이유를 한 줄 붙인 뒤 "최종 결정은 대표님"이라고 덧붙입니다.
+- lookbook에는 "남코녀 코디 사진 모음"에서 이 고객에게 입힐 코디를 정확히 3개 고릅니다. 체형·골격·퍼스널컬러 후보·스타일 순위·컨설팅 날짜의 계절·직업과 목적을 함께 보고, 서로 다른 느낌으로 고르며 1번이 가장 추천하는 코디입니다. reason에 왜 이 고객에게 맞는지 한두 줄로 적습니다.
 - 사진에 고객이 아닌 사람이 섞여 있으면 누구인지 추정하지 말고 ❓로 적습니다.
 - 모든 문장은 한국어, 쉬운 말로 씁니다. 고객 이름·연락처는 계획서에 쓰지 않습니다.`;
+
+async function loadLookbook(): Promise<{ keys: string[]; text: string }> {
+  const { data } = await supabase.from("lookbook").select("key,style,season,items,colors,bone").eq("active", true).order("key");
+  const rows = data ?? [];
+  return {
+    keys: rows.map((r) => r.key),
+    text: rows.map((r) => `${r.key} | ${r.style} | ${r.season} | ${r.items} | 색: ${r.colors} | 잘 맞는 골격: ${r.bone}`).join("\n"),
+  };
+}
 
 async function loadCriteria(): Promise<string> {
   const { data } = await supabase.from("settings").select("value").eq("key", "criteria").maybeSingle();
@@ -110,16 +133,17 @@ async function analyze(surveyId: string) {
     if (error || !s) throw new Error(`설문을 찾을 수 없음: ${error?.message}`);
     const criteria = await loadCriteria();
     const images = await imageBlocks(s.photos);
+    const look = await loadLookbook();
 
     const response = await anthropic.beta.messages.create({
       model: MODEL,
       max_tokens: 16000,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
-      output_config: { effort: "medium", format: { type: "json_schema", schema: PLAN_SCHEMA } },
+      output_config: { effort: "medium", format: { type: "json_schema", schema: planSchema(look.keys) } },
       system: [
         { type: "text", text: BASE_INSTRUCTIONS },
-        { type: "text", text: `## 남코녀 분석 기준\n\n${criteria}`, cache_control: { type: "ephemeral" } },
+        { type: "text", text: `## 남코녀 분석 기준\n\n${criteria}\n\n## 남코녀 코디 사진 모음 (key | 스타일 | 계절 | 구성 | 색 | 잘 맞는 골격)\n${look.text || "(없음)"}`, cache_control: { type: "ephemeral" } },
       ],
       messages: [{
         role: "user",
