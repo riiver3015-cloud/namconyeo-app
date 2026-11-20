@@ -65,14 +65,14 @@ button:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outl
     <form id="f" hidden style="display:flex;flex-direction:column;gap:14px">
       <section class="card" data-kind="before">
         <h2>비포 사진</h2>
-        <p class="hint">시술 전 정면·측면 사진</p>
+        <p class="hint" data-hint="before">시술 전 사진</p>
         <div class="files"></div>
         <button type="button" class="pick">＋ 사진 추가</button>
         <input type="file" accept="image/*" multiple hidden>
       </section>
       <section class="card" data-kind="after">
         <h2>애프터 사진</h2>
-        <p class="hint">시술 후 정면·측면 사진</p>
+        <p class="hint" data-hint="after">시술 후 사진</p>
         <div class="files"></div>
         <button type="button" class="pick">＋ 사진 추가</button>
         <input type="file" accept="image/*" multiple hidden>
@@ -117,6 +117,11 @@ button:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outl
     $('#main').hidden = false;
     $('#me').textContent = [data.salon, data.name].filter(Boolean).join(' ');
     $('#role').textContent = ROLE[data.role] || data.role;
+    // 헤어는 정면+측면, 메이크업은 정면만
+    const angle = data.role === 'hair' ? '정면 1장 + 측면 1장' : '정면 1장';
+    $('[data-hint="before"]').textContent = `시술 전 ${angle}`;
+    $('[data-hint="after"]').textContent = `시술 후 ${angle}`;
+    if (data.role === 'makeup') $('#note').placeholder = '예) 피부 톤 보정, 눈썹 정리, 쉐딩 위치';
     renderCustomers();
   }
 
