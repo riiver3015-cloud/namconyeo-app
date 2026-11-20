@@ -130,8 +130,9 @@ ul, ol { margin:0; padding-left:1.2em; }
   <div class="card"><h3>사전설문</h3><dl class="facts" data-f="facts"></dl></div>
   <div class="card"><h3>설문 사진</h3><div class="photos" data-f="photos"></div></div>
   <div class="card">
-    <div class="top"><h3 style="margin:0">헤어·메이크업 결과</h3><button class="btn" data-act="stylist-link">업로드 링크 만들기</button></div>
-    <div data-f="slink" class="cap">헤어·메이크업 선생님께 보낼 링크를 만들면, 선생님이 로그인 없이 사진·영상을 보낼 수 있어요.</div>
+    <h3 style="margin:0">헤어·메이크업 결과</h3>
+    <details><summary class="cap" style="cursor:pointer">선생님 고정 링크 보기</summary><div data-f="slink" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div></details>
+    <p class="cap">선생님 목록에는 서비스에 '헤메'가 들어 있고, 일정이 최근 30일~앞으로 7일인 고객만 보여요.</p>
     <div data-f="stylist" style="display:flex;flex-direction:column;gap:12px"></div>
   </div>
   <div data-f="plan" style="display:flex;flex-direction:column;gap:16px"></div>
@@ -323,13 +324,6 @@ ul, ol { margin:0; padding-left:1.2em; }
     const detail = $('#detail'); detail.replaceChildren(node);
     ['shoulder', 'waist', 'hip'].forEach((k) => $('#detail [data-on="' + k + '"]').addEventListener('input', calc)); calc();
 
-    $('#detail [data-act="stylist-link"]').onclick = async () => {
-      const bytes = crypto.getRandomValues(new Uint8Array(18));
-      const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      const { error } = await sb.from('stylist_links').insert({ token, survey_id: id });
-      if (error) { $('#detail [data-f="slink"]').textContent = '링크를 만들지 못했어요: ' + error.message; return; }
-      await renderStylist(id, $('#detail [data-f="slink"]'), $('#detail [data-f="stylist"]'));
-    };
     $('#detail [data-act="save-meta"]').onclick = async () => {
       const upd = {}; detail.querySelectorAll('[data-in]').forEach((i) => { upd[i.dataset.in] = i.value || null; });
       const { error } = await sb.from('surveys').update(upd).eq('id', id);
@@ -353,19 +347,19 @@ ul, ol { margin:0; padding-left:1.2em; }
   }
 
   async function renderStylist(id, linkBox, listBox) {
-    const [lk, up] = await Promise.all([
-      sb.from('stylist_links').select('token, expires_at').eq('survey_id', id).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1),
+    const [staff, up] = await Promise.all([
+      sb.from('stylist_staff').select('token, role, name, salon').eq('active', true).order('role'),
       sb.from('stylist_uploads').select('*').eq('survey_id', id).order('created_at', { ascending: true }),
     ]);
-    const link = lk.data && lk.data[0];
-    if (link) {
-      const url = new URL('upload.html', location.href); url.search = '?t=' + link.token;
-      const box = el('div', 'linkbox'); const inp = el('input'); inp.readOnly = true; inp.value = url.href; inp.setAttribute('aria-label', '업로드 링크');
-      const copy = el('button', 'btn', '링크 복사');
-      copy.onclick = async () => { try { await navigator.clipboard.writeText(url.href); copy.textContent = '복사했어요'; } catch { inp.select(); copy.textContent = 'Ctrl+C로 복사하세요'; } };
-      linkBox.replaceChildren(box, el('p', 'cap', `카톡으로 헤어·메이크업 선생님께 보내 주세요. ${new Date(link.expires_at).toLocaleDateString('ko-KR')}까지 쓸 수 있어요.`));
-      box.append(inp, copy);
-    }
+    linkBox.replaceChildren();
+    (staff.data || []).forEach((s) => {
+      const url = new URL('upload.html', location.href); url.search = '?t=' + s.token;
+      const box = el('div', 'linkbox'); const inp = el('input'); inp.readOnly = true; inp.value = url.href; inp.setAttribute('aria-label', `${s.name} 링크`);
+      const copy = el('button', 'btn', '복사');
+      copy.onclick = async () => { try { await navigator.clipboard.writeText(url.href); copy.textContent = '복사했어요'; } catch { inp.select(); copy.textContent = 'Ctrl+C'; } };
+      box.append(el('span', 'cap', `${s.salon || ''} ${s.name} (${s.role === 'hair' ? '헤어' : '메이크업'})`), inp, copy);
+      linkBox.append(box);
+    });
     listBox.replaceChildren();
     const rows = up.data || [];
     if (!rows.length) { listBox.append(el('p', 'cap', '아직 받은 사진·영상이 없어요.')); return; }
