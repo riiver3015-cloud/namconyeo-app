@@ -56,6 +56,7 @@ ul, ol { margin:0; padding-left:1.2em; }
 .result { border:1px dashed var(--line); border-radius:10px; padding:10px 12px; display:flex; flex-wrap:wrap; gap:10px; align-items:baseline; }
 .result .type { font-family:"Noto Serif KR", serif; font-size:1.5rem; }
 .checks { list-style:none; padding:0; display:flex; flex-direction:column; gap:5px; } .checks label { display:flex; gap:8px; align-items:flex-start; cursor:pointer; } .checks input { width:16px; height:16px; margin-top:4px; flex:none; }
+.looks { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; } .look { margin:0; display:flex; flex-direction:column; gap:6px; } .look img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:10px; display:block; background:var(--bg); } .look figcaption { font-size:.85rem; }
 .picks { display:flex; flex-direction:column; gap:10px; margin:12px 0; }
 .pick { display:flex; flex-wrap:wrap; gap:6px; align-items:center; } .pick > b { font-size:.82rem; font-weight:500; color:var(--muted); min-width:78px; }
 .chip { border:1px solid var(--line); background:none; color:var(--fg); border-radius:999px; padding:5px 12px; font:inherit; font-size:.85rem; cursor:pointer; } .chip[aria-pressed="true"] { background:var(--fg); color:var(--bg); border-color:var(--fg); }
@@ -424,6 +425,17 @@ ul, ol { margin:0; padding-left:1.2em; }
     const ul = el('ul'); (P.principles || []).forEach((t) => ul.append(el('li', null, t))); st.append(ul);
     const sh = card('쇼핑 리스트'); const t3 = el('table'); t3.innerHTML = '<thead><tr><th>우선</th><th>아이템</th><th>예산</th><th>후보 브랜드</th><th>근거</th></tr></thead>'; const tb3 = el('tbody'); (P.shopping || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.priority), el('td', null, r.item), el('td', null, r.budget), el('td', null, r.brands), el('td', 'cap', r.reason)); tb3.append(tr); }); t3.append(tb3); const w3 = el('div', 'wrapx'); w3.append(t3); sh.append(w3, el('h3', null, '완성 코디'));
     const ol = el('ol'); (P.outfits || []).forEach((t) => ol.append(el('li', null, t))); sh.append(ol);
+    if ((P.lookbook || []).length) {
+      const lb = card('추천 코디 사진 (남코녀 코디 모음에서 AI가 고름)'); const grid = el('div', 'looks'); lb.append(grid);
+      const keys = P.lookbook.map((r) => r.key);
+      sb.storage.from('lookbook').createSignedUrls(keys.map((k) => k + '.jpg'), 3600).then(({ data }) => {
+        P.lookbook.forEach((r, i) => {
+          const fig = el('figure', 'look'); const url = data?.[i]?.signedUrl;
+          if (url) { const a = el('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; const im = el('img'); im.src = url; im.alt = r.key; im.loading = 'lazy'; a.append(im); fig.append(a); }
+          fig.append(el('figcaption', null, `${i + 1}. ${r.reason}`)); grid.append(fig);
+        });
+      });
+    }
     const day = card('당일 진행'); const t4 = el('table'); (P.timeline || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.time), el('td', null, r.task)); t4.append(tr); }); day.append(t4, el('p', null, '쇼핑 지역: ' + (P.area || '')), el('h3', null, '고객에게 전할 한마디'), el('p', 'quote', P.one_liner));
   }
 
