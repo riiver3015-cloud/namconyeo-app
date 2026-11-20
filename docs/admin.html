@@ -371,7 +371,7 @@ ul, ol { margin:0; padding-left:1.2em; }
     if (!rows.length) { listBox.append(el('p', 'cap', '아직 받은 사진·영상이 없어요.')); return; }
     const { data: signed } = await sb.storage.from('stylist-uploads').createSignedUrls(rows.map((r) => r.path), 3600);
     const urlOf = Object.fromEntries((signed || []).map((s) => [s.path, s.signedUrl]));
-    const groups = [['hair', 'video', '헤어 · 손질법 영상'], ['hair', 'before', '헤어 · 비포'], ['hair', 'after', '헤어 · 애프터'], ['makeup', 'before', '메이크업 · 비포'], ['makeup', 'after', '메이크업 · 애프터']];
+    const groups = [['hair', 'before', '헤어 · 비포'], ['hair', 'after', '헤어 · 애프터'], ['makeup', 'before', '메이크업 · 비포'], ['makeup', 'after', '메이크업 · 애프터']];
     for (const [role, kind, label] of groups) {
       const items = rows.filter((r) => r.role === role && r.kind === kind); if (!items.length) continue;
       const wrap = el('div'); const media = el('div', 'media');
