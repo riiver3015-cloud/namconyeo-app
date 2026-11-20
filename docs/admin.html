@@ -57,6 +57,12 @@ ul, ol { margin:0; padding-left:1.2em; }
 .result .type { font-family:"Noto Serif KR", serif; font-size:1.5rem; }
 .checks { list-style:none; padding:0; display:flex; flex-direction:column; gap:5px; } .checks label { display:flex; gap:8px; align-items:flex-start; cursor:pointer; } .checks input { width:16px; height:16px; margin-top:4px; flex:none; }
 .login { max-width:420px; margin:10vh auto; }
+.media { display:flex; flex-wrap:wrap; gap:8px; }
+.media a, .media video { display:block; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:var(--bg); }
+.media img { height:150px; width:auto; display:block; }
+.media video { height:220px; max-width:100%; }
+.linkbox { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.linkbox input { flex:1 1 260px; min-width:0; font-size:.85rem; }
 </style>
 </head>
 <body>
@@ -123,6 +129,11 @@ ul, ol { margin:0; padding-left:1.2em; }
   </div>
   <div class="card"><h3>사전설문</h3><dl class="facts" data-f="facts"></dl></div>
   <div class="card"><h3>설문 사진</h3><div class="photos" data-f="photos"></div></div>
+  <div class="card">
+    <div class="top"><h3 style="margin:0">헤어·메이크업 결과</h3><button class="btn" data-act="stylist-link">업로드 링크 만들기</button></div>
+    <div data-f="slink" class="cap">헤어·메이크업 선생님께 보낼 링크를 만들면, 선생님이 로그인 없이 사진·영상을 보낼 수 있어요.</div>
+    <div data-f="stylist" style="display:flex;flex-direction:column;gap:12px"></div>
+  </div>
   <div data-f="plan" style="display:flex;flex-direction:column;gap:16px"></div>
   <div class="card">
     <h3>현장 기록</h3>
@@ -223,7 +234,8 @@ ul, ol { margin:0; padding-left:1.2em; }
   }
   function subscribe() {
     sb.channel('nk').on('postgres_changes', { event: '*', schema: 'public', table: 'plans' }, loadAll)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'surveys' }, loadAll).subscribe();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'surveys' }, loadAll)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stylist_uploads' }, loadAll).subscribe();
   }
 
   // ---------- 목록 ----------
@@ -278,6 +290,9 @@ ul, ol { margin:0; padding-left:1.2em; }
     }
     if (btns[0]) btns[0].click(); else ph.replaceChildren(el('p', 'cap', '사진이 없어요.'));
 
+    // 헤어·메이크업 결과
+    await renderStylist(id, f('slink'), f('stylist'));
+
     // 계획서
     const planBox = f('plan');
     if (!p || p.status !== 'done' || !p.plan) {
@@ -308,6 +323,13 @@ ul, ol { margin:0; padding-left:1.2em; }
     const detail = $('#detail'); detail.replaceChildren(node);
     ['shoulder', 'waist', 'hip'].forEach((k) => $('#detail [data-on="' + k + '"]').addEventListener('input', calc)); calc();
 
+    $('#detail [data-act="stylist-link"]').onclick = async () => {
+      const bytes = crypto.getRandomValues(new Uint8Array(18));
+      const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const { error } = await sb.from('stylist_links').insert({ token, survey_id: id });
+      if (error) { $('#detail [data-f="slink"]').textContent = '링크를 만들지 못했어요: ' + error.message; return; }
+      await renderStylist(id, $('#detail [data-f="slink"]'), $('#detail [data-f="stylist"]'));
+    };
     $('#detail [data-act="save-meta"]').onclick = async () => {
       const upd = {}; detail.querySelectorAll('[data-in]').forEach((i) => { upd[i.dataset.in] = i.value || null; });
       const { error } = await sb.from('surveys').update(upd).eq('id', id);
@@ -328,6 +350,41 @@ ul, ol { margin:0; padding-left:1.2em; }
       $('#detail [data-f="onmsg"]').textContent = error ? '저장 실패: ' + error.message : '저장했어요 ' + new Date().toLocaleTimeString('ko-KR');
       if (!error) state.onsite[id] = row;
     };
+  }
+
+  async function renderStylist(id, linkBox, listBox) {
+    const [lk, up] = await Promise.all([
+      sb.from('stylist_links').select('token, expires_at').eq('survey_id', id).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1),
+      sb.from('stylist_uploads').select('*').eq('survey_id', id).order('created_at', { ascending: true }),
+    ]);
+    const link = lk.data && lk.data[0];
+    if (link) {
+      const url = new URL('upload.html', location.href); url.search = '?t=' + link.token;
+      const box = el('div', 'linkbox'); const inp = el('input'); inp.readOnly = true; inp.value = url.href; inp.setAttribute('aria-label', '업로드 링크');
+      const copy = el('button', 'btn', '링크 복사');
+      copy.onclick = async () => { try { await navigator.clipboard.writeText(url.href); copy.textContent = '복사했어요'; } catch { inp.select(); copy.textContent = 'Ctrl+C로 복사하세요'; } };
+      linkBox.replaceChildren(box, el('p', 'cap', `카톡으로 헤어·메이크업 선생님께 보내 주세요. ${new Date(link.expires_at).toLocaleDateString('ko-KR')}까지 쓸 수 있어요.`));
+      box.append(inp, copy);
+    }
+    listBox.replaceChildren();
+    const rows = up.data || [];
+    if (!rows.length) { listBox.append(el('p', 'cap', '아직 받은 사진·영상이 없어요.')); return; }
+    const { data: signed } = await sb.storage.from('stylist-uploads').createSignedUrls(rows.map((r) => r.path), 3600);
+    const urlOf = Object.fromEntries((signed || []).map((s) => [s.path, s.signedUrl]));
+    const groups = [['hair', 'video', '헤어 · 손질법 영상'], ['hair', 'before', '헤어 · 비포'], ['hair', 'after', '헤어 · 애프터'], ['makeup', 'before', '메이크업 · 비포'], ['makeup', 'after', '메이크업 · 애프터']];
+    for (const [role, kind, label] of groups) {
+      const items = rows.filter((r) => r.role === role && r.kind === kind); if (!items.length) continue;
+      const wrap = el('div'); const media = el('div', 'media');
+      wrap.append(el('p', 'cap', `${label} (${items.length})`), media);
+      items.forEach((r) => {
+        const u = urlOf[r.path]; if (!u) return;
+        if ((r.content_type || '').startsWith('video/')) { const v = document.createElement('video'); v.src = u; v.controls = true; v.preload = 'metadata'; v.playsInline = true; media.append(v); }
+        else { const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; const im = document.createElement('img'); im.src = u; im.alt = label; im.loading = 'lazy'; a.append(im); media.append(a); }
+      });
+      const notes = [...new Set(items.map((r) => [r.uploader, r.note].filter(Boolean).join(': ')).filter(Boolean))];
+      notes.forEach((n) => wrap.append(el('p', 'cap', '메모 — ' + n)));
+      listBox.append(wrap);
+    }
   }
 
   function renderPlan(box, P, model) {
