@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>남코녀 헤어·메이크업 결과 보내기</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500&display=swap">
+<style>
+:root { --bg:#f6f4f1; --card:#fff; --fg:#1d1b19; --muted:#6f6a64; --line:#e3ded7; --accent:#2b2a28; --accent-fg:#fff; --bad:#b3261e; --ok:#2e6b3f; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --bg:#151413; --card:#1f1e1c; --fg:#f1eee9; --muted:#a39d95; --line:#34312d; --accent:#f1eee9; --accent-fg:#151413; --bad:#f2b8b5; --ok:#9fd3a9; color-scheme: dark; } }
+* { box-sizing:border-box; }
+[hidden] { display:none !important; }
+body { margin:0; background:var(--bg); color:var(--fg); font-family:"Noto Sans KR", system-ui, sans-serif; font-size:16px; line-height:1.6; }
+.wrap { max-width:600px; margin:0 auto; padding-block:28px 80px; padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right)); display:flex; flex-direction:column; gap:14px; }
+.brand { font-size:.8rem; letter-spacing:.15em; color:var(--muted); }
+h1 { font-family:"Noto Serif KR", serif; font-weight:500; font-size:1.6rem; margin:0; }
+h2 { font-size:1.05rem; margin:0; }
+p { margin:0; }
+.muted { color:var(--muted); } .hint { color:var(--muted); font-size:.88rem; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:10px; }
+.who { display:flex; flex-wrap:wrap; gap:6px 14px; align-items:baseline; }
+.who b { font-size:1.2rem; }
+.roles { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.role { font:inherit; font-weight:700; padding:16px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--fg); cursor:pointer; }
+.role[aria-pressed="true"] { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+input[type=text], textarea { width:100%; font:inherit; color:var(--fg); background:transparent; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+textarea { min-height:70px; resize:vertical; }
+.files { display:grid; grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:8px; }
+.files figure { margin:0; position:relative; aspect-ratio:3/4; border-radius:8px; overflow:hidden; background:var(--line); display:flex; align-items:center; justify-content:center; font-size:.75rem; color:var(--muted); text-align:center; padding:4px; }
+.files img, .files video { width:100%; height:100%; object-fit:cover; display:block; }
+.files button { position:absolute; top:4px; right:4px; width:26px; height:26px; border-radius:50%; border:0; background:rgba(0,0,0,.6); color:#fff; cursor:pointer; }
+.pick { font:inherit; border:1px dashed var(--muted); border-radius:10px; padding:12px; background:transparent; color:var(--fg); cursor:pointer; }
+.submit { font:inherit; font-weight:700; font-size:1.05rem; padding:16px; border:0; border-radius:12px; background:var(--accent); color:var(--accent-fg); cursor:pointer; }
+.submit[disabled] { opacity:.5; cursor:progress; }
+.err { color:var(--bad); font-size:.9rem; } .ok { color:var(--ok); }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outline-offset:2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">NAMCONYEO · 남코녀</div>
+  <h1>헤어·메이크업 결과 보내기</h1>
+
+  <section class="card" id="bad" hidden>
+    <h2>링크를 확인해 주세요</h2>
+    <p class="muted">이 링크는 만료되었거나 올바르지 않아요. 남코녀 대표님께 새 링크를 요청해 주세요.</p>
+  </section>
+
+  <div id="main" hidden style="display:flex;flex-direction:column;gap:14px">
+    <section class="card">
+      <div class="who"><span class="muted">고객</span><b id="cust">—</b><span class="muted" id="when"></span></div>
+      <p class="hint" id="counts"></p>
+    </section>
+
+    <section class="card">
+      <h2>어느 선생님이세요?</h2>
+      <div class="roles">
+        <button type="button" class="role" data-role="hair" aria-pressed="false">헤어 선생님</button>
+        <button type="button" class="role" data-role="makeup" aria-pressed="false">메이크업 선생님</button>
+      </div>
+      <input type="text" id="uploader" maxlength="40" placeholder="선생님 성함 (선택)">
+    </section>
+
+    <form id="f" hidden style="display:flex;flex-direction:column;gap:14px">
+      <section class="card" data-kind="video" data-only="hair">
+        <h2>손질법 영상</h2>
+        <p class="hint">고객이 집에서 따라 할 수 있도록 드라이·손질 과정을 찍어 주세요. 영상 1개당 50MB까지 올릴 수 있어요 (휴대폰 기준 30초~1분 정도).</p>
+        <div class="files"></div>
+        <button type="button" class="pick">＋ 영상 추가</button>
+        <input type="file" accept="video/*" multiple hidden>
+      </section>
+      <section class="card" data-kind="before">
+        <h2>비포 사진</h2>
+        <p class="hint">시술 전 정면·측면 사진</p>
+        <div class="files"></div>
+        <button type="button" class="pick">＋ 사진 추가</button>
+        <input type="file" accept="image/*" multiple hidden>
+      </section>
+      <section class="card" data-kind="after">
+        <h2>애프터 사진</h2>
+        <p class="hint">시술 후 정면·측면 사진</p>
+        <div class="files"></div>
+        <button type="button" class="pick">＋ 사진 추가</button>
+        <input type="file" accept="image/*" multiple hidden>
+      </section>
+      <section class="card">
+        <h2>메모 (선택)</h2>
+        <textarea id="note" maxlength="500" placeholder="예) 7:3 가르마, 다운펌 옆머리. 아침에 드라이 후 왁스 조금"></textarea>
+      </section>
+      <p class="err" id="err" role="alert" hidden></p>
+      <button class="submit" id="submit" type="submit">보내기</button>
+    </form>
+
+    <section class="card" id="done" hidden>
+      <h2 class="ok">보냈어요. 감사합니다!</h2>
+      <p class="muted" id="donemsg"></p>
+      <button type="button" class="pick" id="more">더 보내기</button>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+  const cfg = window.NK_CONFIG;
+  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  const token = new URLSearchParams(location.search).get('t') || '';
+  const MAX_BYTES = 50 * 1024 * 1024;
+  const LABEL = { hair: '헤어', makeup: '메이크업', video: '손질법 영상', before: '비포', after: '애프터' };
+  let role = null;
+  const files = { video: [], before: [], after: [] };
+  const $ = (s, r = document) => r.querySelector(s);
+
+  async function loadInfo() {
+    if (!/^[A-Za-z0-9_-]{16,}$/.test(token)) { $('#bad').hidden = false; return; }
+    const { data, error } = await sb.rpc('stylist_link_info', { t: token });
+    if (error || !data) { $('#bad').hidden = false; return; }
+    $('#main').hidden = false;
+    $('#cust').textContent = data.customer + ' 님';
+    $('#when').textContent = [data.date, data.time, data.service].filter(Boolean).join(' · ');
+    const c = data.counts || {};
+    const parts = Object.entries(c).map(([k, n]) => { const [r, kd] = k.split('_'); return `${LABEL[r]} ${LABEL[kd]} ${n}개`; });
+    $('#counts').textContent = parts.length ? '지금까지 받은 파일: ' + parts.join(', ') : '아직 받은 파일이 없어요.';
+  }
+
+  document.querySelectorAll('.role').forEach((b) => b.addEventListener('click', () => {
+    role = b.dataset.role;
+    document.querySelectorAll('.role').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    document.querySelectorAll('[data-only]').forEach((s) => { s.hidden = s.dataset.only !== role; });
+    if (role !== 'hair') files.video = [];
+    $('#f').hidden = false; $('#done').hidden = true;
+    renderAll();
+  }));
+
+  const sections = [...document.querySelectorAll('[data-kind]')];
+  function renderAll() { sections.forEach(render); }
+  function render(sec) {
+    const kind = sec.dataset.kind, grid = sec.querySelector('.files');
+    grid.replaceChildren();
+    files[kind].forEach((f, i) => {
+      const fig = document.createElement('figure');
+      if (f.type.startsWith('image/')) { const im = document.createElement('img'); im.alt = ''; im.src = URL.createObjectURL(f); fig.append(im); }
+      else { fig.textContent = `🎬 ${f.name}\n${(f.size / 1048576).toFixed(1)}MB`; }
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.setAttribute('aria-label', '삭제');
+      del.addEventListener('click', () => { files[kind].splice(i, 1); render(sec); });
+      fig.append(del); grid.append(fig);
+    });
+  }
+  sections.forEach((sec) => {
+    const input = sec.querySelector('input[type=file]');
+    sec.querySelector('.pick').addEventListener('click', () => input.click());
+    input.addEventListener('change', () => {
+      const kind = sec.dataset.kind; let tooBig = [];
+      for (const f of input.files) {
+        if (kind === 'video' && f.size > MAX_BYTES) { tooBig.push(f.name); continue; }
+        files[kind].push(f);
+      }
+      input.value = ''; render(sec);
+      if (tooBig.length) fail(`50MB가 넘는 영상은 올릴 수 없어요: ${tooBig.join(', ')}. 더 짧게 찍거나 나눠서 보내 주세요.`);
+    });
+  });
+
+  // 사진은 긴 변 2000px JPEG로 줄여서 올림 (변환이 안 되는 형식은 원본 그대로)
+  async function shrink(file) {
+    try {
+      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      const s = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas'); c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const b = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.88));
+      return b ? { blob: b, type: 'image/jpeg', ext: 'jpg' } : null;
+    } catch { return null; }
+  }
+  const extOf = (f) => (f.name.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
+  function fail(msg) { const e = $('#err'); e.textContent = msg; e.hidden = false; }
+
+  $('#f').addEventListener('submit', async (ev) => {
+    ev.preventDefault(); $('#err').hidden = true;
+    if (!role) return fail('헤어 또는 메이크업 선생님을 먼저 골라 주세요.');
+    const queue = [];
+    for (const kind of (role === 'hair' ? ['video', 'before', 'after'] : ['before', 'after'])) files[kind].forEach((f) => queue.push([kind, f]));
+    if (!queue.length) return fail('보낼 사진이나 영상을 추가해 주세요.');
+    const btn = $('#submit'); btn.disabled = true;
+    const uploader = $('#uploader').value.trim(), note = $('#note').value.trim();
+    let sent = 0;
+    try {
+      for (const [kind, f] of queue) {
+        btn.textContent = `올리는 중… ${sent + 1}/${queue.length}`;
+        let blob = f, type = f.type || 'application/octet-stream', ext = extOf(f);
+        if (kind !== 'video') { const s = await shrink(f); if (s) { blob = s.blob; type = s.type; ext = s.ext; } }
+        if (blob.size > MAX_BYTES) throw new Error(`${f.name} 파일이 50MB를 넘어요.`);
+        const path = `${token}/${role}_${kind}_${Date.now()}_${sent + 1}.${ext}`;
+        const up = await sb.storage.from('stylist-uploads').upload(path, blob, { contentType: type, upsert: false });
+        if (up.error) throw new Error(up.error.message);
+        const reg = await sb.rpc('stylist_register_upload', { t: token, p_role: role, p_kind: kind, p_path: path, p_type: type, p_uploader: uploader, p_note: note });
+        if (reg.error) throw new Error(reg.error.message);
+        sent++;
+      }
+      files.video = []; files.before = []; files.after = []; renderAll(); $('#note').value = '';
+      $('#f').hidden = true; $('#done').hidden = false;
+      $('#donemsg').textContent = `${LABEL[role]} 파일 ${sent}개를 남코녀 대표님께 보냈어요.`;
+      loadInfo();
+    } catch (e) {
+      console.error(e);
+      fail(`${sent}개까지 보내고 멈췄어요: ${e.message} 인터넷 연결을 확인하고 다시 눌러 주세요.`);
+    } finally { btn.disabled = false; btn.textContent = '보내기'; }
+  });
+  $('#more').addEventListener('click', () => { $('#done').hidden = true; $('#f').hidden = false; });
+
+  loadInfo();
+})();
+</script>
+</body>
+</html>
