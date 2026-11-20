@@ -362,14 +362,16 @@ ul, ol { margin:0; padding-left:1.2em; }
     });
     listBox.replaceChildren();
     const rows = up.data || [];
-    if (!rows.length) { listBox.append(el('p', 'cap', '아직 받은 사진·영상이 없어요.')); return; }
-    const { data: signed } = await sb.storage.from('stylist-uploads').createSignedUrls(rows.map((r) => r.path), 3600);
+    const signed = rows.length ? (await sb.storage.from('stylist-uploads').createSignedUrls(rows.map((r) => r.path), 3600)).data : [];
     const urlOf = Object.fromEntries((signed || []).map((s) => [s.path, s.signedUrl]));
-    const groups = [['hair', 'before', '헤어 · 비포'], ['hair', 'after', '헤어 · 애프터'], ['makeup', 'before', '메이크업 · 비포'], ['makeup', 'after', '메이크업 · 애프터']];
+    const groups = [['hair', 'before', '헤어 · 비포 (정면·측면)'], ['hair', 'after', '헤어 · 애프터 (정면·측면)'], ['makeup', 'before', '메이크업 · 비포 (정면)'], ['makeup', 'after', '메이크업 · 애프터 (정면)']];
+    const grid = el('div', 'grid2'); listBox.append(grid);
     for (const [role, kind, label] of groups) {
-      const items = rows.filter((r) => r.role === role && r.kind === kind); if (!items.length) continue;
-      const wrap = el('div'); const media = el('div', 'media');
-      wrap.append(el('p', 'cap', `${label} (${items.length})`), media);
+      const items = rows.filter((r) => r.role === role && r.kind === kind);
+      const wrap = el('div', 'style'); const media = el('div', 'media');
+      wrap.append(el('b', null, `${label} (${items.length})`), media);
+      grid.append(wrap);
+      if (!items.length) { media.append(el('span', 'cap', '아직 없어요')); continue; }
       items.forEach((r) => {
         const u = urlOf[r.path]; if (!u) return;
         if ((r.content_type || '').startsWith('video/')) { const v = document.createElement('video'); v.src = u; v.controls = true; v.preload = 'metadata'; v.playsInline = true; media.append(v); }
@@ -377,7 +379,6 @@ ul, ol { margin:0; padding-left:1.2em; }
       });
       const notes = [...new Set(items.map((r) => [r.uploader, r.note].filter(Boolean).join(': ')).filter(Boolean))];
       notes.forEach((n) => wrap.append(el('p', 'cap', '메모 — ' + n)));
-      listBox.append(wrap);
     }
   }
 
