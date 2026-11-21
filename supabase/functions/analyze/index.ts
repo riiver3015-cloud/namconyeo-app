@@ -169,13 +169,109 @@ async function analyze(surveyId: string) {
   }
 }
 
+// ===== 현장 AI 초안 (관리자 화면 "AI 초안 채우기") =====
+// 현장 기록 1~4단계(실측·체형·골격·얼굴 사진)까지 넣은 뒤 누르면 5~8단계 초안을 돌려줍니다. DB에는 쓰지 않고, 관리자 화면이 비어 있는 칸만 채웁니다.
+const enumArr = (vals: string[]) => ({ type: "array", items: { type: "string", enum: vals } });
+const RANK = { type: "string", enum: ["1st", "2nd", "3rd", "✕"] };
+const draftSchema = obj({
+  image: enumArr(["캐쥬얼", "댄디", "포멀", "스트리트", "아메카지"]),
+  image_reason: str,
+  glasses: obj({ none: RANK, horn: RANK, brow: RANK, silver: RANK }),
+  glasses_reason: str,
+  hair_forehead: { type: "string", enum: ["넓음", "중간", "좁음"] },
+  hair_bangs: str, hair_style: str, hair_request: str, hair_reason: str,
+  top_neck: enumArr(["라운드넥", "브이넥", "헨리넥", "터틀넥", "카라넥"]),
+  top_fit: enumArr(["슬림핏(머슬핏)", "레귤러 핏", "세미오버핏", "오버핏"]),
+  top_fabric: enumArr(["니트", "데님", "면(코튼)", "린넨", "레이온"]),
+  top_detail: enumArr(["무지", "프린팅", "로고", "절개선", "스트라이프"]),
+  bottom_width: enumArr(["슬림", "레귤러", "세미와이드", "와이드", "엑스트라 와이드"]),
+  bottom_shape: enumArr(["슬림 일자핏", "와이드 일자핏", "둥근핏(커브드)"]),
+  outer_length: enumArr(["크롭", "기본", "하프", "롱"]),
+  outer_shoulder: enumArr(["레귤러", "드롭숄더", "래글런", "구조적인 어깨", "어깨패드"]),
+  outer_fabric: enumArr(["울·캐시미어", "데님", "가죽", "나일론", "코튼", "스웨이드", "무스탕"]),
+  style_reason: str,
+});
+const DRAFT_INSTRUCTIONS = `당신은 남성 스타일 컨설팅 브랜드 '남코녀'의 현장 보조입니다. 대표 컨설턴트가 고객을 만나 실측·체형·골격·얼굴 사진까지 기록했습니다.
+이 정보로 현장 기록 5~8단계 초안을 고릅니다. 대표님이 보고 틀린 것만 고칩니다.
+- 아래 "남코녀 분석 기준"을 먼저 따릅니다. 대표님이 현장에서 확정한 체형·골격·컬러가 있으면 사전 계획서보다 그것을 우선합니다.
+- image(어울리는 이미지)는 1~2개. 기준의 '체형 기준 + 얼굴 인상 기준' 매칭에서 겹치는 것을 고릅니다.
+- glasses는 안경 착용 X(none)·뿔테(horn)·하금테(brow)·실버테(silver) 각각에 1st/2nd/3rd/✕ 중 하나. 1st는 하나만. 안경 사진이 있으면 사진을 보고, 없으면 얼굴형 기준으로 판단하고 reason에 "사진 없음"이라고 적습니다.
+- 헤어: hair_forehead는 정면 사진으로 판단. hair_style은 기준의 얼굴형·이마·두상 규칙에 맞는 헤어 이름 한두 개, hair_request는 고객이 헤어샵에서 그대로 말할 짧은 문장(존댓말), hair_bangs는 앞머리 기장(예: 눈~눈썹 사이). 모질·숱·곱슬기는 만져 봐야 해서 고르지 않습니다.
+- 스타일 방향성(top_*, bottom_*, outer_*)은 각 1~2개. 체형·골격·이미지·고객 고민(두꺼운 다리 등)·예산에 맞춥니다. 기준에 비어 있는 체형 규칙은 일반 원칙으로 판단합니다.
+- *_reason은 대표님이 읽을 한두 문장, 쉬운 한국어. 고객 이름은 쓰지 않습니다.`;
+
+async function signedImages(paths: [string, string][]): Promise<Anthropic.Beta.BetaContentBlockParam[]> {
+  const list = paths.filter(([, p]) => p);
+  if (!list.length) return [];
+  const { data } = await supabase.storage.from(BUCKET).createSignedUrls(list.map(([, p]) => p), 600);
+  const out: Anthropic.Beta.BetaContentBlockParam[] = [];
+  list.forEach(([label], i) => { const u = data?.[i]?.signedUrl; if (u) out.push({ type: "text", text: `[${label}]` }, { type: "image", source: { type: "url", url: u } }); });
+  return out;
+}
+
+async function onsiteDraft(req: Request, surveyId: string): Promise<Response> {
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  // 관리자만 (로그인 토큰 확인 → admins 표)
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  const { data: u } = await supabase.auth.getUser(token);
+  if (!u?.user) return json({ error: "관리자 로그인이 필요해요" }, 401);
+  const { data: adm } = await supabase.from("admins").select("user_id").eq("user_id", u.user.id);
+  if (!adm?.length) return json({ error: "관리자 권한이 없어요" }, 403);
+
+  const [{ data: s }, { data: p }, { data: o }] = await Promise.all([
+    supabase.from("surveys").select("*").eq("id", surveyId).single(),
+    supabase.from("plans").select("plan").eq("survey_id", surveyId).maybeSingle(),
+    supabase.from("onsite").select("*").eq("survey_id", surveyId).maybeSingle(),
+  ]);
+  if (!s) return json({ error: "설문을 찾을 수 없어요" }, 404);
+  const rep = (o?.report ?? {}) as Record<string, any>;
+  const plan = (p?.plan ?? {}) as Record<string, any>;
+  const onsiteText = [
+    `- 실측 어깨/허리/골반: ${[o?.shoulder, o?.waist, o?.hip].map((x) => x ?? "?").join(" / ")} cm`,
+    `- 현장 확정 체형: ${o?.body_type ?? "(미정)"} / 골격: ${o?.bone ?? "(미정)"}`,
+    `- 컬러(현장): ${o?.color || "(아직 천 대보기 전)"}`,
+    `- 예외사항: ${o?.exception || "(없음)"}`,
+  ].join("\n");
+  const planText = plan.summary ? `${plan.summary}\n${(plan.analysis || []).map((r: any) => `- ${r.item}: ${r.judgment}`).join("\n")}` : "(사전 계획서 없음)";
+  const faces: [string, string][] = [["현장 얼굴 왼쪽", rep.face?.left], ["현장 얼굴 정면", rep.face?.front], ["현장 얼굴 오른쪽", rep.face?.right]];
+  const glasses: [string, string][] = [["안경 착용 X", rep.glass_photos?.none], ["뿔테 안경", rep.glass_photos?.horn], ["하금테 안경", rep.glass_photos?.brow], ["실버테 안경", rep.glass_photos?.silver]];
+  const surveyFaces: [string, string][] = faces.some(([, x]) => x) ? [] : ((s.photos?.face ?? []) as string[]).slice(0, 2).map((x, i) => [`사전 셀카 ${i + 1}`, x]);
+  const body: [string, string][] = ((s.photos?.body ?? []) as string[]).slice(0, 2).map((x, i) => [`사전 전신사진 ${i + 1}`, x]);
+  const images = await signedImages([...faces, ...surveyFaces, ...glasses, ...body]);
+  const criteria = await loadCriteria();
+  try {
+    const response = await anthropic.beta.messages.create({
+      model: MODEL,
+      max_tokens: 6000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "low", format: { type: "json_schema", schema: draftSchema } },
+      system: [
+        { type: "text", text: DRAFT_INSTRUCTIONS },
+        { type: "text", text: `## 남코녀 분석 기준\n\n${criteria}`, cache_control: { type: "ephemeral" } },
+      ],
+      messages: [{ role: "user", content: [
+        { type: "text", text: `## 사전설문\n${surveyText(s)}\n\n## 현장 기록\n${onsiteText}\n\n## 사전 계획서 요약 (참고)\n${planText}\n\n## 사진` },
+        ...images,
+      ] }],
+    });
+    if (response.stop_reason === "refusal") return json({ error: "AI가 작성을 거절했어요" }, 502);
+    const text = response.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
+    return json({ draft: JSON.parse(text), usage: response.usage });
+  } catch (e) {
+    const msg = e instanceof Anthropic.APIError ? `Claude API 오류 ${e.status}: ${e.message}` : (e as Error).message;
+    return json({ error: msg }, 502);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    const { survey_id } = await req.json();
+    const { survey_id, mode } = await req.json();
     if (typeof survey_id !== "string" || !/^[0-9a-f-]{36}$/i.test(survey_id)) {
       return new Response(JSON.stringify({ error: "survey_id 필요" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
     }
+    if (mode === "onsite_draft") return await onsiteDraft(req, survey_id);
     // 오래 걸리는 분석은 응답을 먼저 돌려준 뒤 백그라운드에서 진행
     // @ts-ignore EdgeRuntime 은 Supabase 런타임 전역
     EdgeRuntime.waitUntil(analyze(survey_id));
