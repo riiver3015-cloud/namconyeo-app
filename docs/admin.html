@@ -172,7 +172,7 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="nk-report.js?v=2"></script>
+<script src="nk-report.js?v=3"></script>
 <script>
 (() => {
   const cfg = window.NK_CONFIG;
@@ -186,7 +186,7 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
     ['color_value', '명도', ['고명도', '중명도', '저명도']],
     ['color_clarity', '청탁도', ['청도', '탁도']],
     ['color_temp', '온도', ['웜', '쿨', '뉴트럴']],
-    ['style', '스타일', ['캐쥬얼', '댄디', '포멀', '스트리트', '아메카지', '시티보이', '락시크']],
+    ['style', '스타일', ['캐쥬얼', '댄디', '포멀', '스트리트', '아메카지']],
   ];
   const state = { surveys: [], plans: {}, onsite: {}, current: null, checks: [] };
   const today = () => { const d = new Date(); return d.toISOString().slice(0, 10); };
@@ -480,7 +480,9 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
       const top = [j(g('top_neck')), j(g('top_fit'))].filter(Boolean).join(' ');
       const f1 = top ? `${top} 상의에${g('top_fabric').length ? ` ${j(g('top_fabric'))} 소재와` : ''}${g('top_detail').length ? ` ${j(g('top_detail'))} 디자인을` : ''} 활용해주세요.`.replace('소재와 활용', '소재를 활용') : '';
       const outer = [j(g('outer_length')) && j(g('outer_length')) + ' 기장', j(g('outer_shoulder')) && (j(g('outer_shoulder')) + (/어깨/.test(j(g('outer_shoulder'))) ? '' : ' 어깨선'))].filter(Boolean).join('에 ');
-      const f2 = (g('bottom_fit').length || outer) ? `바지는 ${j(g('bottom_fit')) || '지금'} 핏으로${outer ? `, 아우터는 ${outer} 디자인을 추천합니다.` : ' 입어주세요.'}` : '';
+      const bw = j(g('bottom_width')), bs = j(g('bottom_shape'));
+      const pants = bs ? `${bw ? bw + ' 너비의 ' : ''}${bs}` : (bw ? `${bw} 핏` : '');
+      const f2 = (pants || outer) ? `바지는 ${pants || '지금 핏'}으로${outer ? `, 아우터는 ${outer} 디자인을 추천합니다.` : ' 입어주세요.'}` : '';
       const col = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map((k) => sel('pick', k)[0]).filter(Boolean);
       const f3 = col.length ? `${col.join(' · ')} 범위의 컬러가 잘 어울려요. 이 톤으로 입어주세요 :)` : '';
       [f1, f2, f3].forEach((t, i) => { if (t && !fIns[i].value.trim()) fIns[i].value = t; });
