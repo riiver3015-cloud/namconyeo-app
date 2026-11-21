@@ -264,6 +264,69 @@ async function onsiteDraft(req: Request, surveyId: string): Promise<Response> {
   }
 }
 
+// ===== 택 사진 읽기 (관리자 화면 9단계 "택 읽기") =====
+// 택 사진 + 택 없는 옷 메모를 읽어 구매 리스트 행을 돌려줍니다. DB에는 쓰지 않고, 관리자 화면이 리스트에 덧붙입니다.
+const tagSchema = obj({
+  items: { type: "array", items: obj({
+    brand: str, item: str, color: str, size: str,
+    price: { type: "integer" },
+    source: str,
+    unsure: str,
+  }) },
+  note: str,
+});
+const TAG_INSTRUCTIONS = `당신은 남성 스타일 컨설팅 브랜드 '남코녀'의 현장 보조입니다. 동행쇼핑에서 고객이 산 옷의 택(가격표) 사진과, 택이 없는 옷에 대한 대표님 메모를 읽어 구매 리스트를 만듭니다.
+- 옷 한 벌 = 한 행. 같은 옷을 여러 각도로 찍은 사진은 한 행으로 합칩니다. 택 한 장에 여러 옷이 보이면 각각 나눕니다.
+- brand: 브랜드 이름(한국어로 흔히 부르는 이름, 예: 유니클로, 무신사 스탠다드, 마시모두띠, 쿠에른). 택에 영문만 있으면 한국어 표기로 씁니다.
+- item: 제품명을 짧게(예: 울 블렌드 라운드넥 니트). 품번·바코드 숫자는 쓰지 않습니다. color: 택에 적힌 색(한국어, 예: 네이비). size: 택의 사이즈 그대로(예: L, 32, 260).
+- price: 원 단위 정수. 할인 가격이 따로 찍혀 있으면 할인 가격. 메모의 "29.8만"은 298000. 모르면 0.
+- source: "택 사진 3" 또는 "메모"처럼 어디서 읽었는지.
+- unsure: 잘 안 보여서 추정했거나 빠진 칸이 있으면 무엇인지 짧게(예: "가격이 흐려서 추정"). 확실하면 빈 문자열.
+- "이미 있는 구매 리스트"에 있는 옷은 다시 넣지 않습니다.
+- 택이 아닌 사진(코디 사진 등)이나 읽을 수 없는 사진은 건너뛰고 note에 적습니다. note는 대표님이 읽을 한두 문장, 쉬운 한국어.
+- 추측으로 브랜드·가격을 지어내지 않습니다. 안 보이면 비우고(가격은 0) unsure에 적습니다.`;
+
+async function requireAdmin(req: Request): Promise<string | null> {
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  const { data: u } = await supabase.auth.getUser(token);
+  if (!u?.user) return "관리자 로그인이 필요해요";
+  const { data: adm } = await supabase.from("admins").select("user_id").eq("user_id", u.user.id);
+  return adm?.length ? null : "관리자 권한이 없어요";
+}
+
+async function readTags(req: Request, surveyId: string): Promise<Response> {
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  const denied = await requireAdmin(req);
+  if (denied) return json({ error: denied }, 401);
+  const { data: o } = await supabase.from("onsite").select("report").eq("survey_id", surveyId).maybeSingle();
+  const rep = (o?.report ?? {}) as Record<string, any>;
+  const photos = ((rep.tag_photos ?? []) as string[]).slice(0, 30);
+  const memo = (rep.texts?.tag_memo ?? rep.tag_memo ?? "").toString().trim();
+  if (!photos.length && !memo) return json({ error: "택 사진이나 메모가 아직 없어요" }, 400);
+  const have = ((rep.purchases ?? []) as any[]).filter((r) => r.brand || r.item).map((r) => `- ${r.brand ?? ""} ${r.item ?? ""} ${r.size ?? ""} ${r.price ?? ""}`).join("\n") || "(없음)";
+  const images = await signedImages(photos.map((p, i) => [`택 사진 ${i + 1}`, p] as [string, string]));
+  try {
+    const response = await anthropic.beta.messages.create({
+      model: MODEL,
+      max_tokens: 6000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "low", format: { type: "json_schema", schema: tagSchema } },
+      system: [{ type: "text", text: TAG_INSTRUCTIONS }],
+      messages: [{ role: "user", content: [
+        { type: "text", text: `## 이미 있는 구매 리스트\n${have}\n\n## 택 없는 옷 메모\n${memo || "(없음)"}\n\n## 택 사진 ${photos.length}장` },
+        ...images,
+      ] }],
+    });
+    if (response.stop_reason === "refusal") return json({ error: "AI가 작성을 거절했어요" }, 502);
+    const text = response.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
+    return json({ tags: JSON.parse(text), usage: response.usage });
+  } catch (e) {
+    const msg = e instanceof Anthropic.APIError ? `Claude API 오류 ${e.status}: ${e.message}` : (e as Error).message;
+    return json({ error: msg }, 502);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -272,6 +335,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "survey_id 필요" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
     }
     if (mode === "onsite_draft") return await onsiteDraft(req, survey_id);
+    if (mode === "read_tags") return await readTags(req, survey_id);
     // 오래 걸리는 분석은 응답을 먼저 돌려준 뒤 백그라운드에서 진행
     // @ts-ignore EdgeRuntime 은 Supabase 런타임 전역
     EdgeRuntime.waitUntil(analyze(survey_id));
