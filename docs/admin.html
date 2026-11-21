@@ -432,7 +432,7 @@ details.rep { border-top:1px solid var(--line); padding-top:12px; } details.rep 
       const j = (a) => a.join('·');
       const top = [j(g('top_neck')), j(g('top_fit'))].filter(Boolean).join(' ');
       const f1 = top ? `${top} 상의에${g('top_fabric').length ? ` ${j(g('top_fabric'))} 소재와` : ''}${g('top_detail').length ? ` ${j(g('top_detail'))} 디자인을` : ''} 활용해주세요.`.replace('소재와 활용', '소재를 활용') : '';
-      const f2 = (g('bottom_fit').length || g('outer_shoulder').length) ? `바지는 ${j(g('bottom_fit')) || '지금 핏'} 핏으로${g('outer_length').length || g('outer_shoulder').length ? `, 아우터는 ${[j(g('outer_length')) && j(g('outer_length')) + ' 기장', j(g('outer_shoulder')) && j(g('outer_shoulder')) + ' 어깨선'].filter(Boolean).join('에 ')} 디자인을 추천합니다.` : ' 입어주세요.'}` : '';
+      const f2 = (g('bottom_fit').length || g('outer_shoulder').length) ? `바지는 ${j(g('bottom_fit')) || '지금 핏'} 핏으로${g('outer_length').length || g('outer_shoulder').length ? `, 아우터는 ${[j(g('outer_length')) && j(g('outer_length')) + ' 기장', j(g('outer_shoulder')) && (j(g('outer_shoulder')) + (/어깨/.test(j(g('outer_shoulder'))) ? '' : ' 어깨선'))].filter(Boolean).join('에 ')} 디자인을 추천합니다.` : ' 입어주세요.'}` : '';
       const col = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map(gp).filter(Boolean);
       const f3 = col.length ? `${col.join(' · ')} 범위의 컬러가 잘 어울려요. 이 톤으로 입어주세요 :)` : '';
       [f1, f2, f3].forEach((t, i) => { if (t && !fIns[i].value.trim()) fIns[i].value = t; });
