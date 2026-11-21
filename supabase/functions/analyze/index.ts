@@ -327,6 +327,57 @@ async function readTags(req: Request, surveyId: string): Promise<Response> {
   }
 }
 
+// ===== 공식·TIP 쓰기 (관리자 화면 "AI로 공식·TIP 쓰기") =====
+// 현장 기록(체형·이미지·스타일 방향성·컬러·구매 리스트)으로 리포트 마무리 공식 3줄과 아이템별 TIP을 돌려줍니다. DB에는 쓰지 않습니다.
+const tipSchema = obj({
+  formulas: { type: "array", items: str },
+  tips: { type: "array", items: obj({ index: { type: "integer" }, tip: str }) },
+});
+const TIP_INSTRUCTIONS = `당신은 남성 스타일 컨설팅 브랜드 '남코녀'의 리포트 작성 보조입니다. 대표 컨설턴트가 현장에서 기록한 내용으로, 고객에게 전달하는 리포트의 마무리 문장을 씁니다. 고객이 직접 읽습니다.
+- formulas: "나만의 스타일링 공식" 정확히 3줄. 1줄은 상의(넥라인·핏·소재·디테일), 2줄은 하의·아우터(너비·핏·기장·어깨선), 3줄은 컬러(현장 컬러 4축과 구매한 옷 색 조합). 현장에서 고른 값만 근거로 쓰고, 고르지 않은 항목은 지어내지 않습니다. 각 줄은 한 문장, 다음에 옷을 살 때 그대로 따라 할 수 있게 구체적으로. 예) "라운드넥·레귤러 핏 상의에 니트 소재를 활용해주세요."
+- tips: 구매 리스트의 각 옷마다 하나(index는 목록 번호 그대로). 이번에 같이 산 다른 옷이나 고객이 이미 가진 옷(설문의 보유 신발·바지)과 어떻게 매치할지, 핏·기장·소매 등 입는 법을 1~2문장으로. 예) "구매하신 블랙 와이드 슬랙스와 매치하고, 소매는 한 번 걷어 입어주세요." 같은 말 반복은 피합니다.
+- 고객에게 쓰는 다정한 존댓말(~해주세요, ~좋아요). 쉬운 한국어. 고객 이름·체형 약점을 직접 지적하는 표현(예: 다리가 짧아서)은 쓰지 않고 "비율이 좋아 보여요"처럼 긍정적으로 씁니다. 이모지는 쓰지 않습니다.`;
+
+async function writeTips(req: Request, surveyId: string): Promise<Response> {
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  const denied = await requireAdmin(req);
+  if (denied) return json({ error: denied }, 401);
+  const [{ data: s }, { data: o }] = await Promise.all([
+    supabase.from("surveys").select("*").eq("id", surveyId).single(),
+    supabase.from("onsite").select("*").eq("survey_id", surveyId).maybeSingle(),
+  ]);
+  if (!s || !o) return json({ error: "현장 기록이 아직 없어요" }, 400);
+  const rep = (o.report ?? {}) as Record<string, any>;
+  const buys = ((rep.purchases ?? []) as any[]);
+  const keys: [string, string][] = [["image", "어울리는 이미지"], ["top_neck", "상의 넥라인"], ["top_fit", "상의 핏"], ["top_fabric", "상의 소재"], ["top_detail", "상의 디테일"],
+    ["bottom_width", "하의 너비"], ["bottom_shape", "하의 핏"], ["outer_length", "아우터 기장"], ["outer_shoulder", "아우터 어깨선"], ["outer_fabric", "아우터 소재"]];
+  const pick = keys.map(([k, l]) => `- ${l}: ${[].concat(rep[k] ?? []).join(", ") || "(안 고름)"}`).join("\n");
+  const onsiteText = [
+    `- 체형: ${o.body_type ?? "(미정)"} / 골격: ${o.bone ?? "(미정)"} / 예외사항: ${o.exception || "(없음)"}`,
+    pick,
+    `- 컬러(현장): ${o.color || "(안 고름)"}`,
+    `- 헤어: ${rep.hair_style || "(없음)"}`,
+  ].join("\n");
+  const buyText = buys.length ? buys.map((b, i) => `${i}. ${b.brand ?? ""} | ${b.item ?? ""} | ${b.size ?? ""} | ${b.price ?? ""}원`).join("\n") : "(구매 리스트 없음 → tips는 빈 배열)";
+  try {
+    const response = await anthropic.beta.messages.create({
+      model: MODEL,
+      max_tokens: 6000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "low", format: { type: "json_schema", schema: tipSchema } },
+      system: [{ type: "text", text: TIP_INSTRUCTIONS }],
+      messages: [{ role: "user", content: `## 사전설문\n${surveyText(s)}\n\n## 현장 기록\n${onsiteText}\n\n## 구매 리스트 (번호 | 브랜드 | 제품명·색 | 사이즈 | 가격)\n${buyText}` }],
+    });
+    if (response.stop_reason === "refusal") return json({ error: "AI가 작성을 거절했어요" }, 502);
+    const text = response.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
+    return json({ result: JSON.parse(text), usage: response.usage });
+  } catch (e) {
+    const msg = e instanceof Anthropic.APIError ? `Claude API 오류 ${e.status}: ${e.message}` : (e as Error).message;
+    return json({ error: msg }, 502);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -336,6 +387,7 @@ Deno.serve(async (req) => {
     }
     if (mode === "onsite_draft") return await onsiteDraft(req, survey_id);
     if (mode === "read_tags") return await readTags(req, survey_id);
+    if (mode === "write_tips") return await writeTips(req, survey_id);
     // 오래 걸리는 분석은 응답을 먼저 돌려준 뒤 백그라운드에서 진행
     // @ts-ignore EdgeRuntime 은 Supabase 런타임 전역
     EdgeRuntime.waitUntil(analyze(survey_id));
