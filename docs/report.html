@@ -138,8 +138,10 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
   // ---- 03 스타일 방향성 ----
   const gl = rep.glasses || {};
   const glList = R.GLASSES.map(([k, l]) => { const i = figG.findIndex((r) => r.path.includes('glasses_' + k)); return { k, l, rank: gl[k], url: i >= 0 ? uFigG[i] : null }; }).filter((x) => x.rank || x.url);
-  const p5 = page(); head(p5, '03 스타일 방향성');
-  if (glList.length) {
+  const glPhotos = glList.some((x) => x.url);
+  // 안경 예상도 사진이 있을 때만 한 페이지를 따로 씀 (없으면 아래 스타일 표에 한 줄로)
+  const p5 = glPhotos ? page() : null; if (p5) head(p5, '03 스타일 방향성');
+  if (p5) {
     const ord = (r) => { const i = R.GLASS_RANKS.indexOf(r); return i < 0 ? 9 : i; };
     glList.sort((a, b) => ord(a.rank) - ord(b.rank));
     const g = el('div', 'grid g2 gl');
@@ -148,6 +150,10 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
   }
   const p6 = page(); head(p6, '03 스타일 방향성');
   R.STYLE.forEach(([group, rows]) => { hd(p6, group); table(p6, rows.map(([k, l, opts]) => [l, chips(opts, rep[k])])); });
+  if (!glPhotos && glList.length) {
+    hd(p6, '안경'); const ord = (r) => { const i = R.GLASS_RANKS.indexOf(r); return i < 0 ? 9 : i; };
+    table(p6, glList.slice().sort((a, b) => ord(a.rank) - ord(b.rank)).map((x) => [x.rank || '', x.l]));
+  }
   hd(p6, '컬러');
   const ct = el('table'); R.COLOR.forEach(([k, l, opts, grad]) => { const tr2 = el('tr'); const td2 = el('td'); td2.append(chips(opts, o[k])); const b = el('div', 'bar-c'); b.style.background = grad; td2.append(b); tr2.append(el('td', 'k', l), td2); ct.append(tr2); }); p6.append(ct);
 
