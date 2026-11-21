@@ -61,7 +61,18 @@ ul, ol { margin:0; padding-left:1.2em; }
 .pick { display:flex; flex-wrap:wrap; gap:6px; align-items:center; } .pick > b { font-size:.82rem; font-weight:500; color:var(--muted); min-width:78px; }
 .chip { border:1px solid var(--line); background:none; color:var(--fg); border-radius:999px; padding:5px 12px; font:inherit; font-size:.85rem; cursor:pointer; } .chip[aria-pressed="true"] { background:var(--fg); color:var(--bg); border-color:var(--fg); }
 .picks .sub { font-size:.78rem; color:var(--muted); margin-top:4px; }
-details.rep { border-top:1px solid var(--line); padding-top:12px; } details.rep > summary { cursor:pointer; list-style-position:inside; }
+.steps { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
+.step { border:1px solid var(--line); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+.step.done { border-color:var(--ok); }
+.step h4 { margin:0; display:flex; align-items:center; gap:10px; font-size:.95rem; }
+.step .num { flex:none; width:26px; height:26px; border-radius:50%; background:var(--fg); color:var(--bg); display:inline-flex; align-items:center; justify-content:center; font-size:.8rem; }
+.step.done .num { background:var(--ok); } .step .tick { margin-left:auto; color:var(--ok); font-weight:700; }
+.step .sub { font-size:.8rem; color:var(--muted); margin:4px 0 -4px; }
+.slots { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+.slot { display:flex; flex-direction:column; gap:6px; align-items:flex-start; } .slot b { font-size:.82rem; font-weight:500; color:var(--muted); }
+.slot img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:8px; display:block; background:var(--bg); }
+label.btn.up { display:inline-flex; align-items:center; justify-content:center; min-height:44px; cursor:pointer; font-size:.88rem; padding:6px 14px; border-radius:8px; border:1px dashed var(--muted); color:var(--fg); }
+.slot label.btn.up { width:100%; aspect-ratio:3/4; }
 .repbox { display:flex; flex-direction:column; gap:10px; margin-top:12px; } .repbox h4 { margin:10px 0 0; font-size:.9rem; }
 .buy { display:grid; grid-template-columns:1fr 1.4fr .7fr .8fr auto; gap:6px; align-items:start; } .buy textarea { grid-column:1 / -2; min-height:44px; }
 @media (max-width:640px) { .buy { grid-template-columns:1fr 1fr; } .buy textarea { grid-column:1 / -1; } }
@@ -147,23 +158,15 @@ details.rep { border-top:1px solid var(--line); padding-top:12px; } details.rep 
   </div>
   <div data-f="plan" style="display:flex;flex-direction:column;gap:16px"></div>
   <div class="card">
-    <h3>현장 기록</h3>
-    <p class="cap">어깨·허리·골반은 정면 직선거리(cm). 입력하면 대표님 기준표(O → A → I → V → H)로 체형이 바로 계산돼요.</p>
-    <div class="form">
-      <label class="field">어깨너비<input type="number" step="0.5" data-on="shoulder"></label>
-      <label class="field">허리너비<input type="number" step="0.5" data-on="waist"></label>
-      <label class="field">골반너비<input type="number" step="0.5" data-on="hip"></label>
-    </div>
-    <div class="result" data-f="bodytype"></div>
-    <div class="picks" data-f="picks"></div>
-    <label class="field">예외사항 (위 선택지로 안 맞는 점, 혼합 골격 비율 등)<textarea data-on="exception" placeholder="예) 웨이브 베이스에 내추럴 30%, 상체만 쿨톤이 더 잘 받음"></textarea></label>
-    <h3>체크리스트</h3><ul class="checks" data-f="checks"></ul>
-    <label class="field">현장 메모 (계획과 달랐던 점 — 대표님만 봐요)<textarea data-on="memo"></textarea></label>
-    <details class="rep" open>
-      <summary><b>고객 리포트에 들어갈 기록</b> <span class="cap">— 여기서 고른 것과 위의 실측·골격·퍼스널컬러가 리포트에 그대로 들어가요</span></summary>
-      <div data-f="rep" class="repbox"></div>
+    <div class="top"><h3 style="margin:0">현장 기록 · 컨설팅 순서대로</h3><span class="pill" data-f="progress"></span></div>
+    <p class="cap" data-f="onmsg">고르거나 입력하면 자동으로 저장돼요.</p>
+    <ol class="steps" data-f="steps"></ol>
+    <section class="step"><h4>리포트 마무리 — 나만의 스타일링 공식 (3줄)</h4><div data-f="formulas" class="repbox"></div></section>
+    <details><summary class="cap" style="cursor:pointer">체크리스트 · 대표님만 보는 메모</summary>
+      <ul class="checks" data-f="checks" style="margin-top:8px"></ul>
+      <label class="field">현장 메모 (계획과 달랐던 점 — 리포트에 안 나가요)<textarea data-on="memo"></textarea></label>
     </details>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" data-act="save-onsite">현장 기록 저장</button><button class="btn" data-act="open-report">저장하고 고객 리포트 보기</button><span class="cap" data-f="onmsg"></span></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" data-act="open-report">고객 리포트 보기</button><button class="btn" data-act="save-onsite">지금 저장</button></div>
   </div>
 </template>
 
@@ -292,6 +295,7 @@ details.rep { border-top:1px solid var(--line); padding-top:12px; } details.rep 
 
   // ---------- 상세 ----------
   async function renderDetail(id) {
+    if (window.__nkFlush) window.__nkFlush();
     const s = state.surveys.find((x) => x.id === id); if (!s) return;
     const p = state.plans[id], o = state.onsite[id] || {};
     const node = $('#tpl').content.cloneNode(true);
@@ -333,141 +337,223 @@ details.rep { border-top:1px solid var(--line); padding-top:12px; } details.rep 
       planBox.append(Object.assign(el('div', 'card'), { textContent: msg }));
     } else renderPlan(planBox, p.plan, p.model);
 
-    // 현장 기록
-    node.querySelectorAll('[data-on]').forEach((i) => { i.value = o[i.dataset.on] ?? ''; });
-    const picksBox = f('picks');
-    const ai = p?.plan?.picks || {};
-    const saved = PICKS.some(([k]) => o[k]);
-    if (ai.bone && !saved) picksBox.append(el('div', 'sub', '🔶 AI가 사진으로 미리 고른 값이에요. 직접 보고 다르면 눌러서 바꾸고 저장하세요.' + (ai.reason ? ' — ' + ai.reason : '')));
-    for (const [key, label, opts, head] of PICKS) {
-      if (head) picksBox.append(el('div', 'sub', head));
-      const row = el('div', 'pick'); row.dataset.pick = key; row.append(el('b', null, label));
-      for (const v of opts) {
-        const b = el('button', 'chip', v); b.type = 'button'; b.setAttribute('aria-pressed', String((saved ? o[key] : ai[key]) === v));
-        b.onclick = () => { const on = b.getAttribute('aria-pressed') === 'true'; row.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', 'false')); b.setAttribute('aria-pressed', String(!on)); };
-        row.append(b);
-      }
-      picksBox.append(row);
-    }
-    // ---- 고객 리포트용 기록 ----
+    // ===== 현장 기록: 대표님 컨설팅 순서 10단계 =====
     const R = window.NK_REPORT;
+    const ai = p?.plan?.picks || {};
     const rep = JSON.parse(JSON.stringify(o.report || {}));
-    const repBox = f('rep');
-    const firstTime = !o.report;
-    if (firstTime && ai.style) rep.image = [ai.style];
-    const chipRow = (key, label, opts, multi, parent) => {
-      const row = el('div', 'pick'); row.dataset.rkey = key; row.dataset.multi = multi ? '1' : ''; row.append(el('b', null, label));
-      const cur = [].concat(rep[key] || []);
+    rep.face = rep.face || {}; rep.glass_photos = rep.glass_photos || {}; rep.glasses = rep.glasses || {};
+    rep.tag_photos = rep.tag_photos || []; rep.shop_photos = rep.shop_photos || [];
+    if (!o.report && ai.style && R.IMAGE[0][2].includes(ai.style)) rep.image = [ai.style];
+    const stepsBox = f('steps');
+    const root = stepsBox.closest('.card');
+    const steps = [];
+    const step = (n, title, hint) => {
+      const li = el('li', 'step'); li.dataset.step = n;
+      const h = el('h4'); h.append(el('span', 'num', String(n)), el('span', null, title), el('span', 'tick', ''));
+      li.append(h); if (hint) li.append(el('p', 'cap', hint));
+      stepsBox.append(li); steps[n] = li; return li;
+    };
+    // 칩 한 줄 (multi=여러 개). kind: 'rep'=리포트 기록, 'col'=onsite 열
+    const chipRow = (parent, key, label, opts, multi, cur, kind = 'rep') => {
+      const row = el('div', 'pick'); row.dataset[kind === 'rep' ? 'rkey' : 'pick'] = key; row.dataset.multi = multi ? '1' : '';
+      if (label) row.append(el('b', null, label));
+      const curA = [].concat(cur || []);
       for (const v of opts) {
-        const b = el('button', 'chip', v); b.type = 'button'; b.setAttribute('aria-pressed', String(cur.includes(v)));
-        b.onclick = () => { const on = b.getAttribute('aria-pressed') === 'true'; if (!multi) row.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', 'false')); b.setAttribute('aria-pressed', String(!on)); };
+        const b = el('button', 'chip', v); b.type = 'button'; b.setAttribute('aria-pressed', String(curA.includes(v)));
+        b.onclick = () => { const on = b.getAttribute('aria-pressed') === 'true'; if (!multi) row.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', 'false')); b.setAttribute('aria-pressed', String(!on)); row.dataset.touched = '1'; };
         row.append(b);
       }
-      (parent || repBox).append(row); return row;
+      parent.append(row); return row;
     };
-    const txt = (key, label, ph, area) => { const l = el('label', 'field', label); const i = el(area ? 'textarea' : 'input'); i.dataset.rtxt = key; i.value = rep[key] || ''; if (ph) i.placeholder = ph; l.append(i); repBox.append(l); return i; };
-    repBox.append(el('h4', null, '01 체형'), el('p', 'cap', '비워 두면 위 실측으로 계산된 체형이 들어가요. 골격은 위 "골격" 선택, 혼합이면 예외사항에 적으면 리포트에 같이 나가요.'));
-    R.BODY.forEach(([k, l, opts, m]) => chipRow(k, l, opts, m));
-    repBox.append(el('h4', null, '02 이미지'));
-    R.IMAGE.forEach(([k, l, opts, m]) => chipRow(k, l, opts, m));
-    repBox.append(el('h4', null, '03 스타일 방향성 (여러 개 선택 가능)'));
-    R.STYLE.forEach(([group, rows]) => { repBox.append(el('p', 'cap', group)); rows.forEach(([k, l, opts, m]) => chipRow(k, l, opts, m)); });
-    repBox.append(el('p', 'cap', '안경 (사진 예상도가 있으면 리포트에 같이 나가요)'));
-    const glassBox = el('div', 'picks'); glassBox.style.margin = '0'; repBox.append(glassBox);
-    rep.glasses = rep.glasses || {};
-    R.GLASSES.forEach(([k, l]) => { rep['g_' + k] = rep.glasses[k]; chipRow('g_' + k, l, R.GLASS_RANKS, false, glassBox); });
-    repBox.append(el('h4', null, '04 헤어스타일'));
-    R.HAIR.forEach(([k, l, opts, m]) => chipRow(k, l, opts, m));
-    txt('hair_bangs', '앞머리 기장', '예) 눈~눈썹 사이');
-    txt('hair_style', '추천하는 헤어스타일', '예) 세미리프컷');
-    txt('hair_request', '헤어샵 요청 멘트', '예) 옆머리 볼륨 살려주세요', true);
-    repBox.append(el('h4', null, '05 동행쇼핑 — 구매 리스트'), el('p', 'cap', '아이템마다 "스타일링 팁"을 적으면 리포트의 아이템별 TIP으로 나가요. 가격은 숫자만.'));
-    const buyBox = el('div'); buyBox.style.cssText = 'display:flex;flex-direction:column;gap:8px'; repBox.append(buyBox);
+    const txt = (parent, key, label, ph, area) => { const l = el('label', 'field', label); const i = el(area ? 'textarea' : 'input'); i.dataset.rtxt = key; i.value = rep[key] || ''; if (ph) i.placeholder = ph; l.append(i); parent.append(l); return i; };
+    const signed = async (paths) => { const ps = paths.filter(Boolean); if (!ps.length) return {}; const { data } = await sb.storage.from('survey-photos').createSignedUrls(ps, 3600); return Object.fromEntries((data || []).map((d) => [d.path, d.signedUrl])); };
+    const upload = async (file, tag) => { const blob = await shrink(file, 1600); const path = `${id}/${tag}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.jpg`; const { error } = await sb.storage.from('survey-photos').upload(path, blob, { contentType: 'image/jpeg' }); if (error) throw error; return path; };
+    // 사진 한 장 칸 (얼굴·안경)
+    const slot = (parent, label, get, set, tag) => {
+      const box = el('div', 'slot'); parent.append(box);
+      const draw = async () => {
+        box.replaceChildren(el('b', null, label));
+        const path = get();
+        if (path) {
+          const u = (await signed([path]))[path]; const im = el('img'); im.src = u || ''; im.alt = label; box.append(im);
+          const x = el('button', 'btn', '다시 찍기'); x.type = 'button'; x.onclick = () => { set(null); draw(); queueSave(); }; box.append(x);
+        } else {
+          const lab = el('label', 'btn up'); const inp = el('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.hidden = true;
+          lab.append('사진 찍기·올리기', inp); box.append(lab);
+          inp.onchange = async () => { if (!inp.files[0]) return; lab.firstChild.textContent = '올리는 중…'; try { set(await upload(inp.files[0], tag)); queueSave(); } catch (e) { lab.firstChild.textContent = '실패: ' + e.message; return; } draw(); };
+        }
+      };
+      draw();
+    };
+    // 여러 장 칸 (택·코디)
+    const gallery = (parent, list, tag, label) => {
+      const wrap = el('div', 'shop'); const msg = el('span', 'cap'); parent.append(wrap);
+      const draw = async () => {
+        wrap.replaceChildren();
+        const urls = await signed(list);
+        list.forEach((path, i) => {
+          const fig = el('figure'); const im = el('img'); im.src = urls[path] || ''; im.alt = `${label} ${i + 1}`;
+          const x = el('button', 'btn', '✕'); x.type = 'button'; x.setAttribute('aria-label', '사진 빼기');
+          x.onclick = () => { list.splice(list.indexOf(path), 1); draw(); queueSave(); };
+          fig.append(im, x); wrap.append(fig);
+        });
+        const lab = el('label', 'btn up'); const inp = el('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true; inp.hidden = true;
+        lab.append('+ 사진 추가', inp); wrap.append(lab);
+        inp.onchange = async () => {
+          const files = [...inp.files];
+          for (const [i, file] of files.entries()) { msg.textContent = `올리는 중… (${i}/${files.length})`; try { list.push(await upload(file, tag)); } catch (e) { msg.textContent = '실패: ' + e.message; return; } }
+          msg.textContent = ''; draw(); queueSave();
+        };
+      };
+      draw(); parent.append(msg);
+    };
+
+    // 1. 실측
+    const s1 = step(1, '어깨 · 허리 · 골반 너비 재기', '정면 직선거리(cm). 넣으면 대표님 기준표(O → A → I → V → H)로 바로 계산돼요.');
+    const form1 = el('div', 'form');
+    for (const [k, l] of [['shoulder', '어깨너비'], ['waist', '허리너비'], ['hip', '골반너비']]) { const lab = el('label', 'field', l); const i = el('input'); i.type = 'number'; i.step = '0.5'; i.inputMode = 'decimal'; i.dataset.on = k; i.value = o[k] ?? ''; lab.append(i); form1.append(lab); }
+    const bodyBox = el('div', 'result'); s1.append(form1, bodyBox);
+    // 2. 체형
+    const s2 = step(2, 'A / I / O / H / V 체형 고르기', '실측을 넣으면 계산 결과가 먼저 눌려요. 직접 보고 다르면 바꾸세요.');
+    const bodyRow = chipRow(s2, 'body_type', null, ['A형', 'I형', 'O형', 'H형', 'V형'], false, o.body_type || rep.body, 'col');
+    if (o.body_type || rep.body) bodyRow.dataset.touched = '1';
+    // 3. 골격
+    const s3 = step(3, '스트레이트 / 웨이브 / 내추럴 고르기');
+    if (ai.bone && !o.bone) s3.append(el('p', 'cap', '🔶 AI가 사진으로 미리 고른 값이에요. 다르면 바꾸세요.'));
+    chipRow(s3, 'bone', null, R.BONE, false, o.bone || ai.bone, 'col');
+    // 4. 얼굴 사진
+    const s4 = step(4, '얼굴 사진 찍기 (왼쪽 · 정면 · 오른쪽)');
+    const g4 = el('div', 'slots'); s4.append(g4);
+    for (const [k, l] of [['left', '왼쪽'], ['front', '정면'], ['right', '오른쪽']]) slot(g4, l, () => rep.face[k], (v) => { rep.face[k] = v; }, 'face_' + k);
+    // 5. 이미지
+    const s5 = step(5, '어울리는 이미지 고르기', '여러 개 골라도 돼요.');
+    chipRow(s5, 'image', null, R.IMAGE[0][2], true, rep.image);
+    // 6. 안경
+    const s6 = step(6, '안경 씌워 찍고 어울리는 안경 고르기', '종류마다 사진을 찍고 순위를 누르세요. 사진이 없으면 사전 준비 때 그린 예상도가 리포트에 들어가요.');
+    const g6 = el('div', 'slots'); s6.append(g6);
+    R.GLASSES.forEach(([k, l]) => {
+      const cell = el('div'); g6.append(cell);
+      slot(cell, l, () => rep.glass_photos[k], (v) => { rep.glass_photos[k] = v; }, 'glass_' + k);
+      chipRow(cell, 'g_' + k, null, R.GLASS_RANKS, false, rep.glasses[k]);
+    });
+    // 7. 헤어
+    const s7 = step(7, '헤어 진단 + 추천 헤어스타일');
+    R.HAIR.forEach(([k, l, opts]) => chipRow(s7, k, l, opts, false, rep[k]));
+    txt(s7, 'hair_bangs', '앞머리 기장', '예) 눈~눈썹 사이');
+    txt(s7, 'hair_style', '추천하는 헤어스타일', '예) 세미리프컷');
+    txt(s7, 'hair_request', '헤어샵 요청 멘트', '예) 옆머리 볼륨 살려주세요', true);
+    // 8. 스타일 방향성
+    const s8 = step(8, '입혀 보면서 스타일 방향성 (상의 · 하의 · 아우터 · 컬러)', '여러 개 골라도 돼요.');
+    R.STYLE.forEach(([group, rows]) => { s8.append(el('p', 'sub', group)); rows.forEach(([k, l, opts]) => chipRow(s8, k, l, opts, true, rep[k])); });
+    s8.append(el('p', 'sub', '컬러'));
+    if (ai.color_temp && !o.color_temp) s8.append(el('p', 'cap', '🔶 컬러는 AI가 사진으로 미리 고른 값이에요. 천 대보기 후 다르면 바꾸세요.'));
+    R.COLOR.forEach(([k, l, opts]) => chipRow(s8, k, l, opts, false, o[k] || (o.color_temp ? null : ai[k]), 'col'));
+    { const lab = el('label', 'field', '예외사항 (혼합 골격 비율, 선택지로 안 맞는 점 — 리포트 체형 칸에 같이 나가요)'); const t = el('textarea'); t.dataset.on = 'exception'; t.value = o.exception || ''; t.placeholder = '예) 스트레이트 베이스에 내추럴 30%'; lab.append(t); s8.append(lab); }
+    // 9. 구매한 옷
+    const s9 = step(9, '구매한 옷 — 택 사진 + 택 없는 건 메모');
+    s9.append(el('p', 'sub', '택 사진'));
+    gallery(s9, rep.tag_photos, 'tag', '택 사진');
+    txt(s9, 'tag_memo', '택 사진 없는 옷 메모', '예) 쿠에른 런던 7번 첼시부츠 260 29.8만', true);
+    s9.append(el('p', 'sub', '구매 리스트 (리포트에 나가는 목록)'), el('p', 'cap', '지금은 직접 적어요. 다음 단계에서 AI가 택 사진·메모를 읽어 자동으로 채워 줄 예정이에요. 팁을 적으면 아이템별 TIP으로 나가요.'));
+    const buyBox = el('div'); buyBox.style.cssText = 'display:flex;flex-direction:column;gap:8px'; s9.append(buyBox);
     const addBuy = (r = {}) => {
       const w = el('div', 'buy'); w.dataset.buy = '1';
       const mk = (k, ph, type) => { const i = el('input'); i.dataset.k = k; i.placeholder = ph; i.value = r[k] ?? ''; if (type) i.type = type; return i; };
-      const tip = el('textarea'); tip.dataset.k = 'tip'; tip.placeholder = '스타일링 팁 (예: 구매하신 블랙 와이드 바지와 매치해주세요. 코트는 열어서 입어요.)'; tip.value = r.tip || '';
-      const del = el('button', 'btn', '삭제'); del.type = 'button'; del.onclick = () => w.remove();
-      w.append(mk('brand', '브랜드'), mk('item', '제품명·색'), mk('size', '사이즈'), mk('price', '가격', 'number'), del, tip);
+      const tip = el('textarea'); tip.dataset.k = 'tip'; tip.placeholder = '스타일링 팁 (예: 구매하신 블랙 와이드 바지와 매치해주세요)'; tip.value = r.tip || '';
+      const del = el('button', 'btn', '삭제'); del.type = 'button'; del.onclick = () => { w.remove(); queueSave(); };
+      w.append(mk('brand', '브랜드'), mk('item', '제품명·색'), mk('size', '사이즈'), mk('price', '가격(숫자)', 'number'), del, tip);
       buyBox.append(w);
     };
     (rep.purchases || []).forEach(addBuy); if (!(rep.purchases || []).length) addBuy();
-    const addBtn = el('button', 'btn', '+ 아이템 추가'); addBtn.type = 'button'; addBtn.onclick = () => addBuy(); repBox.append(addBtn);
-    repBox.append(el('h4', null, '동행쇼핑 사진'));
-    const shopBox = el('div', 'shop'); repBox.append(shopBox);
-    rep.shop_photos = rep.shop_photos || [];
-    const drawShop = async () => {
-      shopBox.replaceChildren();
-      if (!rep.shop_photos.length) { shopBox.append(el('span', 'cap', '아직 없어요')); return; }
-      const { data } = await sb.storage.from('survey-photos').createSignedUrls(rep.shop_photos, 3600);
-      rep.shop_photos.forEach((path, i) => {
-        const fig = el('figure'); const im = el('img'); im.src = data?.[i]?.signedUrl || ''; im.alt = '동행쇼핑 사진 ' + (i + 1);
-        const x = el('button', 'btn', '✕'); x.type = 'button'; x.setAttribute('aria-label', '사진 빼기');
-        x.onclick = () => { rep.shop_photos = rep.shop_photos.filter((p2) => p2 !== path); drawShop(); };
-        fig.append(im, x); shopBox.append(fig);
-      });
-    };
-    drawShop();
-    const fileIn = el('input'); fileIn.type = 'file'; fileIn.accept = 'image/*'; fileIn.multiple = true; fileIn.setAttribute('aria-label', '동행쇼핑 사진 올리기');
-    const upMsg = el('span', 'cap');
-    fileIn.onchange = async () => {
-      const files = [...fileIn.files]; upMsg.textContent = `올리는 중… (0/${files.length})`;
-      for (const [i, file] of files.entries()) {
-        const blob = await shrink(file, 1600);
-        const path = `${id}/shop_${Date.now()}_${i}.jpg`;
-        const { error } = await sb.storage.from('survey-photos').upload(path, blob, { contentType: 'image/jpeg' });
-        if (error) { upMsg.textContent = '올리기 실패: ' + error.message; return; }
-        rep.shop_photos.push(path); upMsg.textContent = `올리는 중… (${i + 1}/${files.length})`;
-      }
-      fileIn.value = ''; upMsg.textContent = '올렸어요. "현장 기록 저장"을 눌러야 리포트에 들어가요.'; drawShop();
-    };
-    const upRow = el('div'); upRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap'; upRow.append(fileIn, upMsg); repBox.append(upRow);
-    repBox.append(el('h4', null, '나만의 스타일링 공식 (3줄)'));
-    const fIns = [0, 1, 2].map((i) => txt('formula' + i, `공식 ${i + 1}`, '', true));
-    if (!rep.formula0 && (rep.formulas || []).length) rep.formulas.forEach((t, i) => { if (fIns[i]) fIns[i].value = t; });
-    const autoBtn = el('button', 'btn', '위에서 고른 것으로 공식 자동 작성'); autoBtn.type = 'button'; repBox.append(autoBtn);
+    { const b = el('button', 'btn', '+ 아이템 추가'); b.type = 'button'; b.onclick = () => addBuy(); s9.append(b); }
+    // 10. 코디 사진
+    const s10 = step(10, '구매한 코디 사진 올리기');
+    gallery(s10, rep.shop_photos, 'shop', '코디 사진');
+
+    // 공식 (리포트 마무리)
+    const fBox = f('formulas');
+    const fIns = [0, 1, 2].map((i) => { const t = txt(fBox, 'formula' + i, `공식 ${i + 1}`, '', true); t.value = (rep.formulas || [])[i] || ''; return t; });
+    const autoBtn = el('button', 'btn', '고른 것으로 공식 자동 작성'); autoBtn.type = 'button'; fBox.append(autoBtn);
+    const sel = (attr, k) => [...root.querySelectorAll(`[data-${attr}="${k}"] .chip[aria-pressed="true"]`)].map((c) => c.textContent);
     autoBtn.onclick = () => {
-      const g = (k) => [...repBox.querySelectorAll(`[data-rkey="${k}"] .chip[aria-pressed="true"]`)].map((c) => c.textContent);
-      const gp = (k) => detail.querySelector(`[data-pick="${k}"] .chip[aria-pressed="true"]`)?.textContent;
-      const j = (a) => a.join('·');
+      const g = (k) => sel('rkey', k), j = (a) => a.join('·');
       const top = [j(g('top_neck')), j(g('top_fit'))].filter(Boolean).join(' ');
       const f1 = top ? `${top} 상의에${g('top_fabric').length ? ` ${j(g('top_fabric'))} 소재와` : ''}${g('top_detail').length ? ` ${j(g('top_detail'))} 디자인을` : ''} 활용해주세요.`.replace('소재와 활용', '소재를 활용') : '';
-      const f2 = (g('bottom_fit').length || g('outer_shoulder').length) ? `바지는 ${j(g('bottom_fit')) || '지금 핏'} 핏으로${g('outer_length').length || g('outer_shoulder').length ? `, 아우터는 ${[j(g('outer_length')) && j(g('outer_length')) + ' 기장', j(g('outer_shoulder')) && (j(g('outer_shoulder')) + (/어깨/.test(j(g('outer_shoulder'))) ? '' : ' 어깨선'))].filter(Boolean).join('에 ')} 디자인을 추천합니다.` : ' 입어주세요.'}` : '';
-      const col = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map(gp).filter(Boolean);
+      const outer = [j(g('outer_length')) && j(g('outer_length')) + ' 기장', j(g('outer_shoulder')) && (j(g('outer_shoulder')) + (/어깨/.test(j(g('outer_shoulder'))) ? '' : ' 어깨선'))].filter(Boolean).join('에 ');
+      const f2 = (g('bottom_fit').length || outer) ? `바지는 ${j(g('bottom_fit')) || '지금'} 핏으로${outer ? `, 아우터는 ${outer} 디자인을 추천합니다.` : ' 입어주세요.'}` : '';
+      const col = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map((k) => sel('pick', k)[0]).filter(Boolean);
       const f3 = col.length ? `${col.join(' · ')} 범위의 컬러가 잘 어울려요. 이 톤으로 입어주세요 :)` : '';
       [f1, f2, f3].forEach((t, i) => { if (t && !fIns[i].value.trim()) fIns[i].value = t; });
-    };
-    const collectRep = () => {
-      const out = {};
-      repBox.querySelectorAll('[data-rkey]').forEach((r) => { const v = [...r.querySelectorAll('.chip[aria-pressed="true"]')].map((c) => c.textContent); out[r.dataset.rkey] = r.dataset.multi ? v : (v[0] || null); });
-      out.glasses = {}; R.GLASSES.forEach(([k]) => { out.glasses[k] = out['g_' + k]; delete out['g_' + k]; });
-      repBox.querySelectorAll('[data-rtxt]').forEach((i) => { out[i.dataset.rtxt] = i.value.trim(); });
-      out.formulas = [0, 1, 2].map((i) => out['formula' + i]).filter(Boolean); [0, 1, 2].forEach((i) => delete out['formula' + i]);
-      out.purchases = [...buyBox.querySelectorAll('[data-buy]')].map((w) => { const r = {}; w.querySelectorAll('[data-k]').forEach((i) => { r[i.dataset.k] = i.value.trim(); }); r.price = r.price ? Number(r.price) : null; return r; }).filter((r) => r.brand || r.item);
-      out.shop_photos = rep.shop_photos;
-      return out;
+      queueSave();
     };
 
+    // 체크리스트
     state.checks = (p?.plan?.checklist || ['어깨·허리·골반 실측', '퍼스널컬러 천 대보기', '보유 옷 확인', '실제 쓸 예산 확인']);
     const done = new Set(o.checks || []);
     state.checks.forEach((t, i) => {
       const li = el('li'); const lab = el('label'); const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = done.has(t); cb.dataset.check = t; cb.id = 'chk' + i;
       lab.append(cb, el('span', null, t)); li.append(lab); f('checks').append(li);
     });
-    const bodyBox = f('bodytype');
+    node.querySelector('[data-on="memo"]').value = o.memo || '';
+
     const calc = () => {
-      const [h, w] = hw(s); const v = (k) => parseFloat($('#detail [data-on="' + k + '"]').value);
+      const [h, w] = hw(s); const v = (k) => parseFloat(s1.querySelector(`[data-on="${k}"]`).value);
       const sh = v('shoulder'), wa = v('waist'), hi = v('hip');
       bodyBox.replaceChildren();
       if (!(h > 0 && w > 0)) { bodyBox.append(el('span', 'cap', '설문의 키·몸무게를 읽지 못해 계산할 수 없어요.')); return null; }
-      if (!(sh > 0 && wa > 0 && hi > 0)) { bodyBox.append(el('span', 'cap', `세 너비를 모두 입력하면 계산돼요. (키 ${h} · 몸무게 ${w} · BMI ${(w / Math.pow(h / 100, 2)).toFixed(1)})`)); return null; }
+      if (!(sh > 0 && wa > 0 && hi > 0)) { bodyBox.append(el('span', 'cap', `세 너비를 모두 넣으면 계산돼요. (키 ${h} · 몸무게 ${w} · BMI ${(w / Math.pow(h / 100, 2)).toFixed(1)})`)); return null; }
       const r = classify(h, w, sh, wa, hi); const pct = (x) => (x * 100).toFixed(1) + '%';
       bodyBox.append(el('span', 'cap', '기준표 결과'), el('span', 'type', r.t), el('span', 'cap', `BMI ${r.bmi.toFixed(1)} · 어깨/키 ${pct(r.sh)} · 허리/키 ${pct(r.wh)} · 어깨/골반 ${r.shp.toFixed(2)} · 허리/골반 ${r.whp.toFixed(2)} · 허리/어깨 ${r.wsh.toFixed(2)}`));
+      if (!bodyRow.dataset.touched) bodyRow.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', String(c.textContent === r.t)));
       return r.t;
     };
 
+    // 모으기 + 진행 표시 + 자동 저장
+    const collect = () => {
+      const row = { survey_id: id, updated_at: new Date().toISOString(), checks: [...root.querySelectorAll('[data-check]')].filter((c) => c.checked).map((c) => c.dataset.check) };
+      root.querySelectorAll('[data-on]').forEach((i) => { row[i.dataset.on] = i.value === '' ? null : (i.type === 'number' ? parseFloat(i.value) : i.value); });
+      root.querySelectorAll('[data-pick]').forEach((r) => { row[r.dataset.pick] = r.querySelector('.chip[aria-pressed="true"]')?.textContent || null; });
+      row.color = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map((k) => row[k]).filter(Boolean).join(' · ') || null;
+      const out = { face: rep.face, glass_photos: rep.glass_photos, tag_photos: rep.tag_photos, shop_photos: rep.shop_photos };
+      root.querySelectorAll('[data-rkey]').forEach((r) => { const v = [...r.querySelectorAll('.chip[aria-pressed="true"]')].map((c) => c.textContent); out[r.dataset.rkey] = r.dataset.multi ? v : (v[0] || null); });
+      out.glasses = {}; R.GLASSES.forEach(([k]) => { out.glasses[k] = out['g_' + k]; delete out['g_' + k]; });
+      root.querySelectorAll('[data-rtxt]').forEach((i) => { out[i.dataset.rtxt] = i.value.trim(); });
+      out.formulas = [0, 1, 2].map((i) => out['formula' + i]).filter(Boolean); [0, 1, 2].forEach((i) => delete out['formula' + i]);
+      out.purchases = [...buyBox.querySelectorAll('[data-buy]')].map((w) => { const r = {}; w.querySelectorAll('[data-k]').forEach((i) => { r[i.dataset.k] = i.value.trim(); }); r.price = r.price ? Number(r.price) : null; return r; }).filter((r) => r.brand || r.item);
+      row.style = (out.image || []).join(', ') || null;
+      row.report = out;
+      return row;
+    };
+    const progress = (row) => {
+      const r = row.report, any = (a) => Object.values(a || {}).some(Boolean);
+      const ok = [null, row.shoulder != null && row.waist != null && row.hip != null, !!row.body_type, !!row.bone, ['left', 'front', 'right'].every((k) => r.face[k]),
+        (r.image || []).length > 0, any(r.glasses), R.HAIR.some(([k]) => r[k]) || !!r.hair_style,
+        R.STYLE.some(([, rows]) => rows.some(([k]) => (r[k] || []).length)) && !!row.color_temp, (r.purchases || []).length > 0 || r.tag_photos.length > 0, r.shop_photos.length > 0];
+      let n = 0; for (let i = 1; i <= 10; i++) { steps[i].classList.toggle('done', ok[i]); steps[i].querySelector('.tick').textContent = ok[i] ? '✓' : ''; if (ok[i]) n++; }
+      f2('progress').textContent = `${n} / 10 단계`;
+    };
+    const f2 = (k) => root.querySelector(`[data-f="${k}"]`);
+    let timer = null, saving = Promise.resolve(true);
+    const saveOnsite = async () => {
+      clearTimeout(timer); timer = null;
+      const row = collect(); progress(row);
+      f2('onmsg').textContent = '저장 중…';
+      saving = sb.from('onsite').upsert(row).then(({ error }) => {
+        f2('onmsg').textContent = error ? '⚠ 저장 실패: ' + error.message + ' — 인터넷 연결을 확인하고 "지금 저장"을 눌러 주세요.' : '자동 저장됨 ' + new Date().toLocaleTimeString('ko-KR');
+        if (!error) state.onsite[id] = row; return !error;
+      });
+      return saving;
+    };
+    const queueSave = () => { clearTimeout(timer); f2('onmsg').textContent = '입력 중…'; timer = setTimeout(saveOnsite, 1200); };
+
     const detail = $('#detail'); detail.replaceChildren(node);
-    ['shoulder', 'waist', 'hip'].forEach((k) => $('#detail [data-on="' + k + '"]').addEventListener('input', calc)); calc();
+    window.__nkFlush = () => { if (timer) saveOnsite(); };
+    calc();
+    s1.querySelectorAll('[data-on]').forEach((i) => i.addEventListener('input', calc));
+    root.addEventListener('input', queueSave);
+    root.addEventListener('click', (e) => { if (e.target.closest('.chip') || e.target.matches('[data-check]')) queueSave(); });
+    progress(collect());
+    window.onbeforeunload = () => (timer ? '아직 저장되지 않은 현장 기록이 있어요.' : undefined);
 
     $('#detail [data-act="save-meta"]').onclick = async () => {
       const upd = {}; detail.querySelectorAll('[data-in]').forEach((i) => { upd[i.dataset.in] = i.value || null; });
@@ -481,16 +567,6 @@ details.rep { border-top:1px solid var(--line); padding-top:12px; } details.rep 
       if (error) { $('#detail [data-f="metamsg"]').textContent = '실패: ' + error.message; return; }
       const r = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${cfg.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ survey_id: id }) });
       $('#detail [data-f="metamsg"]').textContent = r.ok ? '요청했어요. 1~3분 뒤 자동으로 바뀌어요.' : '요청 실패 (' + r.status + ')';
-    };
-    const saveOnsite = async () => {
-      const row = { survey_id: id, updated_at: new Date().toISOString(), checks: [...detail.querySelectorAll('[data-check]')].filter((c) => c.checked).map((c) => c.dataset.check), body_type: calc(), report: collectRep() };
-      detail.querySelectorAll('[data-on]').forEach((i) => { row[i.dataset.on] = i.value === '' ? null : (i.type === 'number' ? parseFloat(i.value) : i.value); });
-      detail.querySelectorAll('[data-pick]').forEach((r) => { const c = r.querySelector('.chip[aria-pressed="true"]'); row[r.dataset.pick] = c ? c.textContent : null; });
-      row.color = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map((k) => row[k]).filter(Boolean).join(' · ') || null;
-      const { error } = await sb.from('onsite').upsert(row);
-      $('#detail [data-f="onmsg"]').textContent = error ? '저장 실패: ' + error.message : '저장했어요 ' + new Date().toLocaleTimeString('ko-KR');
-      if (!error) state.onsite[id] = row;
-      return !error;
     };
     $('#detail [data-act="save-onsite"]').onclick = saveOnsite;
     $('#detail [data-act="open-report"]').onclick = async () => {
