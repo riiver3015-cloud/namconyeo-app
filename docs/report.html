@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>남코녀 스타일링 리포트</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500;700&display=swap">
+<style>
+:root { --brown:#7a5a43; --ink:#2b2420; --muted:#7a6e66; --line:#d9cfc4; --hl:#fff27a; --paper:#fffdf9; --bg:#ece8e2; color-scheme: light; }
+* { box-sizing:border-box; }
+[hidden] { display:none !important; }
+body { margin:0; background:var(--bg); color:var(--ink); font-family:"Noto Sans KR", system-ui, sans-serif; font-size:14px; line-height:1.6; }
+.bar { position:sticky; top:0; z-index:5; background:#2b2420; color:#fff; padding:10px 16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.bar button { font:inherit; padding:6px 14px; border-radius:8px; border:0; background:#fff; color:#2b2420; cursor:pointer; }
+.bar .cap { font-size:.82rem; opacity:.85; }
+.page { width:min(210mm, 100%); min-height:297mm; margin:16px auto; background:var(--paper); padding:16mm 14mm; display:flex; flex-direction:column; gap:12px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+@media (max-width:640px) { .page { min-height:auto; margin:0 0 10px; padding:20px 16px; } }
+h1 { font-family:"Noto Serif KR", serif; font-size:2.4rem; margin:0; }
+h2 { font-size:1.7rem; margin:0 0 6px; font-weight:700; } h2 small { font-size:.75rem; color:var(--muted); font-weight:400; margin-left:6px; }
+.hd { background:var(--brown); color:#fff; text-align:center; font-size:.95rem; padding:7px; margin:8px 0 0; }
+table { width:100%; border-collapse:collapse; border:1.5px solid var(--brown); }
+td { border:1px solid var(--line); padding:8px 10px; vertical-align:middle; }
+td.k { width:24%; text-align:center; font-weight:500; }
+.chips span { white-space:nowrap; } .chips span + span::before { content:" / "; color:var(--muted); }
+mark { background:var(--hl); padding:0 3px; font-weight:500; }
+.grid { display:grid; gap:10px; } .g2 { grid-template-columns:repeat(2, minmax(0,1fr)); } .g3 { grid-template-columns:repeat(3, minmax(0,1fr)); } .g4 { grid-template-columns:repeat(4, minmax(0,1fr)); } .g5 { grid-template-columns:repeat(5, minmax(0,1fr)); }
+@media (max-width:640px) { .g4, .g5 { grid-template-columns:repeat(2, minmax(0,1fr)); } .g3 { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+figure { margin:0; } figure img { width:100%; display:block; border-radius:4px; background:#f1ede7; }
+.cover-img img { aspect-ratio:3/4; object-fit:cover; }
+.ph img { aspect-ratio:3/4; object-fit:cover; }
+figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
+.rank { display:inline-block; border:1.5px solid var(--ink); padding:0 6px; font-weight:700; margin-right:6px; font-size:.8rem; }
+.gl figcaption { text-align:left; }
+.bar-c { height:12px; border-radius:3px; margin-top:4px; }
+.cover { justify-content:center; }
+.cover .brand { position:absolute; } .logo { font-family:"Noto Serif KR", serif; letter-spacing:.12em; text-align:right; font-size:1rem; }
+.cover .t { border-left:3px solid var(--brown); padding-left:22px; margin-top:auto; margin-bottom:auto; }
+.cover .sub { color:var(--brown); font-weight:700; font-size:1.6rem; margin-top:6px; }
+.cover .meta { color:var(--muted); margin-top:14px; font-size:.95rem; }
+.formula li { margin:4px 0; }
+.revisit { text-align:center; font-size:1.05rem; line-height:2.1; margin:auto 0; white-space:pre-line; }
+.note { color:var(--muted); font-size:.82rem; }
+.msg { max-width:640px; margin:15vh auto; background:#fff; padding:24px; border-radius:12px; }
+@page { size:A4; margin:0; }
+@media print {
+  body { background:#fff; } .bar { display:none; }
+  .page { margin:0; box-shadow:none; width:210mm; min-height:297mm; page-break-after:always; break-after:page; }
+  .page:last-child { page-break-after:auto; }
+  .noprint { display:none; }
+}
+</style>
+</head>
+<body>
+<div class="bar" id="bar" hidden>
+  <button id="print" type="button">PDF로 저장 (인쇄)</button>
+  <span class="cap">인쇄 창에서 "대상: PDF로 저장"을 고르세요. 사진이 다 뜬 뒤에 누르세요. 고칠 게 있으면 관리자 화면 현장 기록에서 고치고 이 창을 새로고침하세요.</span>
+</div>
+<div id="out"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="nk-report.js"></script>
+<script>
+(async () => {
+  const cfg = window.NK_CONFIG, R = window.NK_REPORT;
+  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  const out = document.getElementById('out');
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const fail = (t) => { const d = el('div', 'msg'); d.append(el('p', null, t)); out.replaceChildren(d); };
+  const id = new URLSearchParams(location.search).get('id');
+  if (!id) return fail('고객이 지정되지 않았어요. 관리자 화면의 "저장하고 고객 리포트 보기"로 열어 주세요.');
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return fail('관리자 로그인이 필요해요. 관리자 화면에서 로그인한 뒤 다시 열어 주세요.');
+  const [sr, pr, orr, st] = await Promise.all([
+    sb.from('surveys').select('*').eq('id', id).maybeSingle(),
+    sb.from('plans').select('plan').eq('survey_id', id).maybeSingle(),
+    sb.from('onsite').select('*').eq('survey_id', id).maybeSingle(),
+    sb.from('stylist_uploads').select('*').eq('survey_id', id).order('created_at'),
+  ]);
+  const s = sr.data; if (!s) return fail('고객 정보를 불러오지 못했어요. (관리자 계정인지 확인해 주세요)');
+  const P = pr.data?.plan || {}, o = orr.data || {}, rep = o.report || {};
+  document.title = `[남코녀] ${s.name}님 스타일링 리포트`;
+
+  // 비공개 사진 → 1시간짜리 주소
+  const sign = async (bucket, paths) => { if (!paths.length) return []; const { data } = await sb.storage.from(bucket).createSignedUrls(paths, 3600); return (data || []).map((d) => d.signedUrl); };
+  const photos = s.photos || {};
+  const figA = P.figures?.analysis || [], figG = P.figures?.glasses || [];
+  const hairAfter = (st.data || []).filter((r) => r.role === 'hair' && r.kind === 'after' && !/\.(mp4|mov|webm)$/i.test(r.path)).map((r) => r.path);
+  const [uBody, uStyle, uFace, uFigA, uFigG, uShop, uLook, uHair] = await Promise.all([
+    sign('survey-photos', photos.body || []), sign('survey-photos', photos.style || []), sign('survey-photos', photos.face || []),
+    sign('survey-photos', figA.map((r) => r.path)), sign('survey-photos', figG.map((r) => r.path)), sign('survey-photos', rep.shop_photos || []),
+    sign('lookbook', (P.lookbook || []).map((r) => r.key + '.jpg')), sign('stylist-uploads', hairAfter),
+  ]);
+
+  const page = () => { const p = el('section', 'page'); out.append(p); return p; };
+  const head = (p, t, small) => { const h = el('h2', null, t); if (small) h.append(el('small', null, small)); p.append(h); };
+  const hd = (p, t) => p.append(el('div', 'hd', t));
+  const img = (url, alt, cls) => { const f = el('figure', cls); const i = el('img'); i.src = url; i.alt = alt; f.append(i); return f; };
+  const chips = (opts, picked) => { const set = new Set([].concat(picked || []).filter(Boolean)); const d = el('div', 'chips'); opts.forEach((v) => { const sp = el('span'); if (set.has(v)) sp.append(el('mark', null, v)); else sp.textContent = v; d.append(sp); }); return d; };
+  const table = (p, rows) => { const t = el('table'); rows.forEach(([k, v]) => { const tr = el('tr'); const td = el('td'); if (v instanceof Node) td.append(v); else td.textContent = v ?? ''; tr.append(el('td', 'k', k), td); t.append(tr); }); p.append(t); return t; };
+  const has = (v) => Array.isArray(v) ? v.length > 0 : !!v;
+  const won = (n) => n == null ? '' : Number(n).toLocaleString('ko-KR') + '원';
+
+  // ---- 표지 ----
+  const d0 = s.consult_date ? s.consult_date.slice(2).replace(/-/g, '.') : '';
+  const c = page(); c.classList.add('cover'); c.append(el('div', 'logo', 'NAM CO NYEO'));
+  const t = el('div', 't'); t.append(el('h1', null, `${s.name} 님`), el('div', 'sub', '맞춤 코디 컨설팅 리포트'), el('div', 'meta', `컨설팅 일자 : ${d0} ${s.consult_time || ''}`), el('div', 'meta', `담당 컨설턴트 : ${R.CONSULTANT}`));
+  c.append(t);
+
+  // ---- 00 사전질문지 ----
+  const p1 = page(); head(p1, '00 사전질문지'); hd(p1, '응답 결과');
+  table(p1, [['나이', s.age ? s.age + '세' : ''], ['직업', s.job], ['거주 지역', s.region], ['키 / 몸무게', s.height_weight], ['사이즈', s.sizes], ['신체특징', (s.body_concerns || []).join(', ')], ['예산', s.budget], ['패션 이해도', s.fashion_level], ['받아본 것', [(s.prior_services || []).join(', '), s.prior_result].filter(Boolean).join(' / ')], ['가지고 있는 신발', s.shoes], ['가지고 있는 바지', s.pants], ['가장 기대하는 것', s.expectation]]);
+  const p2 = page(); head(p2, '00 사전질문지');
+  for (const [label, urls, n] of [['체형 사진', uBody, 'g4'], ['스타일 사진', uStyle, 'g4'], ['셀카 사진', uFace, 'g5']]) {
+    if (!urls.length) continue; hd(p2, label); const g = el('div', 'grid ' + n); urls.slice(0, n === 'g5' ? 5 : 4).forEach((u, i) => g.append(img(u, `${label} ${i + 1}`, 'ph'))); p2.append(g);
+  }
+
+  // ---- 01 체형 진단 ----
+  const p3 = page(); head(p3, '01 체형 진단', '※ 참고용입니다');
+  const bodyT = rep.body || o.body_type;
+  const msr = [o.shoulder, o.waist, o.hip].every((x) => x != null) ? `${o.shoulder} / ${o.waist} / ${o.hip} cm` : '';
+  const boneBox = chips(R.BONE, o.bone);
+  table(p3, [['체형', chips(['A형', 'I형', 'O형', 'H형', 'V형'], bodyT)], ...(msr ? [['어깨 / 허리 / 골반', msr]] : []), ['골격', boneBox]]);
+  if (o.exception) p3.append(el('p', 'note', o.exception));
+  const bodyFigs = figA.map((r, i) => [r, uFigA[i]]).filter(([r]) => /body_/.test(r.path));
+  if (bodyFigs.length) { const g = el('div', 'grid g2'); bodyFigs.forEach(([r, u]) => { const f = img(u, r.caption); f.append(el('figcaption', null, r.caption)); g.append(f); }); p3.append(g); }
+
+  // ---- 02 이미지 분석 ----
+  const p4 = page(); head(p4, '02 이미지 분석');
+  const faceFigs = figA.map((r, i) => [r, uFigA[i]]).filter(([r]) => /face_|head_/.test(r.path));
+  if (faceFigs.length) { hd(p4, '얼굴'); const g = el('div', 'grid g3'); faceFigs.forEach(([r, u]) => { const f = img(u, r.caption); f.append(el('figcaption', null, r.caption)); g.append(f); }); p4.append(g); }
+  else if (uFace.length) { hd(p4, '얼굴'); const g = el('div', 'grid g3'); uFace.slice(0, 3).forEach((u, i) => g.append(img(u, '얼굴 ' + (i + 1), 'ph'))); p4.append(g); }
+  hd(p4, '어울리는 이미지'); const imT = el('table'); const tr = el('tr'); const td = el('td'); td.style.textAlign = 'center'; td.append(chips(R.IMAGE[0][2], rep.image)); tr.append(td); imT.append(tr); p4.append(imT);
+  if (uLook.length) { const g = el('div', 'grid g3'); uLook.forEach((u, i) => g.append(img(u, '추천 코디 ' + (i + 1), 'ph'))); p4.append(g); }
+
+  // ---- 03 스타일 방향성 ----
+  const gl = rep.glasses || {};
+  const glList = R.GLASSES.map(([k, l]) => { const i = figG.findIndex((r) => r.path.includes('glasses_' + k)); return { k, l, rank: gl[k], url: i >= 0 ? uFigG[i] : null }; }).filter((x) => x.rank || x.url);
+  const p5 = page(); head(p5, '03 스타일 방향성');
+  if (glList.length) {
+    const ord = (r) => { const i = R.GLASS_RANKS.indexOf(r); return i < 0 ? 9 : i; };
+    glList.sort((a, b) => ord(a.rank) - ord(b.rank));
+    const g = el('div', 'grid g2 gl');
+    glList.forEach((x) => { const f = x.url ? img(x.url, x.l) : el('figure'); const cap = el('figcaption'); if (x.rank) cap.append(el('span', 'rank', x.rank)); cap.append(x.l); f.prepend(cap); g.append(f); });
+    p5.append(g);
+  }
+  const p6 = page(); head(p6, '03 스타일 방향성');
+  R.STYLE.forEach(([group, rows]) => { hd(p6, group); table(p6, rows.map(([k, l, opts]) => [l, chips(opts, rep[k])])); });
+  hd(p6, '컬러');
+  const ct = el('table'); R.COLOR.forEach(([k, l, opts, grad]) => { const tr2 = el('tr'); const td2 = el('td'); td2.append(chips(opts, o[k])); const b = el('div', 'bar-c'); b.style.background = grad; td2.append(b); tr2.append(el('td', 'k', l), td2); ct.append(tr2); }); p6.append(ct);
+
+  // ---- 04 헤어스타일 ----
+  const p7 = page(); head(p7, '04 헤어스타일');
+  hd(p7, '헤어 진단'); table(p7, R.HAIR.map(([k, l, opts]) => [l, chips(opts, rep[k])]));
+  hd(p7, '추천하는 헤어스타일'); table(p7, [['앞머리 기장', rep.hair_bangs], ['추천하는 헤어스타일', rep.hair_style], ['헤어샵 요청 멘트', rep.hair_request]]);
+  if (uHair.length) { const g = el('div', 'grid g2'); uHair.slice(0, 2).forEach((u, i) => g.append(img(u, '헤어 시술 후 ' + (i + 1), 'ph'))); p7.append(g); }
+
+  // ---- 05 동행쇼핑 ----
+  const p8 = page(); head(p8, '05 동행쇼핑');
+  if (uShop.length) { const g = el('div', 'grid g3'); uShop.slice(0, 6).forEach((u, i) => g.append(img(u, '동행쇼핑 ' + (i + 1), 'ph'))); p8.append(g); }
+  const buys = rep.purchases || [];
+  if (buys.length) {
+    hd(p8, '구매 리스트'); const by = {}; buys.forEach((b) => { (by[b.brand || '기타'] = by[b.brand || '기타'] || []).push(b); });
+    const t3 = el('table'); const td3 = el('td'); Object.entries(by).forEach(([brand, items]) => td3.append(el('div', null, `${brand} : ${items.map((b) => `${b.item}${b.size ? `(${b.size})` : ''}${b.price ? ' ' + won(b.price) : ''}`).join(', ')}`)));
+    const total = buys.reduce((a, b) => a + (b.price || 0), 0); if (total) td3.append(el('div', 'note', `총 ${buys.length}개 · ${won(total)}`));
+    const tr3 = el('tr'); tr3.append(td3); t3.append(tr3); p8.append(t3);
+  }
+  if (has(rep.formulas)) { hd(p8, '나만의 스타일링 공식'); const t4 = el('table'); const td4 = el('td'); const ol = el('ol', 'formula'); rep.formulas.forEach((x) => ol.append(el('li', null, x))); td4.append(ol); const tr4 = el('tr'); tr4.append(td4); t4.append(tr4); p8.append(t4); }
+  const tips = buys.filter((b) => b.tip);
+  if (tips.length) { hd(p8, '아이템별 스타일링 TIP'); table(p8, tips.map((b) => [`${b.brand}\n${b.item}`, b.tip])).querySelectorAll('td.k').forEach((x) => { x.style.whiteSpace = 'pre-line'; }); }
+  if (!buys.length && !uShop.length) p8.append(el('p', 'note noprint', '구매 리스트와 동행쇼핑 사진은 관리자 화면 현장 기록에서 입력하면 여기에 나와요.'));
+
+  // ---- 06 재방문 이벤트 ----
+  const p9 = page(); head(p9, '06 재방문 이벤트'); p9.append(el('div', 'revisit', R.REVISIT.join('\n\n')));
+
+  document.getElementById('bar').hidden = false;
+  document.getElementById('print').onclick = () => window.print();
+})();
+</script>
+</body>
+</html>
