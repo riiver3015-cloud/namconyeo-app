@@ -375,7 +375,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     if (!p || p.status !== 'done' || !p.plan) {
       const msg = !p ? '아직 계획서 작업이 없어요. "AI 계획서 다시 만들기"를 눌러 주세요.' : p.status === 'error' ? 'AI 작성 중 오류가 났어요: ' + (p.error || '') : 'AI가 계획서를 쓰고 있어요. 1~3분 뒤 자동으로 나타나요.';
       planBox.append(Object.assign(el('div', 'card'), { textContent: msg }));
-    } else renderPlan(planBox, p.plan, p.model);
+    } else renderPlan(planBox, p.plan, p.model, id, s);
 
     // ===== 현장 기록: 대표님 컨설팅 순서 10단계 =====
     const R = window.NK_REPORT;
@@ -788,7 +788,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     }
   }
 
-  function renderPlan(box, P, model) {
+  function renderPlan(box, P, model, id, s) {
     const card = (title) => { const c = el('section', 'card'); c.append(el('h3', null, title)); box.append(c); return c; };
     const sum = card('한 줄 요약'); sum.append(el('p', null, P.summary), el('p', 'cap', `AI 초안 (${model || ''}) · 📏 대표님 기준 · 🔶 사진 추정 · ❓ 현장 확인`));
     const an = card('분석'); const t1 = el('table'); (P.analysis || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.item), el('td', null, r.judgment)); t1.append(tr); }); an.append(Object.assign(el('div', 'wrapx'), {}).appendChild(t1).parentNode);
@@ -816,7 +816,53 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const st = card('스타일 방향 (입혀볼 순서)'); const sg = el('div', 'styles'); (P.styles || []).forEach((r, i) => { const d = el('div', 'style' + (i === 0 ? ' first' : '')); d.append(el('span', 'cap', r.rank), el('b', null, r.direction), el('span', 'cap', r.reason)); sg.append(d); }); st.append(sg, el('h3', null, '코디 원칙'));
     const ul = el('ul'); (P.principles || []).forEach((t) => ul.append(el('li', null, t))); st.append(ul);
     const sh = card('쇼핑 리스트'); const t3 = el('table'); t3.innerHTML = '<thead><tr><th>우선</th><th>아이템</th><th>예산</th><th>후보 브랜드</th><th>근거</th></tr></thead>'; const tb3 = el('tbody'); (P.shopping || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.priority), el('td', null, r.item), el('td', null, r.budget), el('td', null, r.brands), el('td', 'cap', r.reason)); tb3.append(tr); }); t3.append(tb3); const w3 = el('div', 'wrapx'); w3.append(t3); sh.append(w3, el('h3', null, '완성 코디'));
-    const ol = el('ol'); (P.outfits || []).forEach((t) => ol.append(el('li', null, t))); sh.append(ol);
+    // 완성 코디마다 "입혀보기" (AI 예상 착장 사진)
+    const tryCard = card('예상 착장 사진 (AI가 만든 참고용 — 실제와 다를 수 있어요)');
+    const tryCtl = el('div'); tryCtl.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+    const bodies = s?.photos?.body || [];
+    const baseSel = el('select'); baseSel.style.width = 'auto'; baseSel.setAttribute('aria-label', '기준 사진');
+    bodies.forEach((path, i) => { const op = el('option', null, `체형 전신 사진 ${i + 1}`); op.value = path; baseSel.append(op); });
+    const freeIn = el('input'); freeIn.placeholder = '직접 코디 적기 (예: 네이비 니트 + 베이지 와이드 슬랙스 + 흰 스니커즈)'; freeIn.style.flex = '1 1 260px';
+    const freeBtn = el('button', 'btn', '이 코디 입혀보기'); freeBtn.type = 'button';
+    const tryMsg = el('p', 'cap', bodies.length ? '버튼 하나에 1장씩 만들어요. 1~2분 걸리고, 1장마다 AI 사용료(약 50~200원)가 들어요.' : '설문에 전신사진이 없어서 만들 수 없어요.');
+    tryCtl.append(el('span', 'cap', '기준 사진'), baseSel, freeIn, freeBtn);
+    const tryGrid = el('div', 'looks figs');
+    tryCard.append(tryCtl, tryMsg, tryGrid);
+    const drawTry = () => {
+      const list = P.tryon || []; tryGrid.replaceChildren();
+      if (!list.length) { tryGrid.append(el('p', 'cap', '아직 만든 사진이 없어요.')); return; }
+      sb.storage.from('survey-photos').createSignedUrls(list.map((r) => r.path), 3600).then(({ data }) => {
+        list.slice().reverse().forEach((r) => {
+          const url = data?.find((d) => d.path === r.path)?.signedUrl;
+          const fig = el('figure', 'look'); if (url) { const a = el('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; const im = el('img'); im.src = url; im.alt = r.outfit; im.loading = 'lazy'; a.append(im); fig.append(a); }
+          fig.append(el('figcaption', null, r.outfit)); tryGrid.append(fig);
+        });
+      });
+    };
+    drawTry();
+    const clean = (t) => t.replace(/^\[[^\]]*\]\s*/, '').replace(/❓|\(사진상\)/g, '').replace(/(신규|보유)\s+/g, '').replace(/\s+/g, ' ').trim();
+    const runTry = async (outfit, btn) => {
+      if (!bodies.length) return;
+      btn.disabled = true; const old = btn.textContent; btn.textContent = '만드는 중… (1~2분)'; tryMsg.textContent = `"${outfit}" 사진을 만드는 중이에요.`;
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const r = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ survey_id: id, mode: 'tryon', outfit, photo: baseSel.value }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.path) throw new Error(j.error || ('응답 오류 ' + r.status));
+        P.tryon = [...(P.tryon || []), { path: j.path, outfit }]; drawTry();
+        tryMsg.textContent = '만들었어요. 얼굴·체형이 달라 보이면 고객에게 쓰지 마세요.';
+      } catch (e) { tryMsg.textContent = '⚠ ' + e.message; }
+      btn.disabled = false; btn.textContent = old;
+    };
+    freeBtn.onclick = () => { const t = freeIn.value.trim(); if (t) runTry(t, freeBtn); else freeIn.focus(); };
+    const ol = el('ol');
+    (P.outfits || []).forEach((t) => {
+      const li = el('li', null, t + ' ');
+      if (bodies.length) { const b = el('button', 'btn', '✨ 입혀보기'); b.type = 'button'; b.style.cssText = 'margin-left:6px;padding:2px 10px'; b.onclick = () => runTry(clean(t), b); li.append(b); }
+      ol.append(li);
+    });
+    sh.append(ol);
+    box.append(tryCard);
     if ((P.lookbook || []).length) {
       const lb = card('추천 코디 사진 (남코녀 코디 모음에서 AI가 고름)'); const grid = el('div', 'looks'); lb.append(grid);
       const keys = P.lookbook.map((r) => r.key);
