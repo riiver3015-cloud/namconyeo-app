@@ -54,7 +54,7 @@ const planSchema = (lookKeys: string[]) => obj({
     color_value: { type: "string", enum: ["고명도", "중명도", "저명도"] },
     color_clarity: { type: "string", enum: ["청도", "탁도"] },
     color_temp: { type: "string", enum: ["웜", "쿨", "뉴트럴"] },
-    style: { type: "string", enum: ["캐쥬얼", "댄디", "포멀", "스트리트", "아메카지", "시티보이", "락시크"] },
+    style: { type: "string", enum: ["캐쥬얼", "댄디", "포멀", "스트리트", "아메카지"] },
     reason: str,
   }),
   // 남코녀 코디 사진 모음(lookbook)에서 고른 코디 3개
