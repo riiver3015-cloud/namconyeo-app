@@ -85,6 +85,7 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
 .media video { height:220px; max-width:100%; }
 .linkbox { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .linkbox input { flex:1 1 260px; min-width:0; font-size:.85rem; }
+details.fold > summary { cursor:pointer; list-style:none; display:flex; align-items:baseline; gap:8px; } details.fold > summary::-webkit-details-marker { display:none; } details.fold > summary h3 { margin:0; } details.fold > summary h3::before { content:"▸ "; } details.fold[open] > summary h3::before { content:"▾ "; } details.fold[open] > summary .cap { display:none; } details.fold[open] > summary { margin-bottom:12px; }
 a.home { color:inherit; text-decoration:none; } a.home:hover { text-decoration:underline; text-underline-offset:4px; }
 .layout.collapsed { grid-template-columns:minmax(0,1fr); } .layout.collapsed > nav { display:none; }
 .listbar { display:flex; gap:8px; align-items:center; }
@@ -789,9 +790,9 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
   }
 
   function renderPlan(box, P, model, id, s) {
-    const card = (title) => { const c = el('section', 'card'); c.append(el('h3', null, title)); box.append(c); return c; };
+    const card = (title, fold) => { const c = el('section', 'card'); box.append(c); if (!fold) { c.append(el('h3', null, title)); return c; } const d = el('details', 'fold'); const sm = el('summary'); sm.append(el('h3', null, title), el('span', 'cap', ' 눌러서 펼치기')); d.append(sm); c.append(d); return d; };
     const sum = card('한 줄 요약'); sum.append(el('p', null, P.summary), el('p', 'cap', `AI 초안 (${model || ''}) · 📏 대표님 기준 · 🔶 사진 추정 · ❓ 현장 확인`));
-    const an = card('분석'); const t1 = el('table'); (P.analysis || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.item), el('td', null, r.judgment)); t1.append(tr); }); an.append(Object.assign(el('div', 'wrapx'), {}).appendChild(t1).parentNode);
+    const an = card('분석', true); const t1 = el('table'); (P.analysis || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.item), el('td', null, r.judgment)); t1.append(tr); }); an.append(Object.assign(el('div', 'wrapx'), {}).appendChild(t1).parentNode);
     // 사진 위 선·도형 (대표님용 준비 자료, survey-photos 비공개 저장소)
     const figs = (list, title) => {
       if (!(list || []).length) return;
@@ -810,14 +811,12 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const g = el('div', 'grid2'); box.append(g);
     const hair = el('section', 'card'); hair.append(el('h3', null, '헤어'), el('p', null, P.hair?.recommend), el('p', 'cap', '피할 것: ' + (P.hair?.avoid || '')), el('p', 'cap', '헤어 디자이너 전달문'), el('p', 'quote', P.hair?.designer_note));
     const copy = el('button', 'btn', '전달문 복사'); copy.onclick = () => navigator.clipboard?.writeText(P.hair?.designer_note || '').then(() => { copy.textContent = '복사했어요'; }); hair.append(copy);
-    const col = el('section', 'card'); col.append(el('h3', null, '퍼스널컬러 후보 (현장 천 대보기로 확정)'));
-    const t2 = el('table'); t2.innerHTML = '<thead><tr><th>후보</th><th>근거</th><th>추천 색</th></tr></thead>'; const tb2 = el('tbody'); (P.colors || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.candidate), el('td', null, r.reason), el('td', null, r.colors)); tb2.append(tr); }); t2.append(tb2); col.append(t2);
-    g.append(hair, col);
-    const st = card('스타일 방향 (입혀볼 순서)'); const sg = el('div', 'styles'); (P.styles || []).forEach((r, i) => { const d = el('div', 'style' + (i === 0 ? ' first' : '')); d.append(el('span', 'cap', r.rank), el('b', null, r.direction), el('span', 'cap', r.reason)); sg.append(d); }); st.append(sg, el('h3', null, '코디 원칙'));
+    g.append(hair);
+    const st = card('스타일 방향 (입혀볼 순서)', true); const sg = el('div', 'styles'); (P.styles || []).forEach((r, i) => { const d = el('div', 'style' + (i === 0 ? ' first' : '')); d.append(el('span', 'cap', r.rank), el('b', null, r.direction), el('span', 'cap', r.reason)); sg.append(d); }); st.append(sg, el('h3', null, '코디 원칙'));
     const ul = el('ul'); (P.principles || []).forEach((t) => ul.append(el('li', null, t))); st.append(ul);
-    const sh = card('쇼핑 리스트'); const t3 = el('table'); t3.innerHTML = '<thead><tr><th>우선</th><th>아이템</th><th>예산</th><th>후보 브랜드</th><th>근거</th></tr></thead>'; const tb3 = el('tbody'); (P.shopping || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.priority), el('td', null, r.item), el('td', null, r.budget), el('td', null, r.brands), el('td', 'cap', r.reason)); tb3.append(tr); }); t3.append(tb3); const w3 = el('div', 'wrapx'); w3.append(t3); sh.append(w3, el('h3', null, '완성 코디'));
+    const sh = card('쇼핑 리스트', true); const t3 = el('table'); t3.innerHTML = '<thead><tr><th>우선</th><th>아이템</th><th>예산</th><th>후보 브랜드</th><th>근거</th></tr></thead>'; const tb3 = el('tbody'); (P.shopping || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.priority), el('td', null, r.item), el('td', null, r.budget), el('td', null, r.brands), el('td', 'cap', r.reason)); tb3.append(tr); }); t3.append(tb3); const w3 = el('div', 'wrapx'); w3.append(t3); sh.append(w3);
     // 완성 코디마다 "입혀보기" (AI 예상 착장 사진)
-    const tryCard = card('예상 착장 사진 (AI가 만든 참고용 — 실제와 다를 수 있어요)');
+    const tryCard = card('완성 코디 · 예상 착장 사진');
     const tryCtl = el('div'); tryCtl.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
     const bodies = s?.photos?.body || [];
     const baseSel = el('select'); baseSel.style.width = 'auto'; baseSel.setAttribute('aria-label', '기준 사진');
@@ -861,7 +860,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       if (bodies.length) { const b = el('button', 'btn', '✨ 입혀보기'); b.type = 'button'; b.style.cssText = 'margin-left:6px;padding:2px 10px'; b.onclick = () => runTry(clean(t), b); li.append(b); }
       ol.append(li);
     });
-    sh.append(ol);
+    tryCard.insertBefore(ol, tryCtl); tryCard.insertBefore(el('p', 'cap', '코디 옆 ✨ 입혀보기를 누르면 아래에 예상 착장 사진이 만들어져요. (AI가 만든 참고용 — 실제와 다를 수 있어요)'), tryCtl);
     box.append(tryCard);
     if ((P.lookbook || []).length) {
       const lb = card('추천 코디 사진 (남코녀 코디 모음에서 AI가 고름)'); const grid = el('div', 'looks'); lb.append(grid);
