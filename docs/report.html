@@ -88,6 +88,11 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
   const photos = s.photos || {};
   const figA = P.figures?.analysis || [], figG = P.figures?.glasses || [];
   const hairAfter = (st.data || []).filter((r) => r.role === 'hair' && r.kind === 'after' && !/\.(mp4|mov|webm)$/i.test(r.path)).map((r) => r.path);
+  // 현장에서 찍은 얼굴 3장·안경 사진 (있으면 사전 준비 그림보다 우선)
+  const faceKeys = [['left', '왼쪽 얼굴'], ['front', '정면 얼굴'], ['right', '오른쪽 얼굴']].filter(([k]) => rep.face?.[k]);
+  const glassKeys = Object.entries(rep.glass_photos || {}).filter(([, v]) => v);
+  const [uOnFace, uOnGlass] = await Promise.all([sign('survey-photos', faceKeys.map(([k]) => rep.face[k])), sign('survey-photos', glassKeys.map(([, v]) => v))]);
+  const onGlass = Object.fromEntries(glassKeys.map(([k], i) => [k, uOnGlass[i]]));
   const [uBody, uStyle, uFace, uFigA, uFigG, uShop, uLook, uHair] = await Promise.all([
     sign('survey-photos', photos.body || []), sign('survey-photos', photos.style || []), sign('survey-photos', photos.face || []),
     sign('survey-photos', figA.map((r) => r.path)), sign('survey-photos', figG.map((r) => r.path)), sign('survey-photos', rep.shop_photos || []),
@@ -130,14 +135,15 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
   // ---- 02 이미지 분석 ----
   const p4 = page(); head(p4, '02 이미지 분석');
   const faceFigs = figA.map((r, i) => [r, uFigA[i]]).filter(([r]) => /face_|head_/.test(r.path));
-  if (faceFigs.length) { hd(p4, '얼굴'); const g = el('div', 'grid g3'); faceFigs.forEach(([r, u]) => { const f = img(u, r.caption); f.append(el('figcaption', null, r.caption)); g.append(f); }); p4.append(g); }
+  if (faceKeys.length) { const g = el('div', 'grid g3'); faceKeys.forEach(([, l], i) => { const f = el('figure'); f.append(el('div', 'hd', l)); const im = img(uOnFace[i], l, 'ph'); f.append(im); g.append(f); }); p4.append(g); }
+  else if (faceFigs.length) { hd(p4, '얼굴'); const g = el('div', 'grid g3'); faceFigs.forEach(([r, u]) => { const f = img(u, r.caption); f.append(el('figcaption', null, r.caption)); g.append(f); }); p4.append(g); }
   else if (uFace.length) { hd(p4, '얼굴'); const g = el('div', 'grid g3'); uFace.slice(0, 3).forEach((u, i) => g.append(img(u, '얼굴 ' + (i + 1), 'ph'))); p4.append(g); }
   hd(p4, '어울리는 이미지'); const imT = el('table'); const tr = el('tr'); const td = el('td'); td.style.textAlign = 'center'; td.append(chips(R.IMAGE[0][2], rep.image)); tr.append(td); imT.append(tr); p4.append(imT);
   if (uLook.length) { const g = el('div', 'grid g3'); uLook.forEach((u, i) => g.append(img(u, '추천 코디 ' + (i + 1), 'ph'))); p4.append(g); }
 
   // ---- 03 스타일 방향성 ----
   const gl = rep.glasses || {};
-  const glList = R.GLASSES.map(([k, l]) => { const i = figG.findIndex((r) => r.path.includes('glasses_' + k)); return { k, l, rank: gl[k], url: i >= 0 ? uFigG[i] : null }; }).filter((x) => x.rank || x.url);
+  const glList = R.GLASSES.map(([k, l]) => { const i = figG.findIndex((r) => r.path.includes('glasses_' + k)); return { k, l, rank: gl[k], url: onGlass[k] || (i >= 0 ? uFigG[i] : null) }; }).filter((x) => x.rank || x.url);
   const glPhotos = glList.some((x) => x.url);
   // 안경 예상도 사진이 있을 때만 한 페이지를 따로 씀 (없으면 아래 스타일 표에 한 줄로)
   const p5 = glPhotos ? page() : null; if (p5) head(p5, '03 스타일 방향성');
