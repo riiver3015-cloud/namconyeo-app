@@ -69,6 +69,7 @@ ul, ol { margin:0; padding-left:1.2em; }
 .step.done .num { background:var(--ok); } .step .tick { margin-left:auto; color:var(--ok); font-weight:700; }
 .step .sub { font-size:.8rem; color:var(--muted); margin:4px 0 -4px; }
 .slots { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+.aistep { border-style:dashed; } .ainote { color:var(--warn); }
 .slot { display:flex; flex-direction:column; gap:6px; align-items:flex-start; } .slot b { font-size:.82rem; font-weight:500; color:var(--muted); }
 .slot img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:8px; display:block; background:var(--bg); }
 label.btn.up { display:inline-flex; align-items:center; justify-content:center; min-height:44px; cursor:pointer; font-size:.88rem; padding:6px 14px; border-radius:8px; border:1px dashed var(--muted); color:var(--fg); }
@@ -425,6 +426,13 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
     const s4 = step(4, '얼굴 사진 찍기 (왼쪽 · 정면 · 오른쪽)');
     const g4 = el('div', 'slots'); s4.append(g4);
     for (const [k, l] of [['left', '왼쪽'], ['front', '정면'], ['right', '오른쪽']]) slot(g4, l, () => rep.face[k], (v) => { rep.face[k] = v; }, 'face_' + k);
+    // AI 초안 (1~4단계 뒤에 누름)
+    const aiLi = el('li', 'step aistep'); stepsBox.append(aiLi);
+    aiLi.append(el('h4', null, '✨ AI 초안 채우기 — 5~8단계'), el('p', 'cap', '1~4단계(실측·체형·골격·얼굴 사진)까지 하고 누르면, AI가 5~8단계에서 비어 있는 칸만 미리 골라 둬요. 이미 고른 칸은 그대로예요. 30초~1분 걸리고 누를 때마다 AI 사용료가 조금 들어요.'));
+    const aiRow = el('div'); aiRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+    const aiBtn = el('button', 'btn primary', 'AI 초안 채우기'); aiBtn.type = 'button'; const aiMsg = el('span', 'cap');
+    aiRow.append(aiBtn, aiMsg); aiLi.append(aiRow);
+    rep.ai_notes = rep.ai_notes || {};
     // 5. 이미지
     const s5 = step(5, '어울리는 이미지 고르기', '여러 개 골라도 돼요.');
     chipRow(s5, 'image', null, R.IMAGE[0][2], true, rep.image);
@@ -469,6 +477,44 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
     // 10. 코디 사진
     const s10 = step(10, '구매한 코디 사진 올리기');
     gallery(s10, rep.shop_photos, 'shop', '코디 사진');
+
+    // AI 초안 적용: 비어 있는 칸만 채움
+    const showNotes = () => {
+      for (const n of [5, 6, 7, 8]) {
+        let e = steps[n].querySelector('.ainote'); const t = rep.ai_notes[n];
+        if (!t) { if (e) e.remove(); continue; }
+        if (!e) { e = el('p', 'cap ainote'); steps[n].querySelector('h4').after(e); }
+        e.textContent = '🔶 AI 초안: ' + t;
+      }
+    };
+    showNotes();
+    aiBtn.onclick = async () => {
+      aiBtn.disabled = true; aiMsg.textContent = '저장하고 AI에게 묻는 중… (30초~1분)';
+      try {
+        await saveOnsite();
+        const { data: { session } } = await sb.auth.getSession();
+        const r = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ survey_id: id, mode: 'onsite_draft' }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.draft) throw new Error(j.error || ('응답 오류 ' + r.status));
+        const d = j.draft; let n = 0;
+        const fill = (key, vals) => {
+          const row = root.querySelector(`[data-rkey="${key}"]`);
+          if (!row || row.querySelector('.chip[aria-pressed="true"]')) return;
+          [].concat(vals || []).forEach((v) => { const c = [...row.querySelectorAll('.chip')].find((x) => x.textContent === v); if (c) { c.setAttribute('aria-pressed', 'true'); n++; } });
+          if (!row.dataset.multi) { const on = row.querySelectorAll('.chip[aria-pressed="true"]'); on.forEach((c, i) => { if (i) c.setAttribute('aria-pressed', 'false'); }); }
+        };
+        fill('image', d.image);
+        R.GLASSES.forEach(([k]) => fill('g_' + k, d.glasses?.[k]));
+        fill('hair_forehead', d.hair_forehead);
+        for (const k of ['hair_bangs', 'hair_style', 'hair_request']) { const i = root.querySelector(`[data-rtxt="${k}"]`); if (i && !i.value.trim() && d[k]) { i.value = d[k]; n++; } }
+        for (const k of ['top_neck', 'top_fit', 'top_fabric', 'top_detail', 'bottom_width', 'bottom_shape', 'outer_length', 'outer_shoulder', 'outer_fabric']) fill(k, d[k]);
+        rep.ai_notes = { 5: d.image_reason, 6: d.glasses_reason, 7: d.hair_reason, 8: d.style_reason };
+        showNotes();
+        aiMsg.textContent = n ? `AI가 ${n}칸을 채웠어요. 틀린 것만 눌러서 고치세요.` : '비어 있는 칸이 없어서 바꾼 게 없어요. (이유 메모만 붙였어요)';
+        saveOnsite();
+      } catch (e) { aiMsg.textContent = '⚠ ' + e.message; }
+      aiBtn.disabled = false;
+    };
 
     // 공식 (리포트 마무리)
     const fBox = f('formulas');
@@ -516,7 +562,7 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
       root.querySelectorAll('[data-on]').forEach((i) => { row[i.dataset.on] = i.value === '' ? null : (i.type === 'number' ? parseFloat(i.value) : i.value); });
       root.querySelectorAll('[data-pick]').forEach((r) => { row[r.dataset.pick] = r.querySelector('.chip[aria-pressed="true"]')?.textContent || null; });
       row.color = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map((k) => row[k]).filter(Boolean).join(' · ') || null;
-      const out = { face: rep.face, glass_photos: rep.glass_photos, tag_photos: rep.tag_photos, shop_photos: rep.shop_photos };
+      const out = { face: rep.face, glass_photos: rep.glass_photos, tag_photos: rep.tag_photos, shop_photos: rep.shop_photos, ai_notes: rep.ai_notes };
       root.querySelectorAll('[data-rkey]').forEach((r) => { const v = [...r.querySelectorAll('.chip[aria-pressed="true"]')].map((c) => c.textContent); out[r.dataset.rkey] = r.dataset.multi ? v : (v[0] || null); });
       out.glasses = {}; R.GLASSES.forEach(([k]) => { out.glasses[k] = out['g_' + k]; delete out['g_' + k]; });
       root.querySelectorAll('[data-rtxt]').forEach((i) => { out[i.dataset.rtxt] = i.value.trim(); });
