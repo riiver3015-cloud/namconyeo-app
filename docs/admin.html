@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>남코녀 컨설팅 준비판</title>
+<title>남코녀 컨설팅 대시보드</title>
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500&display=swap">
@@ -85,12 +85,18 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
 .media video { height:220px; max-width:100%; }
 .linkbox { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .linkbox input { flex:1 1 260px; min-width:0; font-size:.85rem; }
+a.home { color:inherit; text-decoration:none; } a.home:hover { text-decoration:underline; text-underline-offset:4px; }
+.layout.collapsed { grid-template-columns:minmax(0,1fr); } .layout.collapsed > nav { display:none; }
+.listbar { display:flex; gap:8px; align-items:center; }
+dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.edit dd textarea { min-height:60px; }
+.media .tag { font-size:.72rem; color:var(--muted); display:block; padding:2px 6px; }
+.media figure { margin:0; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="top">
-    <div><h1>남코녀 컨설팅 준비판</h1><p class="cap">설문이 들어오면 AI 계획서가 자동으로 만들어지고, 이 화면에 바로 나타나요.</p></div>
+    <div><h1><a href="admin.html" id="home" class="home" title="처음 화면으로">남코녀 컨설팅 대시보드</a></h1><p class="cap">설문이 들어오면 AI 계획서가 자동으로 만들어지고, 이 화면에 바로 나타나요.</p></div>
     <div id="who" class="cap"></div>
   </div>
 
@@ -127,6 +133,7 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
     <p class="cap" id="pwmsg"></p>
   </section>
 
+  <div class="listbar" id="listbar" hidden><button class="btn" type="button" id="toggleList" aria-controls="app" aria-expanded="true">◀ 고객 목록 숨기기</button></div>
   <div id="app" class="layout" hidden>
     <nav class="card" aria-label="고객 목록">
       <div class="top"><h2 style="margin:0">고객</h2><select id="filter" style="width:auto"><option value="upcoming">다가오는 컨설팅</option><option value="new">일정 미정</option><option value="all">전체</option></select></div>
@@ -149,9 +156,9 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" data-act="save-meta">일정 저장</button><button class="btn" data-act="reanalyze">AI 계획서 다시 만들기</button><span class="cap" data-f="metamsg"></span></div>
   </div>
-  <div class="card"><h3>사전설문</h3><dl class="facts" data-f="facts"></dl></div>
+  <div class="card"><div class="top"><h3 style="margin:0">사전설문</h3><div style="display:flex;gap:8px;align-items:center"><span class="cap" data-f="factsmsg"></span><button class="btn" type="button" data-act="edit-facts">답변 수정</button></div></div><dl class="facts" data-f="facts"></dl></div>
   <div class="card"><h3>설문 사진</h3><div class="photos" data-f="photos"></div></div>
-  <div class="card">
+  <div class="card" data-f="hmcard">
     <h3 style="margin:0">헤어·메이크업 결과</h3>
     <details><summary class="cap" style="cursor:pointer">선생님 고정 링크 보기</summary><div data-f="slink" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div></details>
     <p class="cap">선생님 목록에는 서비스에 '헤메'가 들어 있고, 일정이 최근 30일~앞으로 7일인 고객만 보여요.</p>
@@ -226,10 +233,28 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
     $('#who').replaceChildren(el('span', null, session.user.email + ' · '), Object.assign(el('button', 'btn', '비밀번호 설정'), { onclick: () => { $('#pwset-email').value = session.user.email; $('#pwset').hidden = false; $('#newpw').focus(); } }), el('span', null, ' '), Object.assign(el('button', 'btn', '로그아웃'), { onclick: logout }));
     const { data: adm } = await sb.from('admins').select('user_id').eq('user_id', session.user.id);
     if (!adm || !adm.length) { $('#noadmin').hidden = false; return; }
-    $('#app').hidden = false;
+    $('#app').hidden = false; $('#listbar').hidden = false;
+    let hide = false; try { hide = localStorage.getItem('nk-list-hidden') === '1'; } catch {}
+    setList(hide);
     await loadAll();
     subscribe();
   }
+  // 고객 목록 숨기기/보이기 (이 기기에서 기억)
+  function setList(hide) {
+    $('#app').classList.toggle('collapsed', hide);
+    const b = $('#toggleList'); b.textContent = hide ? '▶ 고객 목록 보이기' : '◀ 고객 목록 숨기기'; b.setAttribute('aria-expanded', String(!hide));
+    try { localStorage.setItem('nk-list-hidden', hide ? '1' : '0'); } catch {}
+  }
+  $('#toggleList').onclick = () => setList(!$('#app').classList.contains('collapsed'));
+  // 제목 → 처음 화면 (고객 선택 해제, 목록 다시 보이기)
+  $('#home').onclick = (e) => {
+    if ($('#app').hidden) return; // 로그인 전에는 그냥 새로고침
+    e.preventDefault();
+    if (window.__nkFlush) window.__nkFlush();
+    state.current = null; renderList(); setList(false);
+    $('#detail').replaceChildren(el('p', 'muted card', '왼쪽에서 고객을 골라 주세요.'));
+    window.scrollTo({ top: 0 });
+  };
   async function logout() { await sb.auth.signOut(); location.reload(); }
   $('#logout2').onclick = logout;
   $('#pwform').addEventListener('submit', async (ev) => {
@@ -306,8 +331,20 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
     f('status').append(statusPill(p));
     node.querySelectorAll('[data-in]').forEach((i) => { i.value = s[i.dataset.in] || ''; });
 
-    const facts = [['직업', s.job], ['거주', s.region], ['키 / 몸무게', s.height_weight], ['사이즈', s.sizes], ['보완하고 싶은 점', (s.body_concerns || []).join(', ')], ['의류 예산', s.budget], ['패션 이해도', s.fashion_level], ['기대하는 점', s.expectation], ['받아본 진단', [(s.prior_services || []).join(', '), s.prior_result].filter(Boolean).join(' / ')], ['보유 신발', s.shoes], ['보유 바지', s.pants]];
-    facts.forEach(([k, v]) => f('facts').append(el('dt', null, k), el('dd', null, v || '—')));
+    // 사전설문 (답변 수정 가능: 목록형 칸은 쉼표로 구분)
+    const FACTS = [['name', '이름'], ['phone', '연락처'], ['age', '나이', 'num'], ['job', '직업'], ['region', '거주'], ['height_weight', '키 / 몸무게'], ['sizes', '사이즈'], ['body_concerns', '보완하고 싶은 점', 'arr'], ['budget', '의류 예산'], ['fashion_level', '패션 이해도'], ['expectation', '기대하는 점', 'long'], ['prior_services', '받아본 진단', 'arr'], ['prior_result', '이전 진단 결과', 'long'], ['shoes', '보유 신발', 'long'], ['pants', '보유 바지', 'long']];
+    const showVal = (k, t) => { const v = s[k]; return t === 'arr' ? (v || []).join(', ') : (v ?? ''); };
+    const drawFacts = (editing) => {
+      const dl = f('facts') || $('#detail [data-f="facts"]'); dl.replaceChildren(); dl.classList.toggle('edit', editing);
+      FACTS.forEach(([k, label, t]) => {
+        if (!editing && (k === 'name' || k === 'phone' || k === 'age')) return; // 제목에 이미 보임
+        const dd = el('dd');
+        if (editing) { const i = el(t === 'long' ? 'textarea' : 'input'); i.dataset.fact = k; i.value = showVal(k, t); if (t === 'num') { i.type = 'number'; i.inputMode = 'numeric'; } if (t === 'arr') i.placeholder = '쉼표(,)로 구분'; i.setAttribute('aria-label', label); dd.append(i); }
+        else dd.textContent = showVal(k, t) || '—';
+        dl.append(el('dt', null, label), dd);
+      });
+    };
+    drawFacts(false);
 
     // 사진 (비공개 저장소 → 10분짜리 열람 주소)
     const ph = f('photos'); const big = el('div', 'big'); const bigImg = document.createElement('img'); bigImg.alt = '선택한 사진'; big.append(bigImg);
@@ -328,7 +365,9 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
     }
     if (btns[0]) btns[0].click(); else ph.replaceChildren(el('p', 'cap', '사진이 없어요.'));
 
-    // 헤어·메이크업 결과
+    // 헤어·메이크업 결과 (서비스에 '헤메'가 있는 고객만)
+    const hmCard = f('hmcard');
+    hmCard.hidden = !/헤메/.test(s.service || '');
     await renderStylist(id, f('slink'), f('stylist'));
 
     // 계획서
@@ -661,7 +700,32 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
       const upd = {}; detail.querySelectorAll('[data-in]').forEach((i) => { upd[i.dataset.in] = i.value || null; });
       const { error } = await sb.from('surveys').update(upd).eq('id', id);
       $('#detail [data-f="metamsg"]').textContent = error ? '저장 실패: ' + error.message : '저장했어요.';
-      if (!error) { Object.assign(s, upd); renderList(); }
+      if (!error) { Object.assign(s, upd); renderList(); hmCard.hidden = !/헤메/.test(s.service || ''); }
+    };
+    // 사전설문 답변 수정
+    const editBtn = $('#detail [data-act="edit-facts"]'), factsMsg = $('#detail [data-f="factsmsg"]');
+    let cancelBtn = null;
+    editBtn.onclick = async () => {
+      if (!editBtn.dataset.editing) {
+        editBtn.dataset.editing = '1'; editBtn.textContent = '수정 저장'; editBtn.classList.add('primary'); factsMsg.textContent = '';
+        cancelBtn = el('button', 'btn', '취소'); cancelBtn.type = 'button';
+        cancelBtn.onclick = () => { delete editBtn.dataset.editing; editBtn.textContent = '답변 수정'; editBtn.classList.remove('primary'); cancelBtn.remove(); drawFacts(false); };
+        editBtn.before(cancelBtn); drawFacts(true); return;
+      }
+      const upd = {};
+      detail.querySelectorAll('[data-fact]').forEach((i) => {
+        const t = FACTS.find(([k]) => k === i.dataset.fact)[2], v = i.value.trim();
+        upd[i.dataset.fact] = t === 'arr' ? v.split(/\s*,\s*/).filter(Boolean) : t === 'num' ? (v === '' ? null : parseInt(v, 10)) : (v || null);
+      });
+      if (!upd.name || !upd.phone) { factsMsg.textContent = '이름과 연락처는 비울 수 없어요.'; return; }
+      editBtn.disabled = true; factsMsg.textContent = '저장 중…';
+      const { error } = await sb.from('surveys').update(upd).eq('id', id);
+      editBtn.disabled = false;
+      if (error) { factsMsg.textContent = '저장 실패: ' + error.message; return; }
+      Object.assign(s, upd); cancelBtn.onclick(); renderList();
+      $('#detail [data-f="title"]').textContent = `${s.name} · ${s.age || '?'}세`;
+      $('#detail [data-f="sub"]').textContent = `${s.phone} · 제출 ${new Date(s.created_at).toLocaleString('ko-KR')}`;
+      factsMsg.textContent = '수정했어요. AI 계획서에 반영하려면 "AI 계획서 다시 만들기"를 눌러 주세요.';
     };
     $('#detail [data-act="reanalyze"]').onclick = async () => {
       $('#detail [data-f="metamsg"]').textContent = 'AI에게 다시 요청하는 중…';
@@ -695,20 +759,23 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
     const rows = up.data || [];
     const signed = rows.length ? (await sb.storage.from('stylist-uploads').createSignedUrls(rows.map((r) => r.path), 3600)).data : [];
     const urlOf = Object.fromEntries((signed || []).map((s) => [s.path, s.signedUrl]));
-    const groups = [['hair', 'before', '헤어 · 비포 (정면·측면)'], ['hair', 'after', '헤어 · 애프터 (정면·측면)'], ['makeup', 'before', '메이크업 · 비포 (정면)'], ['makeup', 'after', '메이크업 · 애프터 (정면)']];
+    // 헤어·메이크업을 합쳐 비포 / 애프터 두 칸으로 (사진 아래 작게 헤어·메이크업 표시)
+    const groups = [['before', '헤어·메이크업 · 비포'], ['after', '헤어·메이크업 · 애프터']];
     const grid = el('div', 'grid2'); listBox.append(grid);
-    for (const [role, kind, label] of groups) {
-      const items = rows.filter((r) => r.role === role && r.kind === kind);
+    for (const [kind, label] of groups) {
+      const items = rows.filter((r) => r.kind === kind);
       const wrap = el('div', 'style'); const media = el('div', 'media');
       wrap.append(el('b', null, `${label} (${items.length})`), media);
       grid.append(wrap);
       if (!items.length) { media.append(el('span', 'cap', '아직 없어요')); continue; }
       items.forEach((r) => {
         const u = urlOf[r.path]; if (!u) return;
-        if ((r.content_type || '').startsWith('video/')) { const v = document.createElement('video'); v.src = u; v.controls = true; v.preload = 'metadata'; v.playsInline = true; media.append(v); }
-        else { const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; const im = document.createElement('img'); im.src = u; im.alt = label; im.loading = 'lazy'; a.append(im); media.append(a); }
+        const who = r.role === 'hair' ? '헤어' : '메이크업'; const fig = el('figure');
+        if ((r.content_type || '').startsWith('video/')) { const v = document.createElement('video'); v.src = u; v.controls = true; v.preload = 'metadata'; v.playsInline = true; fig.append(v); }
+        else { const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; const im = document.createElement('img'); im.src = u; im.alt = `${who} ${label}`; im.loading = 'lazy'; a.append(im); fig.append(a); }
+        fig.append(el('span', 'tag', who)); media.append(fig);
       });
-      const notes = [...new Set(items.map((r) => [r.uploader, r.note].filter(Boolean).join(': ')).filter(Boolean))];
+      const notes = [...new Set(items.map((r) => [(r.role === 'hair' ? '헤어' : '메이크업') + (r.uploader ? ' ' + r.uploader : ''), r.note].filter(Boolean).join(': ')).filter((n) => n.includes(':')))];
       notes.forEach((n) => wrap.append(el('p', 'cap', '메모 — ' + n)));
     }
   }
