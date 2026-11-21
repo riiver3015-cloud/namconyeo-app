@@ -114,13 +114,7 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
   const t = el('div', 't'); t.append(el('h1', null, `${s.name} 님`), el('div', 'sub', '맞춤 코디 컨설팅 리포트'), el('div', 'meta', `컨설팅 일자 : ${d0} ${s.consult_time || ''}`), el('div', 'meta', `담당 컨설턴트 : ${R.CONSULTANT}`));
   c.append(t);
 
-  // ---- 00 사전질문지 ----
-  const p1 = page(); head(p1, '00 사전질문지'); hd(p1, '응답 결과');
-  table(p1, [['나이', s.age ? s.age + '세' : ''], ['직업', s.job], ['거주 지역', s.region], ['키 / 몸무게', s.height_weight], ['사이즈', s.sizes], ['신체특징', (s.body_concerns || []).join(', ')], ['예산', s.budget], ['패션 이해도', s.fashion_level], ['받아본 것', [(s.prior_services || []).join(', '), s.prior_result].filter(Boolean).join(' / ')], ['가지고 있는 신발', s.shoes], ['가지고 있는 바지', s.pants], ['가장 기대하는 것', s.expectation]]);
-  const p2 = page(); head(p2, '00 사전질문지');
-  for (const [label, urls, n] of [['체형 사진', uBody, 'g4'], ['스타일 사진', uStyle, 'g4'], ['셀카 사진', uFace, 'g5']]) {
-    if (!urls.length) continue; hd(p2, label); const g = el('div', 'grid ' + n); urls.slice(0, n === 'g5' ? 5 : 4).forEach((u, i) => g.append(img(u, `${label} ${i + 1}`, 'ph'))); p2.append(g);
-  }
+  // (사전질문지 페이지는 리포트에서 뺌 — 대시보드에서만 봄)
 
   // ---- 01 체형 진단 ----
   const p3 = page(); head(p3, '01 체형 진단', '※ 참고용입니다');
@@ -183,9 +177,6 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
   const tips = buys.filter((b) => b.tip);
   if (tips.length) { hd(p8, '아이템별 스타일링 TIP'); table(p8, tips.map((b) => [`${b.brand}\n${b.item}`, b.tip])).querySelectorAll('td.k').forEach((x) => { x.style.whiteSpace = 'pre-line'; }); }
   if (!buys.length && !uShop.length) p8.append(el('p', 'note noprint', '구매 리스트와 동행쇼핑 사진은 관리자 화면 현장 기록에서 입력하면 여기에 나와요.'));
-
-  // ---- 06 재방문 이벤트 ----
-  const p9 = page(); head(p9, '06 재방문 이벤트'); p9.append(el('div', 'revisit', R.REVISIT.join('\n\n')));
 
   document.getElementById('bar').hidden = false;
   document.getElementById('print').onclick = () => window.print();
