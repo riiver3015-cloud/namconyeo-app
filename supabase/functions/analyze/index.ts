@@ -378,16 +378,69 @@ async function writeTips(req: Request, surveyId: string): Promise<Response> {
   }
 }
 
+// ===== 예상 착장 사진 (관리자 화면 "입혀보기") =====
+// 고객 전신사진 + 코디 설명 → OpenAI 이미지 편집으로 옷만 바꾼 사진을 만들어 survey-photos에 저장하고 plans.plan.tryon 에 기록합니다.
+// 필요한 비밀값: OPENAI_API_KEY (선택: OPENAI_IMAGE_MODEL, 기본 gpt-image-2)
+const TRYON_PREFIX = `첨부한 사진 속 남성의 얼굴, 헤어, 피부색, 키와 체형(어깨 너비, 팔·허벅지 두께), 자세는 절대 바꾸지 말고, 옷만 아래 코디로 바꿔 입힌 사진을 만들어줘.
+- 얼굴이 더 잘생겨 보이게 보정하거나, 날씬하게 만들거나, 키를 늘리지 마.
+- 실제 매장에서 산 옷처럼 자연스러운 주름과 핏, 사진 같은 질감으로.
+- 배경은 밝은 회색 스튜디오 벽, 전신이 다 보이게 세로 사진.
+- 사진에 다른 사람이 있으면 지우고 이 남성만 남겨.`;
+
+async function tryOn(req: Request, surveyId: string, body: Record<string, unknown>): Promise<Response> {
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  const denied = await requireAdmin(req);
+  if (denied) return json({ error: denied }, 401);
+  const key = Deno.env.get("OPENAI_API_KEY");
+  if (!key) return json({ error: "OpenAI API 키가 아직 등록되지 않았어요 (Supabase Secrets: OPENAI_API_KEY)" }, 400);
+  const outfit = String(body.outfit ?? "").replace(/\s+/g, " ").trim().slice(0, 600);
+  if (!outfit) return json({ error: "입힐 코디 설명이 필요해요" }, 400);
+  const { data: s } = await supabase.from("surveys").select("photos").eq("id", surveyId).single();
+  const bodies = ((s?.photos?.body ?? []) as string[]);
+  const photo = typeof body.photo === "string" && body.photo.startsWith(surveyId + "/") ? body.photo : bodies[0];
+  if (!photo) return json({ error: "고객 전신사진이 없어요" }, 400);
+  const { data: file, error: dErr } = await supabase.storage.from(BUCKET).download(photo);
+  if (dErr || !file) return json({ error: "사진을 불러오지 못했어요" }, 500);
+  const model = Deno.env.get("OPENAI_IMAGE_MODEL") || "gpt-image-2";
+  const form = new FormData();
+  form.append("model", model);
+  form.append("image[]", new File([file], "person." + (photo.split(".").pop() || "jpg"), { type: file.type || "image/jpeg" }));
+  form.append("prompt", `${TRYON_PREFIX}\n\n코디: ${outfit}`);
+  form.append("size", "1024x1536");
+  form.append("quality", String(body.quality === "high" ? "high" : "medium"));
+  form.append("output_format", "jpeg");
+  form.append("n", "1");
+  const r = await fetch("https://api.openai.com/v1/images/edits", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) return json({ error: `OpenAI 오류 ${r.status}: ${j?.error?.message ?? "알 수 없음"}` }, 502);
+  const b64 = j?.data?.[0]?.b64_json;
+  if (!b64) return json({ error: "이미지가 돌아오지 않았어요" }, 502);
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const path = `${surveyId}/tryon_${Date.now()}.jpg`;
+  const { error: uErr } = await supabase.storage.from(BUCKET).upload(path, bytes, { contentType: "image/jpeg" });
+  if (uErr) return json({ error: "저장 실패: " + uErr.message }, 500);
+  // 계획서에 기록 (다른 칸은 그대로)
+  const { data: p } = await supabase.from("plans").select("plan").eq("survey_id", surveyId).maybeSingle();
+  if (p?.plan) {
+    const plan = p.plan as Record<string, any>;
+    plan.tryon = [...(plan.tryon ?? []), { path, outfit, base: photo, model, at: new Date().toISOString() }];
+    await supabase.from("plans").update({ plan }).eq("survey_id", surveyId);
+  }
+  return json({ path, outfit, usage: j.usage ?? null });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    const { survey_id, mode } = await req.json();
+    const body = await req.json();
+    const { survey_id, mode } = body;
     if (typeof survey_id !== "string" || !/^[0-9a-f-]{36}$/i.test(survey_id)) {
       return new Response(JSON.stringify({ error: "survey_id 필요" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
     }
     if (mode === "onsite_draft") return await onsiteDraft(req, survey_id);
     if (mode === "read_tags") return await readTags(req, survey_id);
     if (mode === "write_tips") return await writeTips(req, survey_id);
+    if (mode === "tryon") return await tryOn(req, survey_id, body);
     // 오래 걸리는 분석은 응답을 먼저 돌려준 뒤 백그라운드에서 진행
     // @ts-ignore EdgeRuntime 은 Supabase 런타임 전역
     EdgeRuntime.waitUntil(analyze(survey_id));
