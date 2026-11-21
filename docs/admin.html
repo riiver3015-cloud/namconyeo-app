@@ -61,6 +61,11 @@ ul, ol { margin:0; padding-left:1.2em; }
 .pick { display:flex; flex-wrap:wrap; gap:6px; align-items:center; } .pick > b { font-size:.82rem; font-weight:500; color:var(--muted); min-width:78px; }
 .chip { border:1px solid var(--line); background:none; color:var(--fg); border-radius:999px; padding:5px 12px; font:inherit; font-size:.85rem; cursor:pointer; } .chip[aria-pressed="true"] { background:var(--fg); color:var(--bg); border-color:var(--fg); }
 .picks .sub { font-size:.78rem; color:var(--muted); margin-top:4px; }
+details.rep { border-top:1px solid var(--line); padding-top:12px; } details.rep > summary { cursor:pointer; list-style-position:inside; }
+.repbox { display:flex; flex-direction:column; gap:10px; margin-top:12px; } .repbox h4 { margin:10px 0 0; font-size:.9rem; }
+.buy { display:grid; grid-template-columns:1fr 1.4fr .7fr .8fr auto; gap:6px; align-items:start; } .buy textarea { grid-column:1 / -2; min-height:44px; }
+@media (max-width:640px) { .buy { grid-template-columns:1fr 1fr; } .buy textarea { grid-column:1 / -1; } }
+.shop { display:flex; flex-wrap:wrap; gap:8px; } .shop figure { margin:0; position:relative; } .shop img { height:120px; border-radius:8px; display:block; } .shop button { position:absolute; top:4px; right:4px; padding:2px 8px; }
 .login { max-width:420px; margin:10vh auto; }
 .media { display:flex; flex-wrap:wrap; gap:8px; }
 .media a, .media video { display:block; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:var(--bg); }
@@ -153,13 +158,18 @@ ul, ol { margin:0; padding-left:1.2em; }
     <div class="picks" data-f="picks"></div>
     <label class="field">예외사항 (위 선택지로 안 맞는 점, 혼합 골격 비율 등)<textarea data-on="exception" placeholder="예) 웨이브 베이스에 내추럴 30%, 상체만 쿨톤이 더 잘 받음"></textarea></label>
     <h3>체크리스트</h3><ul class="checks" data-f="checks"></ul>
-    <label class="field">현장 메모 (구매한 옷, 계획과 달랐던 점)<textarea data-on="memo"></textarea></label>
-    <div style="display:flex;gap:8px;align-items:center"><button class="btn primary" data-act="save-onsite">현장 기록 저장</button><span class="cap" data-f="onmsg"></span></div>
+    <label class="field">현장 메모 (계획과 달랐던 점 — 대표님만 봐요)<textarea data-on="memo"></textarea></label>
+    <details class="rep" open>
+      <summary><b>고객 리포트에 들어갈 기록</b> <span class="cap">— 여기서 고른 것과 위의 실측·골격·퍼스널컬러가 리포트에 그대로 들어가요</span></summary>
+      <div data-f="rep" class="repbox"></div>
+    </details>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" data-act="save-onsite">현장 기록 저장</button><button class="btn" data-act="open-report">저장하고 고객 리포트 보기</button><span class="cap" data-f="onmsg"></span></div>
   </div>
 </template>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
+<script src="nk-report.js"></script>
 <script>
 (() => {
   const cfg = window.NK_CONFIG;
@@ -189,6 +199,15 @@ ul, ol { margin:0; padding-left:1.2em; }
     return { t, bmi, sh, wh, whp, shp, wsh };
   }
   const hw = (s) => { const m = (s.height_weight || '').match(/(\d{3}(?:\.\d)?)\D+(\d{2,3}(?:\.\d)?)/); return m ? [parseFloat(m[1]), parseFloat(m[2])] : [NaN, NaN]; };
+
+  // 휴대폰 사진을 긴 변 max px JPEG로 줄임 (저장소 10MB 제한·로딩 속도)
+  async function shrink(file, max) {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.85));
+  }
 
   const statusPill = (p) => {
     const st = p?.status || 'none';
@@ -330,6 +349,105 @@ ul, ol { margin:0; padding-left:1.2em; }
       }
       picksBox.append(row);
     }
+    // ---- 고객 리포트용 기록 ----
+    const R = window.NK_REPORT;
+    const rep = JSON.parse(JSON.stringify(o.report || {}));
+    const repBox = f('rep');
+    const firstTime = !o.report;
+    if (firstTime && ai.style) rep.image = [ai.style];
+    const chipRow = (key, label, opts, multi, parent) => {
+      const row = el('div', 'pick'); row.dataset.rkey = key; row.dataset.multi = multi ? '1' : ''; row.append(el('b', null, label));
+      const cur = [].concat(rep[key] || []);
+      for (const v of opts) {
+        const b = el('button', 'chip', v); b.type = 'button'; b.setAttribute('aria-pressed', String(cur.includes(v)));
+        b.onclick = () => { const on = b.getAttribute('aria-pressed') === 'true'; if (!multi) row.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', 'false')); b.setAttribute('aria-pressed', String(!on)); };
+        row.append(b);
+      }
+      (parent || repBox).append(row); return row;
+    };
+    const txt = (key, label, ph, area) => { const l = el('label', 'field', label); const i = el(area ? 'textarea' : 'input'); i.dataset.rtxt = key; i.value = rep[key] || ''; if (ph) i.placeholder = ph; l.append(i); repBox.append(l); return i; };
+    repBox.append(el('h4', null, '01 체형'), el('p', 'cap', '비워 두면 위 실측으로 계산된 체형이 들어가요. 골격은 위 "골격" 선택, 혼합이면 예외사항에 적으면 리포트에 같이 나가요.'));
+    R.BODY.forEach(([k, l, opts, m]) => chipRow(k, l, opts, m));
+    repBox.append(el('h4', null, '02 이미지'));
+    R.IMAGE.forEach(([k, l, opts, m]) => chipRow(k, l, opts, m));
+    repBox.append(el('h4', null, '03 스타일 방향성 (여러 개 선택 가능)'));
+    R.STYLE.forEach(([group, rows]) => { repBox.append(el('p', 'cap', group)); rows.forEach(([k, l, opts, m]) => chipRow(k, l, opts, m)); });
+    repBox.append(el('p', 'cap', '안경 (사진 예상도가 있으면 리포트에 같이 나가요)'));
+    const glassBox = el('div', 'picks'); glassBox.style.margin = '0'; repBox.append(glassBox);
+    rep.glasses = rep.glasses || {};
+    R.GLASSES.forEach(([k, l]) => { rep['g_' + k] = rep.glasses[k]; chipRow('g_' + k, l, R.GLASS_RANKS, false, glassBox); });
+    repBox.append(el('h4', null, '04 헤어스타일'));
+    R.HAIR.forEach(([k, l, opts, m]) => chipRow(k, l, opts, m));
+    txt('hair_bangs', '앞머리 기장', '예) 눈~눈썹 사이');
+    txt('hair_style', '추천하는 헤어스타일', '예) 세미리프컷');
+    txt('hair_request', '헤어샵 요청 멘트', '예) 옆머리 볼륨 살려주세요', true);
+    repBox.append(el('h4', null, '05 동행쇼핑 — 구매 리스트'), el('p', 'cap', '아이템마다 "스타일링 팁"을 적으면 리포트의 아이템별 TIP으로 나가요. 가격은 숫자만.'));
+    const buyBox = el('div'); buyBox.style.cssText = 'display:flex;flex-direction:column;gap:8px'; repBox.append(buyBox);
+    const addBuy = (r = {}) => {
+      const w = el('div', 'buy'); w.dataset.buy = '1';
+      const mk = (k, ph, type) => { const i = el('input'); i.dataset.k = k; i.placeholder = ph; i.value = r[k] ?? ''; if (type) i.type = type; return i; };
+      const tip = el('textarea'); tip.dataset.k = 'tip'; tip.placeholder = '스타일링 팁 (예: 구매하신 블랙 와이드 바지와 매치해주세요. 코트는 열어서 입어요.)'; tip.value = r.tip || '';
+      const del = el('button', 'btn', '삭제'); del.type = 'button'; del.onclick = () => w.remove();
+      w.append(mk('brand', '브랜드'), mk('item', '제품명·색'), mk('size', '사이즈'), mk('price', '가격', 'number'), del, tip);
+      buyBox.append(w);
+    };
+    (rep.purchases || []).forEach(addBuy); if (!(rep.purchases || []).length) addBuy();
+    const addBtn = el('button', 'btn', '+ 아이템 추가'); addBtn.type = 'button'; addBtn.onclick = () => addBuy(); repBox.append(addBtn);
+    repBox.append(el('h4', null, '동행쇼핑 사진'));
+    const shopBox = el('div', 'shop'); repBox.append(shopBox);
+    rep.shop_photos = rep.shop_photos || [];
+    const drawShop = async () => {
+      shopBox.replaceChildren();
+      if (!rep.shop_photos.length) { shopBox.append(el('span', 'cap', '아직 없어요')); return; }
+      const { data } = await sb.storage.from('survey-photos').createSignedUrls(rep.shop_photos, 3600);
+      rep.shop_photos.forEach((path, i) => {
+        const fig = el('figure'); const im = el('img'); im.src = data?.[i]?.signedUrl || ''; im.alt = '동행쇼핑 사진 ' + (i + 1);
+        const x = el('button', 'btn', '✕'); x.type = 'button'; x.setAttribute('aria-label', '사진 빼기');
+        x.onclick = () => { rep.shop_photos = rep.shop_photos.filter((p2) => p2 !== path); drawShop(); };
+        fig.append(im, x); shopBox.append(fig);
+      });
+    };
+    drawShop();
+    const fileIn = el('input'); fileIn.type = 'file'; fileIn.accept = 'image/*'; fileIn.multiple = true; fileIn.setAttribute('aria-label', '동행쇼핑 사진 올리기');
+    const upMsg = el('span', 'cap');
+    fileIn.onchange = async () => {
+      const files = [...fileIn.files]; upMsg.textContent = `올리는 중… (0/${files.length})`;
+      for (const [i, file] of files.entries()) {
+        const blob = await shrink(file, 1600);
+        const path = `${id}/shop_${Date.now()}_${i}.jpg`;
+        const { error } = await sb.storage.from('survey-photos').upload(path, blob, { contentType: 'image/jpeg' });
+        if (error) { upMsg.textContent = '올리기 실패: ' + error.message; return; }
+        rep.shop_photos.push(path); upMsg.textContent = `올리는 중… (${i + 1}/${files.length})`;
+      }
+      fileIn.value = ''; upMsg.textContent = '올렸어요. "현장 기록 저장"을 눌러야 리포트에 들어가요.'; drawShop();
+    };
+    const upRow = el('div'); upRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap'; upRow.append(fileIn, upMsg); repBox.append(upRow);
+    repBox.append(el('h4', null, '나만의 스타일링 공식 (3줄)'));
+    const fIns = [0, 1, 2].map((i) => txt('formula' + i, `공식 ${i + 1}`, '', true));
+    if (!rep.formula0 && (rep.formulas || []).length) rep.formulas.forEach((t, i) => { if (fIns[i]) fIns[i].value = t; });
+    const autoBtn = el('button', 'btn', '위에서 고른 것으로 공식 자동 작성'); autoBtn.type = 'button'; repBox.append(autoBtn);
+    autoBtn.onclick = () => {
+      const g = (k) => [...repBox.querySelectorAll(`[data-rkey="${k}"] .chip[aria-pressed="true"]`)].map((c) => c.textContent);
+      const gp = (k) => detail.querySelector(`[data-pick="${k}"] .chip[aria-pressed="true"]`)?.textContent;
+      const j = (a) => a.join('·');
+      const top = [j(g('top_neck')), j(g('top_fit'))].filter(Boolean).join(' ');
+      const f1 = top ? `${top} 상의에${g('top_fabric').length ? ` ${j(g('top_fabric'))} 소재와` : ''}${g('top_detail').length ? ` ${j(g('top_detail'))} 디자인을` : ''} 활용해주세요.`.replace('소재와 활용', '소재를 활용') : '';
+      const f2 = (g('bottom_fit').length || g('outer_shoulder').length) ? `바지는 ${j(g('bottom_fit')) || '지금 핏'} 핏으로${g('outer_length').length || g('outer_shoulder').length ? `, 아우터는 ${[j(g('outer_length')) && j(g('outer_length')) + ' 기장', j(g('outer_shoulder')) && j(g('outer_shoulder')) + ' 어깨선'].filter(Boolean).join('에 ')} 디자인을 추천합니다.` : ' 입어주세요.'}` : '';
+      const col = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map(gp).filter(Boolean);
+      const f3 = col.length ? `${col.join(' · ')} 범위의 컬러가 잘 어울려요. 이 톤으로 입어주세요 :)` : '';
+      [f1, f2, f3].forEach((t, i) => { if (t && !fIns[i].value.trim()) fIns[i].value = t; });
+    };
+    const collectRep = () => {
+      const out = {};
+      repBox.querySelectorAll('[data-rkey]').forEach((r) => { const v = [...r.querySelectorAll('.chip[aria-pressed="true"]')].map((c) => c.textContent); out[r.dataset.rkey] = r.dataset.multi ? v : (v[0] || null); });
+      out.glasses = {}; R.GLASSES.forEach(([k]) => { out.glasses[k] = out['g_' + k]; delete out['g_' + k]; });
+      repBox.querySelectorAll('[data-rtxt]').forEach((i) => { out[i.dataset.rtxt] = i.value.trim(); });
+      out.formulas = [0, 1, 2].map((i) => out['formula' + i]).filter(Boolean); [0, 1, 2].forEach((i) => delete out['formula' + i]);
+      out.purchases = [...buyBox.querySelectorAll('[data-buy]')].map((w) => { const r = {}; w.querySelectorAll('[data-k]').forEach((i) => { r[i.dataset.k] = i.value.trim(); }); r.price = r.price ? Number(r.price) : null; return r; }).filter((r) => r.brand || r.item);
+      out.shop_photos = rep.shop_photos;
+      return out;
+    };
+
     state.checks = (p?.plan?.checklist || ['어깨·허리·골반 실측', '퍼스널컬러 천 대보기', '보유 옷 확인', '실제 쓸 예산 확인']);
     const done = new Set(o.checks || []);
     state.checks.forEach((t, i) => {
@@ -364,14 +482,20 @@ ul, ol { margin:0; padding-left:1.2em; }
       const r = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${cfg.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ survey_id: id }) });
       $('#detail [data-f="metamsg"]').textContent = r.ok ? '요청했어요. 1~3분 뒤 자동으로 바뀌어요.' : '요청 실패 (' + r.status + ')';
     };
-    $('#detail [data-act="save-onsite"]').onclick = async () => {
-      const row = { survey_id: id, updated_at: new Date().toISOString(), checks: [...detail.querySelectorAll('[data-check]')].filter((c) => c.checked).map((c) => c.dataset.check), body_type: calc() };
+    const saveOnsite = async () => {
+      const row = { survey_id: id, updated_at: new Date().toISOString(), checks: [...detail.querySelectorAll('[data-check]')].filter((c) => c.checked).map((c) => c.dataset.check), body_type: calc(), report: collectRep() };
       detail.querySelectorAll('[data-on]').forEach((i) => { row[i.dataset.on] = i.value === '' ? null : (i.type === 'number' ? parseFloat(i.value) : i.value); });
       detail.querySelectorAll('[data-pick]').forEach((r) => { const c = r.querySelector('.chip[aria-pressed="true"]'); row[r.dataset.pick] = c ? c.textContent : null; });
       row.color = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map((k) => row[k]).filter(Boolean).join(' · ') || null;
       const { error } = await sb.from('onsite').upsert(row);
       $('#detail [data-f="onmsg"]').textContent = error ? '저장 실패: ' + error.message : '저장했어요 ' + new Date().toLocaleTimeString('ko-KR');
       if (!error) state.onsite[id] = row;
+      return !error;
+    };
+    $('#detail [data-act="save-onsite"]').onclick = saveOnsite;
+    $('#detail [data-act="open-report"]').onclick = async () => {
+      const w = window.open('', '_blank'); // 팝업 차단을 피하려고 클릭 순간 먼저 엶
+      if (await saveOnsite()) { if (w) w.location = 'report.html?id=' + id; else location.href = 'report.html?id=' + id; } else if (w) w.close();
     };
   }
 
