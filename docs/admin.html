@@ -462,7 +462,11 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
     s9.append(el('p', 'sub', '택 사진'));
     gallery(s9, rep.tag_photos, 'tag', '택 사진');
     txt(s9, 'tag_memo', '택 사진 없는 옷 메모', '예) 쿠에른 런던 7번 첼시부츠 260 29.8만', true);
-    s9.append(el('p', 'sub', '구매 리스트 (리포트에 나가는 목록)'), el('p', 'cap', '지금은 직접 적어요. 다음 단계에서 AI가 택 사진·메모를 읽어 자동으로 채워 줄 예정이에요. 팁을 적으면 아이템별 TIP으로 나가요.'));
+    const tagRow = el('div'); tagRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+    const tagBtn = el('button', 'btn primary', '✨ 택 읽기 → 구매 리스트 채우기'); tagBtn.type = 'button'; const tagMsg = el('span', 'cap');
+    tagRow.append(tagBtn, tagMsg); s9.append(tagRow);
+    const tagWarn = el('ul', 'cap ainote'); tagWarn.style.margin = '0'; s9.append(tagWarn);
+    s9.append(el('p', 'sub', '구매 리스트 (리포트에 나가는 목록)'), el('p', 'cap', '택 사진·메모를 넣고 "택 읽기"를 누르면 AI가 아래에 덧붙여요. 이미 있는 줄은 그대로 두고 새 옷만 추가해요. 틀린 칸은 직접 고치세요. 팁을 적으면 아이템별 TIP으로 나가요.'));
     const buyBox = el('div'); buyBox.style.cssText = 'display:flex;flex-direction:column;gap:8px'; s9.append(buyBox);
     const addBuy = (r = {}) => {
       const w = el('div', 'buy'); w.dataset.buy = '1';
@@ -474,6 +478,35 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
     };
     (rep.purchases || []).forEach(addBuy); if (!(rep.purchases || []).length) addBuy();
     { const b = el('button', 'btn', '+ 아이템 추가'); b.type = 'button'; b.onclick = () => addBuy(); s9.append(b); }
+    tagBtn.onclick = async () => {
+      tagBtn.disabled = true; tagMsg.textContent = '저장하고 AI가 택을 읽는 중… (20초~1분)'; tagWarn.replaceChildren();
+      try {
+        await saveOnsite();
+        const { data: { session } } = await sb.auth.getSession();
+        const r = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ survey_id: id, mode: 'read_tags' }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.tags) throw new Error(j.error || ('응답 오류 ' + r.status));
+        // 빈 줄은 치우고, 같은 옷(브랜드+사이즈+가격 또는 브랜드+제품명)이 이미 있으면 건너뜀
+        buyBox.querySelectorAll('[data-buy]').forEach((w) => { if (![...w.querySelectorAll('[data-k]')].some((i) => i.value.trim())) w.remove(); });
+        const norm = (s) => String(s || '').replace(/\s/g, '').toLowerCase();
+        const have = [...buyBox.querySelectorAll('[data-buy]')].map((w) => { const g = (k) => norm(w.querySelector(`[data-k="${k}"]`).value); return { b: g('brand'), i: g('item'), s: g('size'), p: g('price') }; });
+        let n = 0;
+        for (const t of j.tags.items || []) {
+          const item = [t.item, t.color].filter(Boolean).join(' · ');
+          const price = t.price > 0 ? String(t.price) : '';
+          const dup = have.some((h) => h.b === norm(t.brand) && ((h.i && h.i === norm(item)) || (h.s === norm(t.size) && h.p === norm(price) && h.p)));
+          if (dup || !(t.brand || t.item)) continue;
+          addBuy({ brand: t.brand, item, size: t.size, price });
+          have.push({ b: norm(t.brand), i: norm(item), s: norm(t.size), p: norm(price) }); n++;
+          if (t.unsure) tagWarn.append(el('li', null, `🔶 ${t.brand || '?'} ${t.item || ''} (${t.source}): ${t.unsure}`));
+        }
+        if (!buyBox.querySelector('[data-buy]')) addBuy();
+        if (j.tags.note) tagWarn.append(el('li', null, '🔶 ' + j.tags.note));
+        tagMsg.textContent = n ? `${n}벌을 구매 리스트에 추가했어요. 🔶 표시된 건 꼭 확인하세요.` : '새로 추가할 옷이 없어요. (이미 리스트에 있거나 읽지 못했어요)';
+        saveOnsite();
+      } catch (e) { tagMsg.textContent = '⚠ ' + e.message; }
+      tagBtn.disabled = false;
+    };
     // 10. 코디 사진
     const s10 = step(10, '구매한 코디 사진 올리기');
     gallery(s10, rep.shop_photos, 'shop', '코디 사진');
