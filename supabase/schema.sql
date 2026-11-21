@@ -131,3 +131,6 @@ for each row execute function public.queue_plan();
 -- 현장 확정값: 퍼스널컬러 4가지 축 + 예외사항 (기존 DB에 추가)
 alter table public.onsite add column if not exists color_chroma text, add column if not exists color_value text,
   add column if not exists color_clarity text, add column if not exists color_temp text, add column if not exists exception text;
+
+-- 고객 리포트용 현장 기록 (이미지·스타일 방향·안경 순위·헤어 진단·구매 리스트·공식·동행쇼핑 사진 경로)
+alter table public.onsite add column if not exists report jsonb;
