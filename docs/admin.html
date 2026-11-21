@@ -180,7 +180,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="nk-report.js?v=3"></script>
+<script src="nk-report.js?v=4"></script>
 <script>
 (() => {
   const cfg = window.NK_CONFIG;
@@ -461,43 +461,48 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const s3 = step(3, '스트레이트 / 웨이브 / 내추럴 고르기');
     if (ai.bone && !o.bone) s3.append(el('p', 'cap', '🔶 AI가 사진으로 미리 고른 값이에요. 다르면 바꾸세요.'));
     chipRow(s3, 'bone', null, R.BONE, false, o.bone || ai.bone, 'col');
-    // 4. 얼굴 사진
-    const s4 = step(4, '얼굴 사진 찍기 (왼쪽 · 정면 · 오른쪽)');
+    { const lab = el('label', 'field', '예외사항 (혼합 골격 비율, 선택지로 안 맞는 점 — 리포트 골격 페이지에 같이 나가요)'); const t = el('textarea'); t.dataset.on = 'exception'; t.value = o.exception || ''; t.placeholder = '예) 스트레이트 베이스에 내추럴 30%'; lab.append(t); s3.append(lab); }
+    // 4. 얼굴 진단 (사진 + 상중하안부 · 두상 · 이목구비 · 얼굴형)
+    const s4 = step(4, '얼굴 진단 — 사진 (왼쪽 · 정면 · 오른쪽) + 얼굴형 · 비율 · 두상 · 이목구비');
     const g4 = el('div', 'slots'); s4.append(g4);
     for (const [k, l] of [['left', '왼쪽'], ['front', '정면'], ['right', '오른쪽']]) slot(g4, l, () => rep.face[k], (v) => { rep.face[k] = v; }, 'face_' + k);
+    { let last = ''; R.FACE.forEach(([k, l, opts, multi, grp]) => { if (grp !== last) { s4.append(el('p', 'sub', grp)); last = grp; } chipRow(s4, k, l, opts, multi, rep[k]); }); }
+    txt(s4, 'face_ratio', '상 : 중 : 하안부 실제 비율 (선택)', '예) 1 : 1.1 : 0.9');
     // AI 초안 (1~4단계 뒤에 누름)
     const aiLi = el('li', 'step aistep'); stepsBox.append(aiLi);
-    aiLi.append(el('h4', null, '✨ AI 초안 채우기 — 5~8단계'), el('p', 'cap', '1~4단계(실측·체형·골격·얼굴 사진)까지 하고 누르면, AI가 5~8단계에서 비어 있는 칸만 미리 골라 둬요. 이미 고른 칸은 그대로예요. 30초~1분 걸리고 누를 때마다 AI 사용료가 조금 들어요.'));
+    aiLi.append(el('h4', null, '✨ AI 초안 채우기 — 6~9단계'), el('p', 'cap', '1~4단계(실측·체형·골격·얼굴)까지 하고 누르면, AI가 6~9단계(이미지·안경·헤어·스타일)에서 비어 있는 칸만 미리 골라 둬요. 이미 고른 칸은 그대로예요. 30초~1분 걸리고 누를 때마다 AI 사용료가 조금 들어요.'));
     const aiRow = el('div'); aiRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
     const aiBtn = el('button', 'btn primary', 'AI 초안 채우기'); aiBtn.type = 'button'; const aiMsg = el('span', 'cap');
     aiRow.append(aiBtn, aiMsg); aiLi.append(aiRow);
+    // 예전 기록(5~8 번호로 저장된 AI 메모)을 이름으로 옮김
     rep.ai_notes = rep.ai_notes || {};
-    // 5. 이미지
-    const s5 = step(5, '어울리는 이미지 고르기', '여러 개 골라도 돼요.');
-    chipRow(s5, 'image', null, R.IMAGE[0][2], true, rep.image);
-    // 6. 안경
-    const s6 = step(6, '안경 씌워 찍고 어울리는 안경 고르기', '종류마다 사진을 찍고 순위를 누르세요. 사진이 없으면 사전 준비 때 그린 예상도가 리포트에 들어가요.');
-    const g6 = el('div', 'slots'); s6.append(g6);
+    if (rep.ai_notes[5] || rep.ai_notes[6] || rep.ai_notes[7] || rep.ai_notes[8]) rep.ai_notes = { image: rep.ai_notes[5], glasses: rep.ai_notes[6], hair: rep.ai_notes[7], style: rep.ai_notes[8] };
+    // 5. 컬러
+    const s5 = step(5, '컬러 진단 (천 대보기)');
+    if (ai.color_temp && !o.color_temp) s5.append(el('p', 'cap', '🔶 AI가 사진으로 미리 고른 값이에요. 천 대보기 후 다르면 바꾸세요.'));
+    R.COLOR.forEach(([k, l, opts]) => chipRow(s5, k, l, opts, false, o[k] || (o.color_temp ? null : ai[k]), 'col'));
+    // 6. 이미지
+    const s6 = step(6, '어울리는 이미지 고르기', '여러 개 골라도 돼요.');
+    chipRow(s6, 'image', null, R.IMAGE[0][2], true, rep.image);
+    // 7. 안경
+    const s7 = step(7, '안경 씌워 찍고 어울리는 안경 고르기', '종류마다 사진을 찍고 순위를 누르세요. 사진이 없으면 사전 준비 때 그린 예상도가 리포트에 들어가요.');
+    const g7 = el('div', 'slots'); s7.append(g7);
     R.GLASSES.forEach(([k, l]) => {
-      const cell = el('div'); g6.append(cell);
+      const cell = el('div'); g7.append(cell);
       slot(cell, l, () => rep.glass_photos[k], (v) => { rep.glass_photos[k] = v; }, 'glass_' + k);
       chipRow(cell, 'g_' + k, null, R.GLASS_RANKS, false, rep.glasses[k]);
     });
-    // 7. 헤어
-    const s7 = step(7, '헤어 진단 + 추천 헤어스타일');
-    R.HAIR.forEach(([k, l, opts]) => chipRow(s7, k, l, opts, false, rep[k]));
-    txt(s7, 'hair_bangs', '앞머리 기장', '예) 눈~눈썹 사이');
-    txt(s7, 'hair_style', '추천하는 헤어스타일', '예) 세미리프컷');
-    txt(s7, 'hair_request', '헤어샵 요청 멘트', '예) 옆머리 볼륨 살려주세요', true);
-    // 8. 스타일 방향성
-    const s8 = step(8, '입혀 보면서 스타일 방향성 (상의 · 하의 · 아우터 · 컬러)', '여러 개 골라도 돼요.');
-    R.STYLE.forEach(([group, rows]) => { s8.append(el('p', 'sub', group)); rows.forEach(([k, l, opts]) => chipRow(s8, k, l, opts, true, rep[k])); });
-    s8.append(el('p', 'sub', '컬러'));
-    if (ai.color_temp && !o.color_temp) s8.append(el('p', 'cap', '🔶 컬러는 AI가 사진으로 미리 고른 값이에요. 천 대보기 후 다르면 바꾸세요.'));
-    R.COLOR.forEach(([k, l, opts]) => chipRow(s8, k, l, opts, false, o[k] || (o.color_temp ? null : ai[k]), 'col'));
-    { const lab = el('label', 'field', '예외사항 (혼합 골격 비율, 선택지로 안 맞는 점 — 리포트 체형 칸에 같이 나가요)'); const t = el('textarea'); t.dataset.on = 'exception'; t.value = o.exception || ''; t.placeholder = '예) 스트레이트 베이스에 내추럴 30%'; lab.append(t); s8.append(lab); }
-    // 9. 구매한 옷
-    const s9 = step(9, '구매한 옷 — 택 사진 + 택 없는 건 메모');
+    // 8. 헤어
+    const s8 = step(8, '헤어 진단 + 추천 헤어스타일');
+    R.HAIR.forEach(([k, l, opts]) => chipRow(s8, k, l, opts, false, rep[k]));
+    txt(s8, 'hair_bangs', '앞머리 기장', '예) 눈~눈썹 사이');
+    txt(s8, 'hair_style', '추천하는 헤어스타일', '예) 세미리프컷');
+    txt(s8, 'hair_request', '헤어샵 요청 멘트', '예) 옆머리 볼륨 살려주세요', true);
+    // 9. 스타일 방향성
+    const s9s = step(9, '입혀 보면서 스타일 방향성 (상의 · 하의 · 아우터)', '여러 개 골라도 돼요.');
+    R.STYLE.forEach(([group, rows]) => { s9s.append(el('p', 'sub', group)); rows.forEach(([k, l, opts]) => chipRow(s9s, k, l, opts, true, rep[k])); });
+    // 10. 구매한 옷
+    const s9 = step(10, '구매한 옷 — 택 사진 + 택 없는 건 메모');
     s9.append(el('p', 'sub', '택 사진'));
     gallery(s9, rep.tag_photos, 'tag', '택 사진');
     txt(s9, 'tag_memo', '택 사진 없는 옷 메모', '예) 쿠에른 런던 7번 첼시부츠 260 29.8만', true);
@@ -546,14 +551,15 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       } catch (e) { tagMsg.textContent = '⚠ ' + e.message; }
       tagBtn.disabled = false;
     };
-    // 10. 코디 사진
-    const s10 = step(10, '구매한 코디 사진 올리기');
+    // 11. 코디 사진
+    const s10 = step(11, '구매한 코디 사진 올리기');
     gallery(s10, rep.shop_photos, 'shop', '코디 사진');
 
     // AI 초안 적용: 비어 있는 칸만 채움
+    const NOTE_STEP = { image: 6, glasses: 7, hair: 8, style: 9 };
     const showNotes = () => {
-      for (const n of [5, 6, 7, 8]) {
-        let e = steps[n].querySelector('.ainote'); const t = rep.ai_notes[n];
+      for (const [key, n] of Object.entries(NOTE_STEP)) {
+        let e = steps[n].querySelector('.ainote'); const t = rep.ai_notes[key];
         if (!t) { if (e) e.remove(); continue; }
         if (!e) { e = el('p', 'cap ainote'); steps[n].querySelector('h4').after(e); }
         e.textContent = '🔶 AI 초안: ' + t;
@@ -580,7 +586,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
         fill('hair_forehead', d.hair_forehead);
         for (const k of ['hair_bangs', 'hair_style', 'hair_request']) { const i = root.querySelector(`[data-rtxt="${k}"]`); if (i && !i.value.trim() && d[k]) { i.value = d[k]; n++; } }
         for (const k of ['top_neck', 'top_fit', 'top_fabric', 'top_detail', 'bottom_width', 'bottom_shape', 'outer_length', 'outer_shoulder', 'outer_fabric']) fill(k, d[k]);
-        rep.ai_notes = { 5: d.image_reason, 6: d.glasses_reason, 7: d.hair_reason, 8: d.style_reason };
+        rep.ai_notes = { image: d.image_reason, glasses: d.glasses_reason, hair: d.hair_reason, style: d.style_reason };
         showNotes();
         aiMsg.textContent = n ? `AI가 ${n}칸을 채웠어요. 틀린 것만 눌러서 고치세요.` : '비어 있는 칸이 없어서 바꾼 게 없어요. (이유 메모만 붙였어요)';
         saveOnsite();
@@ -609,7 +615,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     // AI 공식·TIP: 비어 있는 공식 칸과 비어 있는 아이템 TIP만 채움
     const tipRow = el('div'); tipRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px';
     const tipBtn = el('button', 'btn primary', '✨ AI로 공식 · 아이템별 TIP 쓰기'); tipBtn.type = 'button'; const tipMsg = el('span', 'cap');
-    tipRow.append(tipBtn, tipMsg); fBox.append(el('p', 'cap', '8~9단계(스타일 방향성·컬러·구매 리스트)까지 하고 누르면, AI가 비어 있는 공식 칸과 9단계 아이템별 팁 칸을 채워요. 직접 쓴 건 그대로예요.'), tipRow);
+    tipRow.append(tipBtn, tipMsg); fBox.append(el('p', 'cap', '5단계 컬러와 9~10단계(스타일 방향성·구매 리스트)까지 하고 누르면, AI가 비어 있는 공식 칸과 10단계 아이템별 팁 칸을 채워요. 직접 쓴 건 그대로예요.'), tipRow);
     tipBtn.onclick = async () => {
       tipBtn.disabled = true; tipMsg.textContent = '저장하고 AI가 쓰는 중… (20초~1분)';
       try {
@@ -667,11 +673,13 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     };
     const progress = (row) => {
       const r = row.report, any = (a) => Object.values(a || {}).some(Boolean);
-      const ok = [null, row.shoulder != null && row.waist != null && row.hip != null, !!row.body_type, !!row.bone, ['left', 'front', 'right'].every((k) => r.face[k]),
-        (r.image || []).length > 0, any(r.glasses), R.HAIR.some(([k]) => r[k]) || !!r.hair_style,
-        R.STYLE.some(([, rows]) => rows.some(([k]) => (r[k] || []).length)) && !!row.color_temp, (r.purchases || []).length > 0 || r.tag_photos.length > 0, r.shop_photos.length > 0];
-      let n = 0; for (let i = 1; i <= 10; i++) { steps[i].classList.toggle('done', ok[i]); steps[i].querySelector('.tick').textContent = ok[i] ? '✓' : ''; if (ok[i]) n++; }
-      f2('progress').textContent = `${n} / 10 단계`;
+      const ok = [null, row.shoulder != null && row.waist != null && row.hip != null, !!row.body_type, !!row.bone,
+        ['left', 'front', 'right'].every((k) => r.face[k]) && !!r.face_shape,
+        !!row.color_temp, (r.image || []).length > 0, any(r.glasses), R.HAIR.some(([k]) => r[k]) || !!r.hair_style,
+        R.STYLE.some(([, rows]) => rows.some(([k]) => (r[k] || []).length)), (r.purchases || []).length > 0 || r.tag_photos.length > 0, r.shop_photos.length > 0];
+      const N = ok.length - 1;
+      let n = 0; for (let i = 1; i <= N; i++) { steps[i].classList.toggle('done', ok[i]); steps[i].querySelector('.tick').textContent = ok[i] ? '✓' : ''; if (ok[i]) n++; }
+      f2('progress').textContent = `${n} / ${N} 단계`;
     };
     const f2 = (k) => root.querySelector(`[data-f="${k}"]`);
     let timer = null, saving = Promise.resolve(true);
