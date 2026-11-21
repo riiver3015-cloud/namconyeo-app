@@ -567,6 +567,27 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
       [f1, f2, f3].forEach((t, i) => { if (t && !fIns[i].value.trim()) fIns[i].value = t; });
       queueSave();
     };
+    // AI 공식·TIP: 비어 있는 공식 칸과 비어 있는 아이템 TIP만 채움
+    const tipRow = el('div'); tipRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px';
+    const tipBtn = el('button', 'btn primary', '✨ AI로 공식 · 아이템별 TIP 쓰기'); tipBtn.type = 'button'; const tipMsg = el('span', 'cap');
+    tipRow.append(tipBtn, tipMsg); fBox.append(el('p', 'cap', '8~9단계(스타일 방향성·컬러·구매 리스트)까지 하고 누르면, AI가 비어 있는 공식 칸과 9단계 아이템별 팁 칸을 채워요. 직접 쓴 건 그대로예요.'), tipRow);
+    tipBtn.onclick = async () => {
+      tipBtn.disabled = true; tipMsg.textContent = '저장하고 AI가 쓰는 중… (20초~1분)';
+      try {
+        await saveOnsite();
+        const rows = [...buyBox.querySelectorAll('[data-buy]')].filter((w) => ['brand', 'item'].some((k) => w.querySelector(`[data-k="${k}"]`).value.trim()));
+        const { data: { session } } = await sb.auth.getSession();
+        const r = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ survey_id: id, mode: 'write_tips' }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.result) throw new Error(j.error || ('응답 오류 ' + r.status));
+        let nf = 0, nt = 0;
+        (j.result.formulas || []).slice(0, 3).forEach((t, i) => { if (t && !fIns[i].value.trim()) { fIns[i].value = t; nf++; } });
+        for (const t of j.result.tips || []) { const w = rows[t.index]; const ta = w && w.querySelector('[data-k="tip"]'); if (ta && t.tip && !ta.value.trim()) { ta.value = t.tip; nt++; } }
+        tipMsg.textContent = (nf || nt) ? `공식 ${nf}줄, TIP ${nt}개를 채웠어요. 읽어 보고 말투만 다듬으세요.` : '비어 있는 칸이 없어서 바꾼 게 없어요.';
+        saveOnsite();
+      } catch (e) { tipMsg.textContent = '⚠ ' + e.message; }
+      tipBtn.disabled = false;
+    };
 
     // 체크리스트
     state.checks = (p?.plan?.checklist || ['어깨·허리·골반 실측', '퍼스널컬러 천 대보기', '보유 옷 확인', '실제 쓸 예산 확인']);
