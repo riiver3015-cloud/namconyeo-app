@@ -207,11 +207,15 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
     const list = R.HAIR_STYLES || [];
     let names = [].concat(rep.hair_pick || []).filter(Boolean);
     if (!names.length && rep.hair_style) names = list.map(([n]) => n).filter((n) => rep.hair_style.replace(/\s/g, '').includes(n.replace(/\s|\(.*\)/g, '')));
+    const picks = [];
     for (const n of names.slice(0, 2)) {
       const nums = (list.find(([x]) => x === n) || [, []])[1];
       if (!nums.length) continue;
-      const urls = await sign('lookbook', nums.map((x) => `hair/IMG_${x}.jpg`));
-      hd(p7, n); const g = el('div', 'grid g2'); urls.filter(Boolean).forEach((u) => g.append(img(u, n, 'ph'))); p7.append(g);
+      (await sign('lookbook', nums.map((x) => `hair/IMG_${x}.jpg`))).filter(Boolean).forEach((u) => picks.push([n, u]));
+    }
+    if (picks.length) {
+      hd(p7, '추천 헤어스타일 사진');
+      const g = el('div', 'grid g4'); picks.forEach(([n, u]) => { const f = img(u, n, 'ph'); f.append(el('figcaption', null, n)); g.append(f); }); p7.append(g);
     }
   }
   if (uHair.length) { hd(p7, '헤어 시술 후'); const g = el('div', 'grid g2'); uHair.slice(0, 2).forEach((u, i) => g.append(img(u, '헤어 시술 후 ' + (i + 1), 'ph'))); p7.append(g); }
