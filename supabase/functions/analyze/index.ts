@@ -265,16 +265,7 @@ async function onsiteDraft(req: Request, surveyId: string): Promise<Response> {
 }
 
 // ===== 택 사진 읽기 (관리자 화면 9단계 "택 읽기") =====
-// 택 사진 + 택 없는 옷 메모를 읽어 구매 리스트 행을 돌려줍니다. DB에는 쓰지 않고, 관리자 화면이 리스트에 덧붙입니다.
-const tagSchema = obj({
-  items: { type: "array", items: obj({
-    brand: str, item: str, color: str, size: str,
-    price: { type: "integer" },
-    source: str,
-    unsure: str,
-  }) },
-  note: str,
-});
+// 택 사진 + 택 없는 옷 메모를 읽어 구매 리스트 행을 돌려줍니다. 택에 제품명이 없으면 품번을 웹 검색해 찾습니다. DB에는 쓰지 않고, 관리자 화면이 리스트에 덧붙입니다.
 const TAG_INSTRUCTIONS = `당신은 남성 스타일 컨설팅 브랜드 '남코녀'의 현장 보조입니다. 동행쇼핑에서 고객이 산 옷의 택(가격표) 사진과, 택이 없는 옷에 대한 대표님 메모를 읽어 구매 리스트를 만듭니다.
 - 옷 한 벌 = 한 행. 같은 옷을 여러 각도로 찍은 사진은 한 행으로 합칩니다. 택 한 장에 여러 옷이 보이면 각각 나눕니다.
 - brand: 브랜드 이름(한국어로 흔히 부르는 이름, 예: 유니클로, 무신사 스탠다드, 마시모두띠, 쿠에른). 택에 영문만 있으면 한국어 표기로 씁니다.
@@ -284,7 +275,21 @@ const TAG_INSTRUCTIONS = `당신은 남성 스타일 컨설팅 브랜드 '남코
 - unsure: 잘 안 보여서 추정했거나 빠진 칸이 있으면 무엇인지 짧게(예: "가격이 흐려서 추정"). 확실하면 빈 문자열.
 - "이미 있는 구매 리스트"에 있는 옷은 다시 넣지 않습니다.
 - 택이 아닌 사진(코디 사진 등)이나 읽을 수 없는 사진은 건너뛰고 note에 적습니다. note는 대표님이 읽을 한두 문장, 쉬운 한국어.
-- 추측으로 브랜드·가격을 지어내지 않습니다. 안 보이면 비우고(가격은 0) unsure에 적습니다.`;
+- 추측으로 브랜드·가격을 지어내지 않습니다. 안 보이면 비우고(가격은 0) unsure에 적습니다.
+
+## 택에 제품명이 없을 때: 웹 검색으로 찾기
+- 택에 제품명이 안 적힌 브랜드(예: 마시모두띠, 자라)는 web_search로 "브랜드명 + 택의 품번 그대로"를 검색합니다.
+  예) 마시모두띠 택 "Artículo 1468/222/507" → "마시모두띠 1468/222/507" 검색. 1468/222는 상품 번호, 507은 옵션(색상) 번호입니다.
+  못 찾으면 검색어를 바꿔 봅니다: "Massimo Dutti 1468/222", "massimodutti l01468222"(공식몰 주소는 끝이 l0 + 상품번호 7자리). 공식몰·쇼핑몰 페이지 주소가 나오면 web_fetch로 열어 제품명과 색을 확인합니다.
+  해외 공식몰(영문)에서만 찾았으면 영문 이름을 자연스러운 한국어로 옮겨 씁니다(예: 100% wool button knit polo sweater → 100% 울 버튼 니트 폴로 스웨터).
+- 검색 결과의 한국어 제품명을 item에, 옵션 번호에 해당하는 색을 color에 씁니다(예: 다크 카키). 한국 공식몰(massimodutti.com/kr 등) 이름을 우선합니다.
+- 가격은 검색 결과가 아니라 택에 찍힌 가격을 씁니다.
+- 검색으로 확인한 제품이면 unsure에 "제품명은 품번 검색으로 확인"이라고 적어 대표님이 한 번 볼 수 있게 합니다. 검색해도 못 찾으면 item은 택에서 보이는 대로(또는 비움) 두고 unsure에 "품번 ○○○ 검색 결과 없음"을 적습니다.
+- 택에 제품명이 이미 있으면(예: 인사일런스 "TYPE-2 트러커 자켓") 검색하지 않습니다. 검색은 꼭 필요한 옷만, 한 옷당 3번까지만.
+
+## 답 형식
+마지막 답은 다른 말 없이 아래 모양의 JSON 하나만 씁니다(코드블록 없이).
+{"items":[{"brand":"","item":"","color":"","size":"","price":0,"source":"","unsure":""}],"note":""}`;
 
 async function requireAdmin(req: Request): Promise<string | null> {
   const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
@@ -305,22 +310,45 @@ async function readTags(req: Request, surveyId: string): Promise<Response> {
   if (!photos.length && !memo) return json({ error: "택 사진이나 메모가 아직 없어요" }, 400);
   const have = ((rep.purchases ?? []) as any[]).filter((r) => r.brand || r.item).map((r) => `- ${r.brand ?? ""} ${r.item ?? ""} ${r.size ?? ""} ${r.price ?? ""}`).join("\n") || "(없음)";
   const images = await signedImages(photos.map((p, i) => [`택 사진 ${i + 1}`, p] as [string, string]));
+  // 택에 제품명이 없으면(마시모두띠 등) 웹 검색으로 품번을 찾아봅니다. 서버 도구라서 검색이 길어지면 pause_turn으로 멈췄다가 이어서 합니다.
+  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: [
+    { type: "text", text: `## 이미 있는 구매 리스트
+${have}
+
+## 택 없는 옷 메모
+${memo || "(없음)"}
+
+## 택 사진 ${photos.length}장` },
+    ...images,
+  ] }];
   try {
-    const response = await anthropic.beta.messages.create({
-      model: MODEL,
-      max_tokens: 6000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: { effort: "low", format: { type: "json_schema", schema: tagSchema } },
-      system: [{ type: "text", text: TAG_INSTRUCTIONS }],
-      messages: [{ role: "user", content: [
-        { type: "text", text: `## 이미 있는 구매 리스트\n${have}\n\n## 택 없는 옷 메모\n${memo || "(없음)"}\n\n## 택 사진 ${photos.length}장` },
-        ...images,
-      ] }],
-    });
+    let response: Anthropic.Beta.BetaMessage | null = null;
+    for (let turn = 0; turn < 4; turn++) {
+      response = await anthropic.beta.messages.create({
+        model: MODEL,
+        max_tokens: 16000,
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "low" },
+        system: [{ type: "text", text: TAG_INSTRUCTIONS }],
+        tools: [
+          { type: "web_search_20260209", name: "web_search", max_uses: 10, user_location: { type: "approximate", country: "KR", city: "Seoul", timezone: "Asia/Seoul" } },
+          { type: "web_fetch_20260209", name: "web_fetch", max_uses: 6, max_content_tokens: 8000 },
+        ],
+        messages,
+      });
+      if (response.stop_reason !== "pause_turn") break;
+      messages.push({ role: "assistant", content: response.content as Anthropic.Beta.BetaContentBlockParam[] });
+    }
+    if (!response) return json({ error: "AI 응답이 없어요" }, 502);
     if (response.stop_reason === "refusal") return json({ error: "AI가 작성을 거절했어요" }, 502);
     const text = response.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
-    return json({ tags: JSON.parse(text), usage: response.usage });
+    // 검색 중간 설명이 앞에 붙을 수 있어서, 마지막 {"items" 부터 마지막 } 까지만 읽어요
+    const start = text.search(/\{\s*"items"\s*:(?![\s\S]*\{\s*"items"\s*:)/), end = text.lastIndexOf("}");
+    if (start < 0 || end < start) return json({ error: "AI 답을 읽지 못했어요. 한 번 더 눌러 주세요." }, 502);
+    const tags = JSON.parse(text.slice(start, end + 1));
+    const searches = response.usage?.server_tool_use?.web_search_requests ?? 0;
+    return json({ tags, usage: response.usage, searches });
   } catch (e) {
     const msg = e instanceof Anthropic.APIError ? `Claude API 오류 ${e.status}: ${e.message}` : (e as Error).message;
     return json({ error: msg }, 502);
