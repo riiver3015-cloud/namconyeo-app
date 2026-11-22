@@ -17,7 +17,7 @@ body { margin:0; background:var(--bg); color:var(--ink); font-family:"Noto Sans 
 .bar .cap { font-size:.82rem; opacity:.85; }
 .page { width:min(210mm, 100%); min-height:297mm; margin:16px auto; background:var(--paper); padding:16mm 14mm; display:flex; flex-direction:column; gap:12px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
 @media (max-width:640px) { .page { min-height:auto; margin:0 0 10px; padding:20px 16px; } }
-h1 { font-family:"Noto Serif KR", serif; font-size:2.4rem; margin:0; }
+h1 { font-family:"Noto Serif KR", serif; font-size:3.6rem; margin:0; }
 h2 { font-size:1.7rem; margin:0 0 6px; font-weight:700; } h2 small { font-size:.75rem; color:var(--muted); font-weight:400; margin-left:6px; }
 .hd { background:var(--brown); color:#fff; text-align:center; font-size:.95rem; padding:7px; margin:8px 0 0; }
 table { width:100%; border-collapse:collapse; border:1.5px solid var(--brown); }
@@ -38,8 +38,8 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
 .cover { justify-content:center; }
 .cover .brand { position:absolute; } .logo { font-family:"Noto Serif KR", serif; letter-spacing:.12em; text-align:right; font-size:1rem; }
 .cover .t { border-left:3px solid var(--brown); padding-left:22px; margin-top:auto; margin-bottom:auto; }
-.cover .sub { color:var(--brown); font-weight:700; font-size:1.6rem; margin-top:6px; }
-.cover .meta { color:var(--muted); margin-top:14px; font-size:.95rem; }
+.cover .sub { color:var(--brown); font-weight:700; font-size:2.4rem; margin-top:6px; }
+.cover .meta { color:var(--muted); margin-top:20px; font-size:1.425rem; }
 .formula li { margin:4px 0; }
 .revisit { text-align:center; font-size:1.05rem; line-height:2.1; margin:auto 0; white-space:pre-line; }
 .note { color:var(--muted); font-size:.82rem; }
@@ -49,6 +49,7 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
 .bodytxt h4 { margin:10px 0 2px; font-size:.95rem; color:var(--brown); } .bodytxt h4:first-child { margin-top:0; }
 .bodytxt p { margin:0; font-size:.88rem; line-height:1.6; }
 .pair { margin-top:12px; } .pair img { aspect-ratio:3/4; object-fit:contain; background:#f1ede7; } .boneimg img, .pair .boneimg img { background:#fff; }
+.duo { display:flex; aspect-ratio:3/4; background:#f1ede7; border-radius:4px; overflow:hidden; } .pair .duo img { flex:1 1 0; min-width:0; width:100%; height:100%; aspect-ratio:auto; object-fit:cover; border-radius:0; background:none; } .pair .duo:not(.two) img { object-fit:contain; }
 .bodytxt.boxed { border:1.5px solid var(--brown); padding:12px 14px; }
 figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-align:left; }
 .sw { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; } .sw div { text-align:center; font-size:.78rem; } .sw i { display:block; height:44px; border-radius:6px; border:1px solid var(--line); margin-bottom:4px; }
@@ -60,7 +61,9 @@ figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
 @page { size:A4; margin:0; }
 @media print {
   body { background:#fff; } .bar { display:none; }
-  .page { margin:0; box-shadow:none; width:210mm; min-height:297mm; page-break-after:always; break-after:page; }
+  html, body { width:210mm; }
+  * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page { margin:0; box-shadow:none; width:210mm; height:297mm; min-height:0; overflow:hidden; page-break-after:always; break-after:page; }
   .page:last-child { page-break-after:auto; }
   .noprint { display:none; }
 }
@@ -106,6 +109,9 @@ figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
   const faceKeys = [['left', '왼쪽 얼굴'], ['front', '정면 얼굴'], ['right', '오른쪽 얼굴']].filter(([k]) => rep.face?.[k]);
   const glassKeys = Object.entries(rep.glass_photos || {}).filter(([, v]) => v);
   const [uOnFace, uOnGlass] = await Promise.all([sign('survey-photos', faceKeys.map(([k]) => rep.face[k])), sign('survey-photos', glassKeys.map(([, v]) => v))]);
+  const bp = rep.body_photo || {};
+  const one = async (path) => path ? (await sign('survey-photos', [path]))[0] : null;
+  const [uFront, uSide] = await Promise.all([one(bp.front || (photos.body || [])[0]), one(bp.side || (photos.body || [])[1])]); // 체형 사진: 현장 정면/측면 → 없으면 사전질문 전신 1·2번째
   const onGlass = Object.fromEntries(glassKeys.map(([k], i) => [k, uOnGlass[i]]));
   const [uBody, uStyle, uFace, uFigA, uFigG, uShop, uLook, uHair] = await Promise.all([
     sign('survey-photos', photos.body || []), sign('survey-photos', photos.style || []), sign('survey-photos', photos.face || []),
@@ -127,7 +133,6 @@ figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
   const c = page(); c.classList.add('cover'); c.append(el('div', 'logo', 'NAM CO NYEO'));
   const t = el('div', 't'); t.append(el('h1', null, `${s.name} 님`), el('div', 'sub', '맞춤 코디 컨설팅 리포트'), el('div', 'meta', `컨설팅 일자 : ${d0} ${s.consult_time || ''}`), el('div', 'meta', `담당 컨설턴트 : ${R.CONSULTANT}`));
   c.append(t);
-  { const cov = uHair[0] || uShop[0]; if (cov) c.append(img(cov, `${s.name} 님`, 'cover-img')); } // 표지 사진 (헤어 애프터 → 동행쇼핑 첫 장)
 
   // (사전질문지 페이지는 리포트에서 뺌 — 대시보드에서만 봄)
 
@@ -142,11 +147,12 @@ figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
     if (!info) return;
     const txt = el('div', 'bodytxt'); [['특징', info.look], ['코디 방향', info.how], ['피하면 좋은 것', info.avoid]].forEach(([k, v]) => { if (v) txt.append(el('h4', null, k), el('p', null, v)); });
     if (info.img && mine) {
-      const g = el('div', 'grid g2 pair'); const a = img(info.img, label, refCls); a.append(el('figcaption', null, label)); const b = img(mine, '고객님 사진', 'mine'); b.append(el('figcaption', null, `${s.name} 님`)); g.append(a, b); p.append(g);
+      const g = el('div', 'grid g2 pair'); const a = img(info.img, label, refCls); a.append(el('figcaption', null, label));
+      const b = el('figure', 'mine'); const ims = el('div', 'duo'); [].concat(mine).filter(Boolean).forEach((u) => { const i = el('img'); i.src = u; i.alt = '고객님 사진'; ims.append(i); }); if (ims.children.length > 1) ims.classList.add('two'); b.append(ims, el('figcaption', null, `${s.name} 님`)); g.append(a, b); p.append(g);
       txt.classList.add('boxed'); p.append(txt);
     } else { const box = el('div', info.img ? 'grid bodyinfo' : 'grid'); if (info.img) box.append(img(info.img, label, refCls)); box.append(txt); p.append(box); }
   };
-  { const k = [].concat(bodyT || [])[0]; typeBlock(p3, (R.BODY_INFO || {})[k], `${k} 체형`, 'bodyimg', uBody[0]); }
+  { const k = [].concat(bodyT || [])[0]; typeBlock(p3, (R.BODY_INFO || {})[k], `${k} 체형`, 'bodyimg', uFront); }
   const bodyFigs = figA.map((r, i) => [r, uFigA[i]]).filter(([r]) => /body_/.test(r.path));
   if (bodyFigs.length) { const g = el('div', 'grid g2'); bodyFigs.forEach(([r, u]) => { const f = img(u, r.caption); f.append(el('figcaption', null, r.caption)); g.append(f); }); p3.append(g); }
 
@@ -155,7 +161,7 @@ figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
   hd(p3b, '골격 (스트레이트 · 웨이브 · 내추럴)');
   table(p3b, [['골격', chips(R.BONE, o.bone)]]);
   if (o.exception) p3b.append(el('p', 'note', o.exception));
-  { const k = [].concat(o.bone || [])[0]; typeBlock(p3b, (R.BONE_INFO || {})[k], `${k} 골격`, 'boneimg', uBody[1] || uBody[0]); }
+  { const k = [].concat(o.bone || [])[0]; typeBlock(p3b, (R.BONE_INFO || {})[k], `${k} 골격`, 'boneimg', uFront || uSide ? [uFront, uSide] : null); }
 
   // ---- 02 얼굴 진단 ----
   const p4 = page(); head(p4, '02 얼굴 진단');
