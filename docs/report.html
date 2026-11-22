@@ -29,6 +29,7 @@ mark { background:var(--hl); padding:0 3px; font-weight:500; }
 @media (max-width:640px) { .g4, .g5 { grid-template-columns:repeat(2, minmax(0,1fr)); } .g3 { grid-template-columns:repeat(2, minmax(0,1fr)); } }
 figure { margin:0; } figure img { width:100%; display:block; border-radius:4px; background:#f1ede7; }
 .cover-img img { aspect-ratio:3/4; object-fit:cover; }
+.cover .cover-img { width:58%; margin:0 auto 10mm; }
 .ph img { aspect-ratio:3/4; object-fit:cover; }
 figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
 .rank { display:inline-block; border:1.5px solid var(--ink); padding:0 6px; font-weight:700; margin-right:6px; font-size:.8rem; }
@@ -126,6 +127,7 @@ figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
   const c = page(); c.classList.add('cover'); c.append(el('div', 'logo', 'NAM CO NYEO'));
   const t = el('div', 't'); t.append(el('h1', null, `${s.name} 님`), el('div', 'sub', '맞춤 코디 컨설팅 리포트'), el('div', 'meta', `컨설팅 일자 : ${d0} ${s.consult_time || ''}`), el('div', 'meta', `담당 컨설턴트 : ${R.CONSULTANT}`));
   c.append(t);
+  { const cov = uHair[0] || uShop[0]; if (cov) c.append(img(cov, `${s.name} 님`, 'cover-img')); } // 표지 사진 (헤어 애프터 → 동행쇼핑 첫 장)
 
   // (사전질문지 페이지는 리포트에서 뺌 — 대시보드에서만 봄)
 
