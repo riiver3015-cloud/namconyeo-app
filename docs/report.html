@@ -106,7 +106,7 @@ if (PDF_MODE) {
       try {
         g.drawImage(im, (w - dw) * pct(px, .5) * S, (h - dh) * pct(py, .5) * S, dw * S, dh * S);
         im.src = c.toDataURL(fit === 'cover' ? 'image/jpeg' : 'image/png', 0.9);
-        im.style.objectFit = 'fill'; im.style.width = w + 'px'; im.style.height = h + 'px';
+        im.style.objectFit = 'fill';
         await im.decode().catch(() => {});
       } catch (e) { /* 다른 사이트 사진이라 못 자르면 그대로 둠 */ }
     }
