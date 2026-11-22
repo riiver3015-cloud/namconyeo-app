@@ -71,8 +71,9 @@ figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
 </head>
 <body>
 <div class="bar" id="bar" hidden>
-  <button id="print" type="button">PDF로 저장 (인쇄)</button>
-  <span class="cap">인쇄 창에서 "대상: PDF로 저장"을 고르세요. 사진이 다 뜬 뒤에 누르세요. 고칠 게 있으면 관리자 화면 현장 기록에서 고치고 이 창을 새로고침하세요.</span>
+  <button id="pdfdl" type="button">PDF 다운로드 (A4)</button>
+  <button id="print" type="button">인쇄</button>
+  <span class="cap" id="pdfcap">사진이 다 뜬 뒤에 누르세요. 휴대폰·PC 모두 A4 한 장씩 맞춰 PDF 파일로 받아져요. 고칠 게 있으면 관리자 화면 현장 기록에서 고치고 이 창을 새로고침하세요.</span>
 </div>
 <div id="out"></div>
 
@@ -80,6 +81,29 @@ figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
 <script src="config.js"></script>
 <script src="nk-report.js?v=9"></script>
 <script>
+// PDF 모드(?pdf=1): 숨은 창에서 A4 폭으로 리포트를 그린 뒤 한 장씩 사진으로 찍어 PDF로 묶어요
+const PDF_MODE = new URLSearchParams(location.search).has('pdf');
+if (PDF_MODE) {
+  const d = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+  Object.defineProperty(HTMLImageElement.prototype, 'src', { get() { return d.get.call(this); }, set(v) { if (!this.crossOrigin && /^https?:/.test(v) && !v.startsWith(location.origin)) this.crossOrigin = 'anonymous'; d.set.call(this, v); } });
+  const load = (src) => new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = no; document.head.append(sc); });
+  window.makePdf = async (progress) => {
+    await load('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    await document.fonts.ready;
+    await Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; })));
+    const pdf = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', compress: true });
+    const pages = [...document.querySelectorAll('#out .page')];
+    for (let i = 0; i < pages.length; i++) {
+      progress?.(i + 1, pages.length);
+      const c = await html2canvas(pages[i], { scale: 2, useCORS: true, backgroundColor: '#fffdf9', logging: false });
+      const h = Math.min(297, 210 * c.height / c.width);
+      if (i) pdf.addPage();
+      pdf.addImage(c.toDataURL('image/jpeg', 0.88), 'JPEG', 0, 0, 210, h);
+    }
+    return pdf.output('blob');
+  };
+}
 (async () => {
   const cfg = window.NK_CONFIG, R = window.NK_REPORT;
   const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
@@ -294,8 +318,37 @@ figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
       }
     });
   }
+  window.NK_READY = true;
+  if (PDF_MODE) return;
   document.getElementById('bar').hidden = false;
   document.getElementById('print').onclick = () => window.print();
+  const btn = document.getElementById('pdfdl');
+  const mobile = /iPhone|iPad|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent));
+  let ready = null; // 만들어 둔 PDF (휴대폰은 한 번 더 눌러야 저장 창이 떠요)
+  const save = async (file) => {
+    if (mobile && navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 60000);
+  };
+  btn.onclick = async () => {
+    if (ready) { await save(ready); return; }
+    btn.disabled = true; btn.textContent = 'PDF 준비 중…';
+    const fr = document.createElement('iframe');
+    fr.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1200px;border:0;';
+    fr.src = location.pathname + location.search + '&pdf=1';
+    document.body.append(fr);
+    try {
+      await new Promise((ok, no) => { const t0 = Date.now(); const tick = () => { if (fr.contentWindow?.NK_READY) ok(); else if (Date.now() - t0 > 60000) no(new Error('시간 초과')); else setTimeout(tick, 300); }; tick(); });
+      const blob = await fr.contentWindow.makePdf((i, n) => { btn.textContent = `PDF 만드는 중… (${i}/${n})`; });
+      const file = new File([blob], document.title.replace(/[\/:*?"<>|]/g, '') + '.pdf', { type: 'application/pdf' });
+      if (mobile) { ready = file; btn.textContent = '✅ 완성! 눌러서 저장'; }
+      else { await save(file); btn.textContent = 'PDF 다운로드 (A4)'; }
+    } catch (e) {
+      alert('PDF를 만들지 못했어요: ' + e.message + ' — "인쇄" 버튼으로 저장해 주세요.');
+      btn.textContent = 'PDF 다운로드 (A4)';
+    } finally { fr.remove(); btn.disabled = false; }
+  };
 })();
 </script>
 </body>
