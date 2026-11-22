@@ -232,8 +232,8 @@ figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
   { // 고른 상의·하의·아우터와 비슷한 아이템이 들어간 코디 3개
     const MAP = { '카라넥': '셔츠', '터틀넥': '터틀', '브이넥': '브이', '헨리넥': '헨리', '울·캐시미어': '코트', '나일론': '나일론', '면(코튼)': '코튼', '슬림 일자핏': '슬랙스', '와이드 일자핏': '와이드', '둥근핏(커브드)': '커브드', '세미와이드': '와이드', '엑스트라 와이드': '와이드' };
     const toks = [...new Set(R.STYLE.flatMap(([, rows]) => rows.flatMap(([k]) => [].concat(rep[k] || []))).map((v) => MAP[v] || v.replace(/\(.*\)|핏|넥$/g, '').trim()).filter((v) => v.length > 1))];
-    const rows = toks.length ? pickLook((r) => toks.filter((t) => (r.items || '').includes(t)).length * 3 + Math.max(colorScore(r.colors), 0) / 10, 3) : [];
-    if (rows.length) { hd(p6, '이렇게 입어 보세요'); await lookGrid(p6, rows, (r) => (r.items || '').split(',').slice(0, 2).join(', '), 'g3'); }
+    const rows = toks.length ? pickLook((r) => toks.filter((t) => (r.items || '').includes(t)).length * 3 + Math.max(colorScore(r.colors), 0) / 10, 4) : [];
+    if (rows.length) { hd(p6, '이렇게 입어 보세요'); await lookGrid(p6, rows, (r) => (r.items || '').split(',')[0].trim(), 'g4'); p6.lastElementChild.querySelectorAll('figure').forEach((f) => f.classList.add('sq')); }
   }
 
   // ---- 06 헤어스타일 ----
