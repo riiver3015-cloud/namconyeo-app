@@ -66,7 +66,7 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="nk-report.js?v=7"></script>
+<script src="nk-report.js?v=8"></script>
 <script>
 (async () => {
   const cfg = window.NK_CONFIG, R = window.NK_REPORT;
@@ -203,7 +203,18 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
   const p7 = page(); head(p7, '06 헤어스타일');
   hd(p7, '헤어 진단'); table(p7, R.HAIR.map(([k, l, opts]) => [l, chips(opts, rep[k])]));
   hd(p7, '추천하는 헤어스타일'); table(p7, [['앞머리 기장', rep.hair_bangs], ['추천하는 헤어스타일', rep.hair_style], ['헤어샵 요청 멘트', rep.hair_request]]);
-  if (uHair.length) { const g = el('div', 'grid g2'); uHair.slice(0, 2).forEach((u, i) => g.append(img(u, '헤어 시술 후 ' + (i + 1), 'ph'))); p7.append(g); }
+  { // 고른 헤어스타일 사진 (없으면 추천 문구에 이름이 들어 있는 스타일로)
+    const list = R.HAIR_STYLES || [];
+    let names = [].concat(rep.hair_pick || []).filter(Boolean);
+    if (!names.length && rep.hair_style) names = list.map(([n]) => n).filter((n) => rep.hair_style.replace(/\s/g, '').includes(n.replace(/\s|\(.*\)/g, '')));
+    for (const n of names.slice(0, 2)) {
+      const nums = (list.find(([x]) => x === n) || [, []])[1];
+      if (!nums.length) continue;
+      const urls = await sign('lookbook', nums.map((x) => `hair/IMG_${x}.jpg`));
+      hd(p7, n); const g = el('div', 'grid g2'); urls.filter(Boolean).forEach((u) => g.append(img(u, n, 'ph'))); p7.append(g);
+    }
+  }
+  if (uHair.length) { hd(p7, '헤어 시술 후'); const g = el('div', 'grid g2'); uHair.slice(0, 2).forEach((u, i) => g.append(img(u, '헤어 시술 후 ' + (i + 1), 'ph'))); p7.append(g); }
 
   // ---- 07 동행쇼핑 ----
   const p8 = page(); head(p8, '07 동행쇼핑');
