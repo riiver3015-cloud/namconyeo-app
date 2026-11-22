@@ -279,6 +279,7 @@ figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
       const over = () => p.getBoundingClientRect().height > limit;
       const grids = [...p.querySelectorAll('.grid.opt')];
       for (const g of grids.slice().reverse()) { if (!over()) break; g.querySelectorAll('figure').forEach((f) => f.classList.add('sq')); }
+      for (const g of grids.slice().reverse()) { for (let w = 90; w >= 60 && over(); w -= 10) { g.style.width = w + '%'; g.style.margin = '0 auto'; } }
       for (const g of grids.slice().reverse()) {
         while (over() && g.children.length > 2) g.lastElementChild.remove();
         if (over()) { const h = g.previousElementSibling; g.remove(); if (h?.classList.contains('hd')) h.remove(); }
