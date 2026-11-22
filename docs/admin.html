@@ -181,7 +181,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="nk-report.js?v=7"></script>
+<script src="nk-report.js?v=8"></script>
 <script>
 (() => {
   const cfg = window.NK_CONFIG;
@@ -497,6 +497,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const s8 = step(8, '헤어 진단 + 추천 헤어스타일');
     R.HAIR.forEach(([k, l, opts]) => chipRow(s8, k, l, opts, false, rep[k]));
     txt(s8, 'hair_bangs', '앞머리 기장', '예) 눈~눈썹 사이');
+    chipRow(s8, 'hair_pick', '리포트에 넣을 헤어 사진 (1~2개)', (R.HAIR_STYLES || []).map(([n]) => n), true, rep.hair_pick);
     txt(s8, 'hair_style', '추천하는 헤어스타일', '예) 세미리프컷');
     txt(s8, 'hair_request', '헤어샵 요청 멘트', '예) 옆머리 볼륨 살려주세요', true);
     // 9. 스타일 방향성
