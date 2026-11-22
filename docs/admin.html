@@ -382,7 +382,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const R = window.NK_REPORT;
     const ai = p?.plan?.picks || {};
     const rep = JSON.parse(JSON.stringify(o.report || {}));
-    rep.face = rep.face || {}; rep.glass_photos = rep.glass_photos || {}; rep.glasses = rep.glasses || {};
+    rep.face = rep.face || {}; rep.body_photo = rep.body_photo || {}; rep.glass_photos = rep.glass_photos || {}; rep.glasses = rep.glasses || {};
     rep.tag_photos = rep.tag_photos || []; rep.shop_photos = rep.shop_photos || [];
     if (!o.report && ai.style && R.IMAGE[0][2].includes(ai.style)) rep.image = [ai.style];
     const stepsBox = f('steps');
@@ -458,6 +458,8 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const s2 = step(2, 'A / I / O / H / V 체형 고르기', '실측을 넣으면 계산 결과가 먼저 눌려요. 직접 보고 다르면 바꾸세요.');
     const bodyRow = chipRow(s2, 'body_type', null, ['A형', 'I형', 'O형', 'H형', 'V형'], false, o.body_type || rep.body, 'col');
     if (o.body_type || rep.body) bodyRow.dataset.touched = '1';
+    s2.append(el('p', 'cap', '리포트 체형 사진 — 비워 두면 사전질문지 전신사진 1번째(정면)·2번째(측면)를 써요.'));
+    { const g2 = el('div', 'slots'); s2.append(g2); for (const [k, l] of [['front', '정면 전신'], ['side', '측면 전신']]) slot(g2, l, () => rep.body_photo[k], (v) => { rep.body_photo[k] = v; }, 'body_' + k); }
     // 3. 골격
     const s3 = step(3, '스트레이트 / 웨이브 / 내추럴 고르기');
     if (ai.bone && !o.bone) s3.append(el('p', 'cap', '🔶 AI가 사진으로 미리 고른 값이에요. 다르면 바꾸세요.'));
@@ -663,7 +665,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       root.querySelectorAll('[data-on]').forEach((i) => { row[i.dataset.on] = i.value === '' ? null : (i.type === 'number' ? parseFloat(i.value) : i.value); });
       root.querySelectorAll('[data-pick]').forEach((r) => { row[r.dataset.pick] = r.querySelector('.chip[aria-pressed="true"]')?.textContent || null; });
       row.color = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map((k) => row[k]).filter(Boolean).join(' · ') || null;
-      const out = { face: rep.face, glass_photos: rep.glass_photos, tag_photos: rep.tag_photos, shop_photos: rep.shop_photos, ai_notes: rep.ai_notes };
+      const out = { face: rep.face, body_photo: rep.body_photo, glass_photos: rep.glass_photos, tag_photos: rep.tag_photos, shop_photos: rep.shop_photos, ai_notes: rep.ai_notes };
       root.querySelectorAll('[data-rkey]').forEach((r) => { const v = [...r.querySelectorAll('.chip[aria-pressed="true"]')].map((c) => c.textContent); out[r.dataset.rkey] = r.dataset.multi ? v : (v[0] || null); });
       out.glasses = {}; R.GLASSES.forEach(([k]) => { out.glasses[k] = out['g_' + k]; delete out['g_' + k]; });
       root.querySelectorAll('[data-rtxt]').forEach((i) => { out[i.dataset.rtxt] = i.value.trim(); });
