@@ -47,6 +47,11 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
 .boneimg img { background:#fff; }
 .bodytxt h4 { margin:10px 0 2px; font-size:.95rem; color:var(--brown); } .bodytxt h4:first-child { margin-top:0; }
 .bodytxt p { margin:0; font-size:.88rem; line-height:1.6; }
+.pair { margin-top:12px; } .pair img { aspect-ratio:3/4; object-fit:contain; background:#f1ede7; } .boneimg img, .pair .boneimg img { background:#fff; }
+.bodytxt.boxed { border:1.5px solid var(--brown); padding:12px 14px; }
+figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-align:left; }
+.sw { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; } .sw div { text-align:center; font-size:.78rem; } .sw i { display:block; aspect-ratio:1; border-radius:6px; border:1px solid var(--line); margin-bottom:4px; }
+@media (max-width:640px) { .sw { grid-template-columns:repeat(3, minmax(0,1fr)); } }
 .msg { max-width:640px; margin:15vh auto; background:#fff; padding:24px; border-radius:12px; }
 @page { size:A4; margin:0; }
 @media print {
@@ -66,7 +71,7 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="nk-report.js?v=8"></script>
+<script src="nk-report.js?v=9"></script>
 <script>
 (async () => {
   const cfg = window.NK_CONFIG, R = window.NK_REPORT;
@@ -127,15 +132,16 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
   const msr = [o.shoulder, o.waist, o.hip].every((x) => x != null) ? `${o.shoulder} / ${o.waist} / ${o.hip} cm` : '';
   hd(p3, '체형 (A · I · O · H · V)');
   table(p3, [['체형', chips(['A형', 'I형', 'O형', 'H형', 'V형'], bodyT)], ...(msr ? [['어깨 / 허리 / 골반', msr]] : [])]);
-  { // 고객 체형 사진 1장 + 설명
-    const info = (R.BODY_INFO || {})[[].concat(bodyT || [])[0]];
-    if (info) {
-      const box = el('div', info.img ? 'grid bodyinfo' : 'grid'); p3.append(box);
-      if (info.img) box.append(img(info.img, bodyT + ' 체형', 'bodyimg'));
-      const d = el('div', 'bodytxt'); box.append(d);
-      [['특징', info.look], ['코디 방향', info.how], ['피하면 좋은 것', info.avoid]].forEach(([k, v]) => { if (v) d.append(el('h4', null, k), el('p', null, v)); });
-    }
-  }
+  // 체형 기준 사진 + 고객님 사진을 나란히, 설명은 아래 (고객 사진 없으면 기준 사진 옆에 설명)
+  const typeBlock = (p, info, label, refCls, mine) => {
+    if (!info) return;
+    const txt = el('div', 'bodytxt'); [['특징', info.look], ['코디 방향', info.how], ['피하면 좋은 것', info.avoid]].forEach(([k, v]) => { if (v) txt.append(el('h4', null, k), el('p', null, v)); });
+    if (info.img && mine) {
+      const g = el('div', 'grid g2 pair'); const a = img(info.img, label, refCls); a.append(el('figcaption', null, label)); const b = img(mine, '고객님 사진', 'mine'); b.append(el('figcaption', null, `${s.name} 님`)); g.append(a, b); p.append(g);
+      txt.classList.add('boxed'); p.append(txt);
+    } else { const box = el('div', info.img ? 'grid bodyinfo' : 'grid'); if (info.img) box.append(img(info.img, label, refCls)); box.append(txt); p.append(box); }
+  };
+  { const k = [].concat(bodyT || [])[0]; typeBlock(p3, (R.BODY_INFO || {})[k], `${k} 체형`, 'bodyimg', uBody[0]); }
   const bodyFigs = figA.map((r, i) => [r, uFigA[i]]).filter(([r]) => /body_/.test(r.path));
   if (bodyFigs.length) { const g = el('div', 'grid g2'); bodyFigs.forEach(([r, u]) => { const f = img(u, r.caption); f.append(el('figcaption', null, r.caption)); g.append(f); }); p3.append(g); }
 
@@ -144,15 +150,7 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
   hd(p3b, '골격 (스트레이트 · 웨이브 · 내추럴)');
   table(p3b, [['골격', chips(R.BONE, o.bone)]]);
   if (o.exception) p3b.append(el('p', 'note', o.exception));
-  { // 고객 골격 사진 1장 + 설명
-    const info = (R.BONE_INFO || {})[[].concat(o.bone || [])[0]];
-    if (info) {
-      const box = el('div', info.img ? 'grid bodyinfo' : 'grid'); p3b.append(box);
-      if (info.img) box.append(img(info.img, o.bone + ' 골격', 'boneimg'));
-      const d = el('div', 'bodytxt'); box.append(d);
-      [['특징', info.look], ['코디 방향', info.how], ['피하면 좋은 것', info.avoid]].forEach(([k, v]) => { if (v) d.append(el('h4', null, k), el('p', null, v)); });
-    }
-  }
+  { const k = [].concat(o.bone || [])[0]; typeBlock(p3b, (R.BONE_INFO || {})[k], `${k} 골격`, 'boneimg', uBody[1] || uBody[0]); }
 
   // ---- 02 얼굴 진단 ----
   const p4 = page(); head(p4, '02 얼굴 진단');
@@ -173,11 +171,38 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
   const pc = page(); head(pc, '03 컬러 진단');
   hd(pc, '퍼스널컬러');
   const ct = el('table'); R.COLOR.forEach(([k, l, opts, grad]) => { const tr2 = el('tr'); const td2 = el('td'); td2.append(chips(opts, o[k])); const b = el('div', 'bar-c'); b.style.background = grad; td2.append(b); tr2.append(el('td', 'k', l), td2); ct.append(tr2); }); pc.append(ct);
+  { // 결과 해석
+    const CI = R.COLOR_INFO || {};
+    const rows = R.COLOR.map(([k, l]) => [l, o[k]]).filter(([, v]) => v && CI[v]).map(([l, v]) => [`${l} · ${v}`, CI[v]]);
+    if (rows.length) { hd(pc, '결과 해석'); table(pc, rows); }
+  }
+  { // 잘 어울리는 색
+    const pal = (R.PALETTE || {})[`${o.color_temp} ${o.color_value}`];
+    if (pal) {
+      hd(pc, '잘 어울리는 색'); const sw = el('div', 'sw'); pal.forEach(([n, hex]) => { const d = el('div'); const c = el('i'); c.style.background = hex; d.append(c, el('span', null, n)); sw.append(d); }); pc.append(sw);
+      const av = (R.COLOR_AVOID || {})[o.color_temp]; if (av) pc.append(el('p', 'note', '피하면 좋은 색 : ' + av));
+    }
+  }
+  { // 퍼스널컬러에 맞는 코디 4개 (코디 모음에서 색 설명이 가장 잘 맞는 것)
+    const want = [o.color_temp, o.color_value, o.color_chroma, o.color_clarity].filter(Boolean);
+    if (want.length) {
+      const { data: lb } = await sb.from('lookbook').select('key,colors,style').eq('active', true);
+      const used = new Set((P.lookbook || []).map((r) => r.key));
+      const opp = { '웜': '쿨', '쿨': '웜' }[o.color_temp];
+      const score = (c) => { c = c || ''; let n = 0; if (o.color_temp) n += c.includes(o.color_temp) ? 4 : c.includes('뉴트럴') ? 1 : 0; if (opp && c.includes(opp)) n -= 4; if (o.color_value && c.includes(o.color_value.replace('명도', ''))) n += 2; if (o.color_chroma && c.includes(o.color_chroma)) n += 1; if (o.color_clarity && c.includes(o.color_clarity)) n += 1; return n; };
+      const best = (lb || []).map((r) => ({ ...r, n: score(r.colors) - (used.has(r.key) ? 3 : 0) })).filter((r) => r.n > 0).sort((a, b) => b.n - a.n || a.key.localeCompare(b.key)).slice(0, 4);
+      if (best.length) {
+        const urls = await sign('lookbook', best.map((r) => r.key + '.jpg'));
+        hd(pc, '퍼스널컬러에 맞는 코디'); const g = el('div', 'grid g4'); best.forEach((r, i) => { const f = img(urls[i], r.colors, 'ph'); f.append(el('figcaption', 'small', r.colors.split(/[,(]/)[0].trim())); g.append(f); }); pc.append(g);
+      }
+    }
+  }
 
   // ---- 04 이미지 진단 ----
   const pi = page(); head(pi, '04 이미지 진단');
   hd(pi, '어울리는 이미지'); const imT = el('table'); const tr = el('tr'); const td = el('td'); td.style.textAlign = 'center'; td.append(chips(R.IMAGE[0][2], rep.image)); tr.append(td); imT.append(tr); pi.append(imT);
-  if (uLook.length) { const g = el('div', 'grid g3'); uLook.forEach((u, i) => g.append(img(u, '추천 코디 ' + (i + 1), 'ph'))); pi.append(g); }
+  { const ims = [].concat(rep.image || []).filter((x) => (R.IMAGE_INFO || {})[x]); if (ims.length) table(pi, ims.map((x) => [x, R.IMAGE_INFO[x]])); }
+  if (uLook.length) { hd(pi, '추천 코디'); const g = el('div', 'grid g3'); uLook.forEach((u, i) => { const f = img(u, '추천 코디 ' + (i + 1), 'ph'); const why = (P.lookbook || [])[i]?.reason; if (why) f.append(el('figcaption', 'small', why)); g.append(f); }); pi.append(g); }
 
   // ---- 05 스타일 방향성 ----
   const gl = rep.glasses || {};
