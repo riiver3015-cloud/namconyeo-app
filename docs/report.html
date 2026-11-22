@@ -52,6 +52,7 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
 figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-align:left; }
 .sw { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; } .sw div { text-align:center; font-size:.78rem; } .sw i { display:block; height:44px; border-radius:6px; border:1px solid var(--line); margin-bottom:4px; }
 @media (max-width:640px) { .sw { grid-template-columns:repeat(3, minmax(0,1fr)); } }
+figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
 .ph.sq img { aspect-ratio:1/1; object-position:center 30%; }
 .why { font-size:.8rem; color:var(--muted); margin-top:4px; line-height:1.45; }
 .msg { max-width:640px; margin:15vh auto; background:#fff; padding:24px; border-radius:12px; }
@@ -175,7 +176,7 @@ figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-
   const opp = { '웜': '쿨', '쿨': '웜' }[o.color_temp];
   const colorScore = (c) => { c = c || ''; let n = 0; if (o.color_temp) n += c.includes(o.color_temp) ? 4 : c.includes('뉴트럴') ? 1 : 0; if (opp && c.includes(opp)) n -= 4; if (o.color_value && (c.includes(o.color_value) || (o.color_value !== '고명도' && c.includes('중저명도')))) n += 2; if (o.color_chroma && c.includes(o.color_chroma)) n += 1; if (o.color_clarity && c.includes(o.color_clarity)) n += 1; return n; };
   const pickLook = (score, n) => { const rows = (lbAll || []).filter((r) => !shown.has(r.key)).map((r) => ({ ...r, n: score(r) })).filter((r) => r.n > 0).sort((x, y) => y.n - x.n || x.key.localeCompare(y.key)).slice(0, n); rows.forEach((r) => shown.add(r.key)); return rows; };
-  const lookGrid = async (p, rows, cap, cls = 'g4') => { if (!rows.length) return; const urls = await sign('lookbook', rows.map((r) => r.key + '.jpg')); const g = el('div', 'grid ' + cls); rows.forEach((r, i) => { const f = img(urls[i], r.colors || '', 'ph'); const t = cap(r); if (t) f.append(el('figcaption', 'small', t)); g.append(f); }); p.append(g); };
+  const lookGrid = async (p, rows, cap, cls = 'g4') => { if (!rows.length) return; const urls = await sign('lookbook', rows.map((r) => r.key + '.jpg')); const g = el('div', 'grid opt ' + cls); rows.forEach((r, i) => { const f = img(urls[i], r.colors || '', 'ph'); const t = cap(r); if (t) f.append(el('figcaption', 'small', t)); g.append(f); }); p.append(g); };
   const firstColors = (r) => (r.colors || '').split(/[,(]/)[0].trim();
 
   // ---- 03 컬러 진단 ----
@@ -202,7 +203,7 @@ figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-
     const ims = [].concat(rep.image || []);
     const extra = ims.length ? pickLook((r) => (ims.includes(r.style) ? 10 : 0) + (ims.includes(r.style) ? Math.max(colorScore(r.colors), 0) : 0), Math.max(0, 6 - uLook.length)) : [];
     if (uLook.length || extra.length) {
-      hd(pi, '추천 코디'); const g = el('div', 'grid g3');
+      hd(pi, '추천 코디'); const g = el('div', 'grid opt g3');
       uLook.forEach((u, i) => { const f = img(u, '추천 코디 ' + (i + 1), 'ph'); const why = (P.lookbook || [])[i]?.reason; if (why) f.append(el('figcaption', 'small', why)); g.append(f); });
       pi.append(g);
       if (extra.length) { const urls = await sign('lookbook', extra.map((r) => r.key + '.jpg')); extra.forEach((r, i) => { const f = img(urls[i], r.style, 'ph'); f.append(el('figcaption', 'small', `${r.style} · ${firstColors(r)}`)); g.append(f); }); }
@@ -251,7 +252,7 @@ figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-
     }
     if (picks.length) {
       hd(p7, '추천 헤어스타일 사진');
-      const g = el('div', 'grid g4'); picks.forEach(([n, u]) => { const f = img(u, n, 'ph'); f.append(el('figcaption', null, n)); g.append(f); }); p7.append(g);
+      const g = el('div', 'grid opt g4'); picks.forEach(([n, u]) => { const f = img(u, n, 'ph'); f.append(el('figcaption', null, n)); g.append(f); }); p7.append(g);
     }
   }
   if (uHair.length) { hd(p7, '헤어 시술 후'); const g = el('div', 'grid g2'); uHair.slice(0, 2).forEach((u, i) => g.append(img(u, '헤어 시술 후 ' + (i + 1), 'ph'))); p7.append(g); }
@@ -271,6 +272,19 @@ figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-
   if (tips.length) { hd(p8, '아이템별 스타일링 TIP'); table(p8, tips.map((b) => [`${b.brand}\n${b.item}`, b.tip])).querySelectorAll('td.k').forEach((x) => { x.style.whiteSpace = 'pre-line'; }); }
   if (!buys.length && !uShop.length) p8.append(el('p', 'note noprint', '구매 리스트와 동행쇼핑 사진은 관리자 화면 현장 기록에서 입력하면 여기에 나와요.'));
 
+  // 한 페이지(A4)를 넘치면: 코디 사진을 정사각형으로 → 그래도 넘치면 뒤에서부터 사진을 뺌
+  if (innerWidth > 640) {
+    const mm = el('div'); mm.style.height = '297mm'; document.body.append(mm); const limit = mm.getBoundingClientRect().height + 1; mm.remove();
+    out.querySelectorAll('.page').forEach((p) => {
+      const over = () => p.getBoundingClientRect().height > limit;
+      const grids = [...p.querySelectorAll('.grid.opt')];
+      for (const g of grids.slice().reverse()) { if (!over()) break; g.querySelectorAll('figure').forEach((f) => f.classList.add('sq')); }
+      for (const g of grids.slice().reverse()) {
+        while (over() && g.children.length > 2) g.lastElementChild.remove();
+        if (over()) { const h = g.previousElementSibling; g.remove(); if (h?.classList.contains('hd')) h.remove(); }
+      }
+    });
+  }
   document.getElementById('bar').hidden = false;
   document.getElementById('print').onclick = () => window.print();
 })();
