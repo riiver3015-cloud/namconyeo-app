@@ -92,6 +92,24 @@ if (PDF_MODE) {
     await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
     await document.fonts.ready;
     await Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; })));
+    // html2canvas는 object-fit(칸에 맞춰 자르기)을 몰라서 사진이 눌려요 → 화면에 보이는 모양대로 미리 잘라 바꿔 둠
+    for (const im of [...document.querySelectorAll('#out .page img')]) {
+      const cs = getComputedStyle(im), fit = cs.objectFit;
+      const w = im.clientWidth, h = im.clientHeight, nw = im.naturalWidth, nh = im.naturalHeight;
+      if (!(fit === 'cover' || fit === 'contain') || !w || !h || !nw || !nh) continue;
+      const k = fit === 'cover' ? Math.max(w / nw, h / nh) : Math.min(w / nw, h / nh);
+      const dw = nw * k, dh = nh * k;
+      const pct = (v, d) => { v = String(v || '').trim(); if (v.endsWith('%')) return parseFloat(v) / 100; if (v === 'left' || v === 'top') return 0; if (v === 'right' || v === 'bottom') return 1; return d; };
+      const [px, py] = cs.objectPosition.split(/\s+/);
+      const S = 2, c = document.createElement('canvas'); c.width = Math.round(w * S); c.height = Math.round(h * S);
+      const g = c.getContext('2d');
+      try {
+        g.drawImage(im, (w - dw) * pct(px, .5) * S, (h - dh) * pct(py, .5) * S, dw * S, dh * S);
+        im.src = c.toDataURL(fit === 'cover' ? 'image/jpeg' : 'image/png', 0.9);
+        im.style.objectFit = 'fill'; im.style.width = w + 'px'; im.style.height = h + 'px';
+        await im.decode().catch(() => {});
+      } catch (e) { /* 다른 사이트 사진이라 못 자르면 그대로 둠 */ }
+    }
     const pdf = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', compress: true });
     const pages = [...document.querySelectorAll('#out .page')];
     for (let i = 0; i < pages.length; i++) {
