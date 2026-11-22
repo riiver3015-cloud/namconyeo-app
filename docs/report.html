@@ -50,8 +50,10 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
 .pair { margin-top:12px; } .pair img { aspect-ratio:3/4; object-fit:contain; background:#f1ede7; } .boneimg img, .pair .boneimg img { background:#fff; }
 .bodytxt.boxed { border:1.5px solid var(--brown); padding:12px 14px; }
 figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-align:left; }
-.sw { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; } .sw div { text-align:center; font-size:.78rem; } .sw i { display:block; aspect-ratio:1; border-radius:6px; border:1px solid var(--line); margin-bottom:4px; }
+.sw { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; } .sw div { text-align:center; font-size:.78rem; } .sw i { display:block; height:44px; border-radius:6px; border:1px solid var(--line); margin-bottom:4px; }
 @media (max-width:640px) { .sw { grid-template-columns:repeat(3, minmax(0,1fr)); } }
+.ph.sq img { aspect-ratio:1/1; object-position:center 30%; }
+.why { font-size:.8rem; color:var(--muted); margin-top:4px; line-height:1.45; }
 .msg { max-width:640px; margin:15vh auto; background:#fff; padding:24px; border-radius:12px; }
 @page { size:A4; margin:0; }
 @media print {
@@ -155,9 +157,9 @@ figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-
   // ---- 02 얼굴 진단 ----
   const p4 = page(); head(p4, '02 얼굴 진단');
   const faceFigs = figA.map((r, i) => [r, uFigA[i]]).filter(([r]) => /face_|head_/.test(r.path));
-  if (faceKeys.length) { const g = el('div', 'grid g3'); faceKeys.forEach(([, l], i) => { const f = el('figure'); f.append(el('div', 'hd', l)); const im = img(uOnFace[i], l, 'ph'); f.append(im); g.append(f); }); p4.append(g); }
+  if (faceKeys.length) { const g = el('div', 'grid g3'); faceKeys.forEach(([, l], i) => { const f = el('figure'); f.append(el('div', 'hd', l)); const im = img(uOnFace[i], l, 'ph sq'); f.append(im); g.append(f); }); p4.append(g); }
   else if (faceFigs.length) { const g = el('div', 'grid g3'); faceFigs.forEach(([r, u]) => { const f = img(u, r.caption); f.append(el('figcaption', null, r.caption)); g.append(f); }); p4.append(g); }
-  else if (uFace.length) { const g = el('div', 'grid g3'); uFace.slice(0, 3).forEach((u, i) => g.append(img(u, '얼굴 ' + (i + 1), 'ph'))); p4.append(g); }
+  else if (uFace.length) { const g = el('div', 'grid g3'); uFace.slice(0, 3).forEach((u, i) => g.append(img(u, '얼굴 ' + (i + 1), 'ph sq'))); p4.append(g); }
   { // 묶음별 표 (고른 값이 하나라도 있는 묶음만)
     const groups = []; R.FACE.forEach(([k, l, opts, , grp]) => { let gp = groups.find((x) => x.grp === grp); if (!gp) groups.push(gp = { grp, rows: [] }); gp.rows.push([k, l, opts]); });
     groups.forEach(({ grp, rows }) => {
@@ -167,15 +169,19 @@ figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-
     });
   }
 
+  // 코디 모음(lookbook) — 페이지마다 겹치지 않게 골라 씀
+  const { data: lbAll } = await sb.from('lookbook').select('key,colors,style,items').eq('active', true);
+  const shown = new Set((P.lookbook || []).map((r) => r.key));
+  const opp = { '웜': '쿨', '쿨': '웜' }[o.color_temp];
+  const colorScore = (c) => { c = c || ''; let n = 0; if (o.color_temp) n += c.includes(o.color_temp) ? 4 : c.includes('뉴트럴') ? 1 : 0; if (opp && c.includes(opp)) n -= 4; if (o.color_value && (c.includes(o.color_value) || (o.color_value !== '고명도' && c.includes('중저명도')))) n += 2; if (o.color_chroma && c.includes(o.color_chroma)) n += 1; if (o.color_clarity && c.includes(o.color_clarity)) n += 1; return n; };
+  const pickLook = (score, n) => { const rows = (lbAll || []).filter((r) => !shown.has(r.key)).map((r) => ({ ...r, n: score(r) })).filter((r) => r.n > 0).sort((x, y) => y.n - x.n || x.key.localeCompare(y.key)).slice(0, n); rows.forEach((r) => shown.add(r.key)); return rows; };
+  const lookGrid = async (p, rows, cap, cls = 'g4') => { if (!rows.length) return; const urls = await sign('lookbook', rows.map((r) => r.key + '.jpg')); const g = el('div', 'grid ' + cls); rows.forEach((r, i) => { const f = img(urls[i], r.colors || '', 'ph'); const t = cap(r); if (t) f.append(el('figcaption', 'small', t)); g.append(f); }); p.append(g); };
+  const firstColors = (r) => (r.colors || '').split(/[,(]/)[0].trim();
+
   // ---- 03 컬러 진단 ----
   const pc = page(); head(pc, '03 컬러 진단');
   hd(pc, '퍼스널컬러');
-  const ct = el('table'); R.COLOR.forEach(([k, l, opts, grad]) => { const tr2 = el('tr'); const td2 = el('td'); td2.append(chips(opts, o[k])); const b = el('div', 'bar-c'); b.style.background = grad; td2.append(b); tr2.append(el('td', 'k', l), td2); ct.append(tr2); }); pc.append(ct);
-  { // 결과 해석
-    const CI = R.COLOR_INFO || {};
-    const rows = R.COLOR.map(([k, l]) => [l, o[k]]).filter(([, v]) => v && CI[v]).map(([l, v]) => [`${l} · ${v}`, CI[v]]);
-    if (rows.length) { hd(pc, '결과 해석'); table(pc, rows); }
-  }
+  { const CI = R.COLOR_INFO || {}; const ct = el('table'); R.COLOR.forEach(([k, l, opts, grad]) => { const tr2 = el('tr'); const td2 = el('td'); td2.append(chips(opts, o[k])); const b = el('div', 'bar-c'); b.style.background = grad; td2.append(b); if (CI[o[k]]) td2.append(el('div', 'why', CI[o[k]])); tr2.append(el('td', 'k', l), td2); ct.append(tr2); }); pc.append(ct); }
   { // 잘 어울리는 색
     const pal = (R.PALETTE || {})[`${o.color_temp} ${o.color_value}`];
     if (pal) {
@@ -183,26 +189,25 @@ figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-
       const av = (R.COLOR_AVOID || {})[o.color_temp]; if (av) pc.append(el('p', 'note', '피하면 좋은 색 : ' + av));
     }
   }
-  { // 퍼스널컬러에 맞는 코디 4개 (코디 모음에서 색 설명이 가장 잘 맞는 것)
-    const want = [o.color_temp, o.color_value, o.color_chroma, o.color_clarity].filter(Boolean);
-    if (want.length) {
-      const { data: lb } = await sb.from('lookbook').select('key,colors,style').eq('active', true);
-      const used = new Set((P.lookbook || []).map((r) => r.key));
-      const opp = { '웜': '쿨', '쿨': '웜' }[o.color_temp];
-      const score = (c) => { c = c || ''; let n = 0; if (o.color_temp) n += c.includes(o.color_temp) ? 4 : c.includes('뉴트럴') ? 1 : 0; if (opp && c.includes(opp)) n -= 4; if (o.color_value && c.includes(o.color_value.replace('명도', ''))) n += 2; if (o.color_chroma && c.includes(o.color_chroma)) n += 1; if (o.color_clarity && c.includes(o.color_clarity)) n += 1; return n; };
-      const best = (lb || []).map((r) => ({ ...r, n: score(r.colors) - (used.has(r.key) ? 3 : 0) })).filter((r) => r.n > 0).sort((a, b) => b.n - a.n || a.key.localeCompare(b.key)).slice(0, 4);
-      if (best.length) {
-        const urls = await sign('lookbook', best.map((r) => r.key + '.jpg'));
-        hd(pc, '퍼스널컬러에 맞는 코디'); const g = el('div', 'grid g4'); best.forEach((r, i) => { const f = img(urls[i], r.colors, 'ph'); f.append(el('figcaption', 'small', r.colors.split(/[,(]/)[0].trim())); g.append(f); }); pc.append(g);
-      }
-    }
+  if (o.color_temp || o.color_value) { // 퍼스널컬러에 맞는 코디 4개
+    const rows = pickLook((r) => colorScore(r.colors), 4);
+    if (rows.length) { hd(pc, '퍼스널컬러에 맞는 코디'); await lookGrid(pc, rows, firstColors); }
   }
 
   // ---- 04 이미지 진단 ----
   const pi = page(); head(pi, '04 이미지 진단');
   hd(pi, '어울리는 이미지'); const imT = el('table'); const tr = el('tr'); const td = el('td'); td.style.textAlign = 'center'; td.append(chips(R.IMAGE[0][2], rep.image)); tr.append(td); imT.append(tr); pi.append(imT);
   { const ims = [].concat(rep.image || []).filter((x) => (R.IMAGE_INFO || {})[x]); if (ims.length) table(pi, ims.map((x) => [x, R.IMAGE_INFO[x]])); }
-  if (uLook.length) { hd(pi, '추천 코디'); const g = el('div', 'grid g3'); uLook.forEach((u, i) => { const f = img(u, '추천 코디 ' + (i + 1), 'ph'); const why = (P.lookbook || [])[i]?.reason; if (why) f.append(el('figcaption', 'small', why)); g.append(f); }); pi.append(g); }
+  { // 추천 코디: 계획서에서 고른 코디 + 고른 이미지와 같은 스타일 코디로 6개까지 (색이 맞는 것 먼저)
+    const ims = [].concat(rep.image || []);
+    const extra = ims.length ? pickLook((r) => (ims.includes(r.style) ? 10 : 0) + (ims.includes(r.style) ? Math.max(colorScore(r.colors), 0) : 0), Math.max(0, 6 - uLook.length)) : [];
+    if (uLook.length || extra.length) {
+      hd(pi, '추천 코디'); const g = el('div', 'grid g3');
+      uLook.forEach((u, i) => { const f = img(u, '추천 코디 ' + (i + 1), 'ph'); const why = (P.lookbook || [])[i]?.reason; if (why) f.append(el('figcaption', 'small', why)); g.append(f); });
+      pi.append(g);
+      if (extra.length) { const urls = await sign('lookbook', extra.map((r) => r.key + '.jpg')); extra.forEach((r, i) => { const f = img(urls[i], r.style, 'ph'); f.append(el('figcaption', 'small', `${r.style} · ${firstColors(r)}`)); g.append(f); }); }
+    }
+  }
 
   // ---- 05 스타일 방향성 ----
   const gl = rep.glasses || {};
@@ -222,6 +227,12 @@ figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-
   if (!glPhotos && glList.length) {
     hd(p6, '안경'); const ord = (r) => { const i = R.GLASS_RANKS.indexOf(r); return i < 0 ? 9 : i; };
     table(p6, glList.slice().sort((a, b) => ord(a.rank) - ord(b.rank)).map((x) => [x.rank || '', x.l]));
+  }
+  { // 고른 상의·하의·아우터와 비슷한 아이템이 들어간 코디 3개
+    const MAP = { '카라넥': '셔츠', '터틀넥': '터틀', '브이넥': '브이', '헨리넥': '헨리', '울·캐시미어': '코트', '나일론': '나일론', '면(코튼)': '코튼', '슬림 일자핏': '슬랙스', '와이드 일자핏': '와이드', '둥근핏(커브드)': '커브드', '세미와이드': '와이드', '엑스트라 와이드': '와이드' };
+    const toks = [...new Set(R.STYLE.flatMap(([, rows]) => rows.flatMap(([k]) => [].concat(rep[k] || []))).map((v) => MAP[v] || v.replace(/\(.*\)|핏|넥$/g, '').trim()).filter((v) => v.length > 1))];
+    const rows = toks.length ? pickLook((r) => toks.filter((t) => (r.items || '').includes(t)).length * 3 + Math.max(colorScore(r.colors), 0) / 10, 3) : [];
+    if (rows.length) { hd(p6, '이렇게 입어 보세요'); await lookGrid(p6, rows, (r) => (r.items || '').split(',').slice(0, 2).join(', '), 'g3'); }
   }
 
   // ---- 06 헤어스타일 ----
