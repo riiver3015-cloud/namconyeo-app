@@ -42,6 +42,10 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
 .formula li { margin:4px 0; }
 .revisit { text-align:center; font-size:1.05rem; line-height:2.1; margin:auto 0; white-space:pre-line; }
 .note { color:var(--muted); font-size:.82rem; }
+.bodyinfo { grid-template-columns:minmax(0,2fr) minmax(0,3fr); align-items:start; margin-top:12px; }
+.bodyimg img { aspect-ratio:3/4; object-fit:cover; }
+.bodytxt h4 { margin:10px 0 2px; font-size:.95rem; color:var(--brown); } .bodytxt h4:first-child { margin-top:0; }
+.bodytxt p { margin:0; font-size:.88rem; line-height:1.6; }
 .msg { max-width:640px; margin:15vh auto; background:#fff; padding:24px; border-radius:12px; }
 @page { size:A4; margin:0; }
 @media print {
@@ -61,7 +65,7 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="nk-report.js?v=4"></script>
+<script src="nk-report.js?v=5"></script>
 <script>
 (async () => {
   const cfg = window.NK_CONFIG, R = window.NK_REPORT;
@@ -122,6 +126,15 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
   const msr = [o.shoulder, o.waist, o.hip].every((x) => x != null) ? `${o.shoulder} / ${o.waist} / ${o.hip} cm` : '';
   hd(p3, '체형 (A · I · O · H · V)');
   table(p3, [['체형', chips(['A형', 'I형', 'O형', 'H형', 'V형'], bodyT)], ...(msr ? [['어깨 / 허리 / 골반', msr]] : [])]);
+  { // 고객 체형 사진 1장 + 설명
+    const info = (R.BODY_INFO || {})[[].concat(bodyT || [])[0]];
+    if (info) {
+      const box = el('div', info.img ? 'grid bodyinfo' : 'grid'); p3.append(box);
+      if (info.img) box.append(img(info.img, bodyT + ' 체형', 'bodyimg'));
+      const d = el('div', 'bodytxt'); box.append(d);
+      [['특징', info.look], ['코디 방향', info.how], ['피하면 좋은 것', info.avoid]].forEach(([k, v]) => { if (v) d.append(el('h4', null, k), el('p', null, v)); });
+    }
+  }
   const bodyFigs = figA.map((r, i) => [r, uFigA[i]]).filter(([r]) => /body_/.test(r.path));
   if (bodyFigs.length) { const g = el('div', 'grid g2'); bodyFigs.forEach(([r, u]) => { const f = img(u, r.caption); f.append(el('figcaption', null, r.caption)); g.append(f); }); p3.append(g); }
 
