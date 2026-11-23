@@ -157,6 +157,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" data-act="save-meta">일정 저장</button><button class="btn" data-act="reanalyze">AI 계획서 다시 만들기</button><span class="cap" data-f="metamsg"></span></div>
   </div>
+  <div data-f="day" style="display:flex;flex-direction:column;gap:16px"></div>
   <div class="card"><div class="top"><h3 style="margin:0">사전설문</h3><div style="display:flex;gap:8px;align-items:center"><span class="cap" data-f="factsmsg"></span><button class="btn" type="button" data-act="edit-facts">답변 수정</button></div></div><dl class="facts" data-f="facts"></dl></div>
   <div class="card"><h3>설문 사진</h3><div class="photos" data-f="photos"></div></div>
   <div class="card" data-f="hmcard">
@@ -471,11 +472,10 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     chipRow(s3, 'bone', null, R.BONE, false, o.bone || ai.bone, 'col');
     { const lab = el('label', 'field', '예외사항 (혼합 골격 비율, 선택지로 안 맞는 점 — 리포트 골격 페이지에 같이 나가요)'); const t = el('textarea'); t.dataset.on = 'exception'; t.value = o.exception || ''; t.placeholder = '예) 스트레이트 베이스에 내추럴 30%'; lab.append(t); s3.append(lab); }
     // 4. 얼굴 진단 (사진 + 상중하안부 · 두상 · 이목구비 · 얼굴형)
-    const s4 = step(4, '얼굴 진단 — 사진 (왼쪽 · 정면 · 오른쪽) + 얼굴형 · 비율 · 두상 · 이목구비');
+    const s4 = step(4, '얼굴 진단 — 사진 (왼쪽 · 정면 · 오른쪽) + 상 · 중 · 하안부 비율');
     const g4 = el('div', 'slots'); s4.append(g4);
     for (const [k, l] of [['left', '왼쪽'], ['front', '정면'], ['right', '오른쪽']]) slot(g4, l, () => rep.face[k], (v) => { rep.face[k] = v; }, 'face_' + k);
-    { let last = ''; R.FACE.forEach(([k, l, opts, multi, grp]) => { if (grp !== last) { s4.append(el('p', 'sub', grp)); last = grp; } chipRow(s4, k, l, opts, multi, rep[k]); }); }
-    txt(s4, 'face_ratio', '상 : 중 : 하안부 실제 비율 (선택)', '예) 1 : 1.1 : 0.9');
+    txt(s4, 'face_ratio', '상 : 중 : 하안부 실제 비율', '예) 1 : 1.1 : 0.9');
     // AI 초안 (1~4단계 뒤에 누름)
     const aiLi = el('li', 'step aistep'); stepsBox.append(aiLi);
     aiLi.append(el('h4', null, '✨ AI 초안 채우기 — 6~9단계'), el('p', 'cap', '1~4단계(실측·체형·골격·얼굴)까지 하고 누르면, AI가 6~9단계(이미지·안경·헤어·스타일)에서 비어 있는 칸만 미리 골라 둬요. 이미 고른 칸은 그대로예요. 30초~1분 걸리고 누를 때마다 AI 사용료가 조금 들어요.'));
@@ -683,7 +683,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const progress = (row) => {
       const r = row.report, any = (a) => Object.values(a || {}).some(Boolean);
       const ok = [null, row.shoulder != null && row.waist != null && row.hip != null, !!row.body_type, !!row.bone,
-        ['left', 'front', 'right'].every((k) => r.face[k]) && !!r.face_shape,
+        ['left', 'front', 'right'].every((k) => r.face[k]),
         !!row.color_temp, (r.image || []).length > 0, any(r.glasses), R.HAIR.some(([k]) => r[k]) || !!r.hair_style,
         R.STYLE.some(([, rows]) => rows.some(([k]) => (r[k] || []).length)), (r.purchases || []).length > 0 || r.tag_photos.length > 0, r.shop_photos.length > 0];
       const N = ok.length - 1;
@@ -763,7 +763,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       const drawMarks = () => {
         const mk = state.plans[id]?.plan?.marks;
         mbox.replaceChildren(); mbox.hidden = !mk;
-        if (!mk) { mmsg.textContent = '설명 모드 사진의 선·도형: 아직 AI 좌표가 없어서 기본 방식(무료)으로 그려요. 버튼을 누르면 AI가 사진을 보고 더 정확히 그려요 (약 200원, 30초~1분).'; return; }
+        if (!mk) { mmsg.textContent = '설명 모드 사진의 선·도형: 아직 AI 좌표가 없어서 기본 방식(무료)으로 그려요. 버튼을 누르면 AI가 사진을 보고 더 정확히 그려요 (약 200~300원, 30초~1분).'; return; }
         mmsg.textContent = `설명 모드 사진의 선·도형: AI 좌표 있음 (${new Date(mk.at || Date.now()).toLocaleString('ko-KR')}). 현장에서 전신·얼굴 사진을 바꿨으면 다시 만들어 주세요. 아래 한 줄은 고객 화면 그림 밑에 나가니 확인하고 고쳐 주세요.`;
         NOTES.forEach(([k, l]) => {
           if (!mk.marks?.[k]?.found) return;
@@ -776,7 +776,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       $('#detail [data-act="marks"]').onclick = async (ev) => {
         const btn = ev.currentTarget;
         if (!state.plans[id]?.plan) { mmsg.textContent = 'AI 계획서를 먼저 만들어 주세요.'; return; }
-        if (!confirm('AI가 전신·얼굴 사진을 보고 선·도형 위치를 다시 찾을까요? (약 200원, 30초~1분)')) return;
+        if (!confirm('AI가 전신·얼굴 사진을 보고 선·도형 위치를 다시 찾을까요? (약 200~300원, 30초~1분)')) return;
         await saveOnsite(); // 현장에서 고른 사진 기준으로 찾도록 먼저 저장
         btn.disabled = true; mmsg.textContent = 'AI가 사진을 보는 중… (30초~1분)';
         try {
@@ -838,29 +838,6 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
   function renderPlan(box, P, model, id, s) {
     const card = (title, fold) => { const c = el('section', 'card'); box.append(c); if (!fold) { c.append(el('h3', null, title)); return c; } const d = el('details', 'fold'); const sm = el('summary'); sm.append(el('h3', null, title), el('span', 'cap', ' 눌러서 펼치기')); d.append(sm); c.append(d); return d; };
     const sum = card('한 줄 요약'); sum.append(el('p', null, P.summary), el('p', 'cap', `AI 초안 (${model || ''}) · 📏 대표님 기준 · 🔶 사진 추정 · ❓ 현장 확인`));
-    const an = card('분석', true); const t1 = el('table'); (P.analysis || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.item), el('td', null, r.judgment)); t1.append(tr); }); an.append(Object.assign(el('div', 'wrapx'), {}).appendChild(t1).parentNode);
-    // 사진 위 선·도형 (대표님용 준비 자료, survey-photos 비공개 저장소)
-    const figs = (list, title) => {
-      if (!(list || []).length) return;
-      if (title) an.append(el('h3', null, title));
-      const grid = el('div', 'looks figs'); an.append(grid);
-      sb.storage.from('survey-photos').createSignedUrls(list.map((r) => r.path), 3600).then(({ data }) => {
-        list.forEach((r, i) => {
-          const fig = el('figure', 'look'); const url = data?.[i]?.signedUrl;
-          if (url) { const a = el('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; const im = el('img'); im.src = url; im.alt = r.caption; im.loading = 'lazy'; a.append(im); fig.append(a); }
-          fig.append(el('figcaption', null, r.caption)); grid.append(fig);
-        });
-      });
-    };
-    figs(P.figures?.analysis, '사진으로 본 체형·얼굴 (선은 사진 기준 위치, 실제 치수 아님)');
-    figs(P.figures?.glasses, '안경 예상도 (사진 위에 테 모양만 그린 것)');
-    const g = el('div', 'grid2'); box.append(g);
-    const hair = el('section', 'card'); hair.append(el('h3', null, '헤어'), el('p', null, P.hair?.recommend), el('p', 'cap', '피할 것: ' + (P.hair?.avoid || '')), el('p', 'cap', '헤어 디자이너 전달문'), el('p', 'quote', P.hair?.designer_note));
-    const copy = el('button', 'btn', '전달문 복사'); copy.onclick = () => navigator.clipboard?.writeText(P.hair?.designer_note || '').then(() => { copy.textContent = '복사했어요'; }); hair.append(copy);
-    g.append(hair);
-    const st = card('스타일 방향 (입혀볼 순서)', true); const sg = el('div', 'styles'); (P.styles || []).forEach((r, i) => { const d = el('div', 'style' + (i === 0 ? ' first' : '')); d.append(el('span', 'cap', r.rank), el('b', null, r.direction), el('span', 'cap', r.reason)); sg.append(d); }); st.append(sg, el('h3', null, '코디 원칙'));
-    const ul = el('ul'); (P.principles || []).forEach((t) => ul.append(el('li', null, t))); st.append(ul);
-    const sh = card('쇼핑 리스트', true); const t3 = el('table'); t3.innerHTML = '<thead><tr><th>우선</th><th>아이템</th><th>예산</th><th>후보 브랜드</th><th>근거</th></tr></thead>'; const tb3 = el('tbody'); (P.shopping || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.priority), el('td', null, r.item), el('td', null, r.budget), el('td', null, r.brands), el('td', 'cap', r.reason)); tb3.append(tr); }); t3.append(tb3); const w3 = el('div', 'wrapx'); w3.append(t3); sh.append(w3);
     // 완성 코디마다 "입혀보기" (AI 예상 착장 사진)
     const tryCard = card('완성 코디 · 예상 착장 사진');
     const tryCtl = el('div'); tryCtl.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
@@ -919,7 +896,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
         });
       });
     }
-    const day = card('당일 진행'); const t4 = el('table'); (P.timeline || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.time), el('td', null, r.task)); t4.append(tr); }); day.append(t4, el('p', null, '쇼핑 지역: ' + (P.area || '')), el('h3', null, '고객에게 전할 한마디'), el('p', 'quote', P.one_liner));
+    const dayHost = box.parentNode.querySelector('[data-f="day"]'); const day = el('section', 'card'); day.append(el('h3', null, '당일 진행')); (dayHost || box).append(day); const t4 = el('table'); (P.timeline || []).forEach((r) => { const tr = el('tr'); tr.append(el('td', 'k', r.time), el('td', null, r.task)); t4.append(tr); }); day.append(t4, el('p', null, '쇼핑 지역: ' + (P.area || '')), el('h3', null, '고객에게 전할 한마디'), el('p', 'quote', P.one_liner));
   }
 
   // 로그인 화면이 떠 있는 상태에서 로그인이 완료됐을 때만 새로고침 (시작 중에는 새로고침하지 않음)
