@@ -185,7 +185,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="nk-report.js?v=9"></script>
+<script src="nk-report.js?v=10"></script>
 <script>
 (() => {
   const cfg = window.NK_CONFIG;
@@ -339,7 +339,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     node.querySelectorAll('[data-in]').forEach((i) => { i.value = s[i.dataset.in] || ''; });
 
     // 사전설문 (답변 수정 가능: 목록형 칸은 쉼표로 구분)
-    const FACTS = [['name', '이름'], ['phone', '연락처'], ['age', '나이', 'num'], ['job', '직업'], ['region', '거주'], ['height_weight', '키 / 몸무게'], ['sizes', '사이즈'], ['body_concerns', '보완하고 싶은 점', 'arr'], ['budget', '의류 예산'], ['fashion_level', '패션 이해도'], ['expectation', '기대하는 점', 'long'], ['prior_services', '받아본 진단', 'arr'], ['prior_result', '이전 진단 결과', 'long'], ['shoes', '보유 신발', 'long'], ['pants', '보유 바지', 'long']];
+    const FACTS = [['name', '이름'], ['phone', '연락처'], ['age', '나이', 'num'], ['job', '직업'], ['region', '거주'], ['height_weight', '키 / 몸무게'], ['sizes', '사이즈'], ['body_concerns', '보완하고 싶은 점', 'arr'], ['budget', '의류 예산'], ['fashion_level', '패션 이해도'], ['expectation', '기대하는 점', 'long'], ['prior_services', '받아본 진단', 'arr'], ['prior_result', '이전 진단 결과', 'long'], ['shoes', '보유 신발', 'long'], ['pants', '보유 바지', 'long'], ['hair_thick', '모질 (본인 선택)'], ['hair_amount', '숱 (본인 선택)'], ['hair_curl', '곱슬 (본인 선택)']];
     const showVal = (k, t) => { const v = s[k]; return t === 'arr' ? (v || []).join(', ') : (v ?? ''); };
     const drawFacts = (editing) => {
       const dl = f('facts') || $('#detail [data-f="facts"]'); dl.replaceChildren(); dl.classList.toggle('edit', editing);
@@ -521,11 +521,15 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     });
     // 8. 헤어
     const s8 = step(8, '헤어 진단 + 추천 헤어스타일');
-    R.HAIR.forEach(([k, l, opts]) => chipRow(s8, k, l, opts, false, rep[k]));
-    txt(s8, 'hair_bangs', '앞머리 기장', '예) 눈~눈썹 사이');
-    chipRow(s8, 'hair_pick', '리포트에 넣을 헤어 사진 (1~2개)', (R.HAIR_STYLES || []).map(([n]) => n), true, rep.hair_pick);
-    txt(s8, 'hair_style', '추천하는 헤어스타일', '예) 세미리프컷');
-    txt(s8, 'hair_request', '헤어샵 요청 멘트', '예) 옆머리 볼륨 살려주세요', true);
+    s8.append(el('p', 'cap', '모질 · 숱 · 곱슬기는 고객이 사전질문지에서 고른 값이 먼저 눌려 있어요. 만져 보고 다르면 바꾸세요. 앞머리 기장 · 다운펌 · 추천 헤어 · 요청 멘트는 "AI 초안 채우기"가 미리 골라 둬요.'));
+    R.HAIR.forEach(([k, l, opts]) => chipRow(s8, k, l, opts, false, rep[k] || s[k]));
+    chipRow(s8, 'hair_bangs', '앞머리 기장', R.HAIR_BANGS || [], false, rep.hair_bangs);
+    chipRow(s8, 'hair_down', '다운펌', R.HAIR_DOWN || [], false, rep.hair_down);
+    // 추천 헤어: 누른 순서가 1순위 · 2순위 (리포트에는 "1순위 + 다운펌" 형태로 자동으로 적힘)
+    const pickRow = chipRow(s8, 'hair_pick', '추천 헤어스타일 (먼저 누른 것이 1순위, 1~2개)', (R.HAIR_STYLES || []).map(([n]) => n), true, rep.hair_pick);
+    pickRow.dataset.order = [].concat(rep.hair_pick || []).join('|');
+    pickRow.addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (!c) return; setTimeout(() => { const on = [...pickRow.querySelectorAll('.chip[aria-pressed="true"]')].map((x) => x.textContent); const old = (pickRow.dataset.order || '').split('|').filter((x) => on.includes(x)); pickRow.dataset.order = [...old, ...on.filter((x) => !old.includes(x))].join('|'); }, 0); });
+    txt(s8, 'hair_request', '헤어샵 요청 멘트 (AI 초안 — 고쳐 쓸 수 있어요)', '예) 옆머리 볼륨 살려주세요', true);
     // 9. 스타일 방향성
     const s9s = step(9, '입혀 보면서 스타일 방향성 (상의 · 하의 · 아우터)', '여러 개 골라도 돼요.');
     R.STYLE.forEach(([group, rows]) => { s9s.append(el('p', 'sub', group)); rows.forEach(([k, l, opts]) => chipRow(s9s, k, l, opts, true, rep[k])); });
@@ -612,7 +616,9 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
         fill('image', d.image);
         R.GLASSES.forEach(([k]) => fill('g_' + k, d.glasses?.[k]));
         fill('hair_forehead', d.hair_forehead);
-        for (const k of ['hair_bangs', 'hair_style', 'hair_request']) { const i = root.querySelector(`[data-rtxt="${k}"]`); if (i && !i.value.trim() && d[k]) { i.value = d[k]; n++; } }
+        fill('hair_bangs', d.hair_bangs); fill('hair_down', d.hair_down);
+        { const pr = root.querySelector('[data-rkey="hair_pick"]'); const had = pr && pr.querySelector('.chip[aria-pressed="true"]'); fill('hair_pick', (d.hair_pick || []).slice(0, 2)); if (pr && !had) pr.dataset.order = (d.hair_pick || []).slice(0, 2).join('|'); }
+        for (const k of ['hair_request']) { const i = root.querySelector(`[data-rtxt="${k}"]`); if (i && !i.value.trim() && d[k]) { i.value = d[k]; n++; } }
         for (const k of ['top_neck', 'top_fit', 'top_fabric', 'top_detail', 'bottom_width', 'bottom_shape', 'outer_length', 'outer_shoulder', 'outer_fabric']) fill(k, d[k]);
         rep.ai_notes = { image: d.image_reason, glasses: d.glasses_reason, hair: d.hair_reason, style: d.style_reason };
         showNotes();
@@ -691,6 +697,11 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       row.color = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map((k) => row[k]).filter(Boolean).join(' · ') || null;
       const out = { face: rep.face, body_photo: rep.body_photo, glass_photos: rep.glass_photos, tag_photos: rep.tag_photos, shop_photos: rep.shop_photos, ai_notes: rep.ai_notes };
       root.querySelectorAll('[data-rkey]').forEach((r) => { const v = [...r.querySelectorAll('.chip[aria-pressed="true"]')].map((c) => c.textContent); out[r.dataset.rkey] = r.dataset.multi ? v : (v[0] || null); });
+      { // 추천 헤어는 누른 순서대로, 리포트용 헤어스타일 문구는 자동으로 만듦 (예: 리프컷 + 다운펌)
+        const pr = root.querySelector('[data-rkey="hair_pick"]'); const ord = (pr?.dataset.order || '').split('|').filter(Boolean);
+        out.hair_pick = [...ord.filter((x) => (out.hair_pick || []).includes(x)), ...(out.hair_pick || []).filter((x) => !ord.includes(x))];
+        out.hair_style = [out.hair_pick[0], out.hair_down === '필요' ? '다운펌' : null].filter(Boolean).join(' + ');
+      }
       out.glasses = {}; R.GLASSES.forEach(([k]) => { out.glasses[k] = out['g_' + k]; delete out['g_' + k]; });
       root.querySelectorAll('[data-rtxt]').forEach((i) => { out[i.dataset.rtxt] = i.value.trim(); });
       out.formulas = [0, 1, 2].map((i) => out['formula' + i]).filter(Boolean); [0, 1, 2].forEach((i) => delete out['formula' + i]);
