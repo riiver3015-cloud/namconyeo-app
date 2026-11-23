@@ -289,20 +289,21 @@ if (PDF_MODE) {
   // ---- 06 헤어스타일 ----
   const p7 = page(); head(p7, '06 헤어스타일');
   hd(p7, '헤어 진단'); table(p7, R.HAIR.map(([k, l, opts]) => [l, chips(opts, rep[k])]));
-  hd(p7, '추천하는 헤어스타일'); table(p7, [['앞머리 기장', rep.hair_bangs], ['추천하는 헤어스타일', rep.hair_style], ['헤어샵 요청 멘트', rep.hair_request]]);
+  hd(p7, '추천하는 헤어스타일'); table(p7, [['진단', rep.hair_diag], ['추천하는 헤어스타일', rep.hair_style], ['앞머리 기장', rep.hair_bangs], ['옆머리', rep.hair_side], ['뒷머리', rep.hair_back], ['펌', rep.hair_perm], ['헤어샵 요청 멘트', rep.hair_request], ['집에서 손질하는 법', rep.hair_home]].filter(([, v]) => v));
   { // 고른 헤어스타일 사진 (없으면 추천 문구에 이름이 들어 있는 스타일로)
     const list = R.HAIR_STYLES || [];
     let names = [].concat(rep.hair_pick || []).filter(Boolean);
     if (!names.length && rep.hair_style) names = list.map(([n]) => n).filter((n) => rep.hair_style.replace(/\s/g, '').includes(n.replace(/\s|\(.*\)/g, '')));
     const picks = [];
-    for (const n of names.slice(0, 2)) {
-      const nums = (list.find(([x]) => x === n) || [, []])[1];
+    names = names.slice(0, 3);
+    for (const [ni, n] of names.entries()) {
+      const nums = (list.find(([x]) => x === n) || [, []])[1].slice(0, names.length > 2 ? 1 : 2);
       if (!nums.length) continue;
-      (await sign('lookbook', nums.map((x) => `hair/IMG_${x}.jpg`))).filter(Boolean).forEach((u) => picks.push([n, u]));
+      (await sign('lookbook', nums.map((x) => `hair/IMG_${x}.jpg`))).filter(Boolean).forEach((u) => picks.push([`${ni + 1}순위 · ${n}`, u, (rep.hair_why || [])[ni]]));
     }
     if (picks.length) {
       hd(p7, '추천 헤어스타일 사진');
-      const g = el('div', 'grid opt g4'); picks.forEach(([n, u]) => { const f = img(u, n, 'ph'); f.append(el('figcaption', null, n)); g.append(f); }); p7.append(g);
+      const g = el('div', 'grid opt ' + (names.length > 2 ? 'g3' : 'g4')); picks.forEach(([n, u, why]) => { const f = img(u, n, 'ph'); f.append(el('figcaption', null, n)); if (why) f.append(el('figcaption', 'small', why)); g.append(f); }); p7.append(g);
     }
   }
   if (uHair.length) { hd(p7, '헤어 시술 후'); const g = el('div', 'grid g2'); uHair.slice(0, 2).forEach((u, i) => g.append(img(u, '헤어 시술 후 ' + (i + 1), 'ph'))); p7.append(g); }
