@@ -165,6 +165,8 @@ async function analyze(surveyId: string) {
       status: "done", plan, model: response.model, error: null,
       usage: response.usage as unknown as Record<string, unknown>, updated_at: new Date().toISOString(),
     }).eq("survey_id", surveyId);
+    // 설명 모드용 사진 선·도형 좌표도 같이 만들어 둠 (실패해도 계획서는 그대로)
+    try { await saveMarks(surveyId, await computeMarks(surveyId)); } catch (e) { console.error("marks failed:", (e as Error).message); }
   } catch (e) {
     const msg = e instanceof Anthropic.APIError ? `Claude API 오류 ${e.status}: ${e.message}` : (e as Error).message;
     await supabase.from("plans").update({ status: "error", error: msg, updated_at: new Date().toISOString() }).eq("survey_id", surveyId);
@@ -459,6 +461,90 @@ async function tryOn(req: Request, surveyId: string, body: Record<string, unknow
   return json({ path, outfit, usage: j.usage ?? null });
 }
 
+// 사진 위에 선·도형을 그릴 좌표 찾기 (설명 모드용). 사람처럼 사진을 보고 판단해야 하는 위치를 Fable 5.2 가 짚음.
+const MARK_MODEL = "claude-fable-5-2";
+const pt = obj({ x: { type: "integer" }, y: { type: "integer" } });
+const marksSchema = obj({
+  body_front: obj({ found: { type: "boolean" }, head_top: pt, neck_base: pt, shoulder_left: pt, shoulder_right: pt, waist_left: pt, waist_right: pt, hip_left: pt, hip_right: pt, feet_bottom: pt, note: str }),
+  body_side: obj({ found: { type: "boolean" }, head_top: pt, chest_front: pt, chest_back: pt, hip_front: pt, hip_back: pt, feet_bottom: pt, note: str }),
+  face: obj({ found: { type: "boolean" }, hairline: pt, brow_line: pt, nose_base: pt, chin: pt, outline: { type: "array", items: pt }, note: str }),
+});
+const MARK_INSTRUCTIONS = `당신은 남성 스타일 컨설팅에서 고객 사진 위에 분석용 선을 긋기 위한 좌표를 찾습니다.
+좌표는 각 사진의 왼쪽 위를 (0,0), 오른쪽 아래를 (1000,1000)으로 하는 정수입니다. left/right 는 사진에서 보이는 왼쪽/오른쪽입니다.
+추측이 아니라 실제 보이는 윤곽 위의 점을 최대한 정확히 짚으세요. 해당 사진이 없으면 found 를 false 로 하고 좌표는 0 으로 둡니다.
+
+정면 전신 (body_front)
+- head_top: 머리카락 포함 머리 꼭대기. feet_bottom: 발바닥이 바닥에 닿는 높이의 몸 중심.
+- neck_base: 목과 어깨가 만나는 높이의 목 가운데.
+- shoulder_left / shoulder_right: 어깨 끝(어깨뼈 끝, 팔이 시작되는 바깥 윤곽). 두 점의 높이는 실제 어깨 높이대로.
+- waist_left / waist_right: 몸통에서 가장 잘록한 허리 높이의 몸통 양쪽 윤곽. 팔은 제외하고 몸통만.
+- hip_left / hip_right: 골반·엉덩이에서 가장 넓은 높이의 양쪽 윤곽. 팔·손은 제외.
+- note: 어깨·허리·골반 너비를 비교한 한 문장 (고객에게 보여 줄 쉬운 말).
+
+측면 전신 (body_side)
+- chest_front / chest_back: 가슴 높이에서 몸통의 앞쪽·뒤쪽 윤곽. hip_front / hip_back: 엉덩이가 가장 나온 높이의 앞쪽·뒤쪽 윤곽.
+- note: 상체 두께와 하체 두께를 비교한 한 문장.
+
+얼굴 정면 (face)
+- hairline: 이마와 머리카락 경계(헤어라인)의 가운데. 머리카락이 이마를 덮으면 머리카락 아래 실제 헤어라인을 추정.
+- brow_line: 두 눈썹 사이(미간) 높이의 얼굴 중심. nose_base: 코끝 아래, 인중이 시작되는 점. chin: 턱 끝.
+- outline: 얼굴 윤곽(이마 헤어라인~광대~턱선~턱끝)을 따라가는 점 16개. 헤어라인 가운데에서 시작해 시계 방향. 귀와 머리카락은 제외.
+- note: 상안부·중안부·하안부 길이를 비교한 한 문장.`;
+
+// 좌표를 찾아 돌려줌 (실패하면 오류를 던짐)
+async function computeMarks(surveyId: string): Promise<Record<string, unknown>> {
+  const [{ data: s }, { data: o }] = await Promise.all([
+    supabase.from("surveys").select("photos").eq("id", surveyId).single(),
+    supabase.from("onsite").select("report").eq("survey_id", surveyId).maybeSingle(),
+  ]);
+  const rep = (o?.report ?? {}) as Record<string, any>;
+  const bodies = (s?.photos?.body ?? []) as string[], faces = (s?.photos?.face ?? []) as string[];
+  const paths = { body_front: rep.body_photo?.front || bodies[0] || null, body_side: rep.body_photo?.side || bodies[1] || null, face: rep.face?.front || faces[0] || null };
+  const list: [string, string][] = [["정면 전신 (body_front)", paths.body_front], ["측면 전신 (body_side)", paths.body_side], ["얼굴 정면 (face)", paths.face]];
+  const missing = list.filter(([, p]) => !p).map(([l]) => l);
+  const images = await signedImages(list.filter(([, p]) => p) as [string, string][]);
+  if (!images.length) throw new Error("고객 사진이 없어요");
+  const response = await anthropic.beta.messages.create({
+    model: MARK_MODEL,
+    max_tokens: 16000,
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    output_config: { effort: "high", format: { type: "json_schema", schema: marksSchema } },
+    system: MARK_INSTRUCTIONS,
+    messages: [{ role: "user", content: [
+      { type: "text", text: `아래 사진에서 좌표를 찾아 주세요.${missing.length ? ` 없는 사진: ${missing.join(", ")} (found=false)` : ""}` },
+      ...images,
+    ] }],
+  });
+  if (response.stop_reason === "refusal") throw new Error("AI가 작성을 거절했어요");
+  if (response.stop_reason === "max_tokens") throw new Error("응답이 중간에 끊겼어요");
+  const text = response.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
+  return { marks: JSON.parse(text), paths, model: response.model, usage: response.usage, at: new Date().toISOString() };
+}
+
+// 계획서(plan.marks)에 저장. 다른 칸은 그대로 둠
+async function saveMarks(surveyId: string, m: Record<string, unknown>) {
+  const { data: p } = await supabase.from("plans").select("plan").eq("survey_id", surveyId).maybeSingle();
+  if (!p?.plan) return false;
+  const plan = p.plan as Record<string, unknown>;
+  plan.marks = m;
+  await supabase.from("plans").update({ plan }).eq("survey_id", surveyId);
+  return true;
+}
+
+async function photoMarks(req: Request, surveyId: string): Promise<Response> {
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  const denied = await requireAdmin(req);
+  if (denied) return json({ error: denied }, 401);
+  try {
+    const m = await computeMarks(surveyId);
+    const saved = await saveMarks(surveyId, m);
+    return json({ ...m, saved });
+  } catch (e) {
+    return json({ error: (e as Error).message }, 502);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -471,6 +557,7 @@ Deno.serve(async (req) => {
     if (mode === "read_tags") return await readTags(req, survey_id);
     if (mode === "write_tips") return await writeTips(req, survey_id);
     if (mode === "tryon") return await tryOn(req, survey_id, body);
+    if (mode === "photo_marks") return await photoMarks(req, survey_id);
     // 오래 걸리는 분석은 응답을 먼저 돌려준 뒤 백그라운드에서 진행
     // @ts-ignore EdgeRuntime 은 Supabase 런타임 전역
     EdgeRuntime.waitUntil(analyze(survey_id));
