@@ -255,25 +255,37 @@ figure { margin:0; }
     c.append(g);
   }
 
-  // ---- 쇼핑 동선 ----
+  // ---- 쇼핑 동선 (매장별로 묶어서 한 번씩) ----
   if (shop.length) {
     const c = slide('오늘 쇼핑 동선');
-    const area = clean(String(P.area || '').split(/[—\-:]/)[0]);
-    const budget = String(s.budget || '').replace(/LEVEL\s*\d+\s*/i, '').replace(/[()]/g, '').trim();
-    c.append(el('h2', null, `${area || '오늘'} 동선`));
+    const area = clean(String(P.area || '').split(/\s*[—–\-:·(]\s*|\s+[-–—]\s+/)[0]).replace(/[.。]$/, '').trim();
+    const budget = String(s.budget || '').replace(/LEVEL\s*\d+\s*/i, '').replace(/[()]/g, '').replace(/^\s*(총\s*)?예산\s*[:：]?\s*/, '').trim();
+    c.append(el('h2', null, `${area && area.length <= 8 ? area : '오늘'} 동선`));
     if (budget) c.append(el('p', 'big muted', `의류 예산 ${budget} 안에서 골라요`));
-    const ol = el('ol', 'route'); let n = 0;
+    // 줄마다 매장 · 층 · 살 것 · 예산을 뽑음
+    //  새 계획서: item = "매장(층): 살 것"   /   예전 계획서: item = 살 것, brands = "매장A, 매장B"
+    const stops = [];
     shop.forEach((r) => {
       const opt = /조건|남을|선택|여유/.test(r.priority || '');
       const raw = clean(r.item); const ix = raw.indexOf(':');
-      let head = ix > 0 ? raw.slice(0, ix) : clean(r.brands) || raw; let what = ix > 0 ? raw.slice(ix + 1).trim() : '';
-      if (/미작성|미정/.test(what)) what = ''; // 아직 안 정한 칸은 고객에게 안 보임
+      let head, what;
+      if (ix > 0 && ix < 30) { head = raw.slice(0, ix).trim(); what = raw.slice(ix + 1).trim(); }
+      else { head = clean(r.brands).split(/\s*[,/·]\s*|\s+또는\s+|\s+or\s+/i)[0] || ''; what = raw; }
+      if (/미작성|미정/.test(what)) what = '';
       let floor = ''; const fm = head.match(/\(([^)]*)\)\s*$/); if (fm) { floor = fm[1]; head = head.slice(0, fm.index).trim(); }
       else { const wm = what.match(/\(([^)]*(L\d|B\d|\d층)[^)]*)\)\s*$/); if (wm) { floor = wm[1]; what = what.slice(0, wm.index).trim(); } }
-      const li = el('li', opt ? 'opt' : ''); li.append(el('div', 'n', opt ? '+' : String(++n)));
-      const body = el('div'); const t = el('div', 'shop', head); if (floor) t.append(el('span', 'fl', floor)); body.append(t);
-      if (what) body.append(el('p', 'what', what));
-      const won = clean(r.budget); if (won) body.append(el('div', 'won', (opt ? '여유가 있으면 · ' : '') + won));
+      head = head.replace(/^(신발|가성비|클래식|포인트)\s*[:·]?\s*/, '').trim() || head;
+      const won = clean(r.budget);
+      let st = stops.find((x) => x.head === head && x.opt === opt);
+      if (!st) { st = { head, floor, opt, items: [] }; stops.push(st); }
+      if (!st.floor && floor) st.floor = floor;
+      if (what) st.items.push(won ? `${what} · ${won}` : what); else if (won) st.items.push(won);
+    });
+    const ol = el('ol', 'route'); let n = 0;
+    stops.forEach((st) => {
+      const li = el('li', st.opt ? 'opt' : ''); li.append(el('div', 'n', st.opt ? '+' : String(++n)));
+      const body = el('div'); const tt = el('div', 'shop', st.head); if (st.floor) tt.append(el('span', 'fl', st.floor)); body.append(tt);
+      st.items.forEach((x) => body.append(el('p', 'what', (st.opt ? '여유가 있으면 · ' : '') + x)));
       li.append(body); ol.append(li);
     });
     c.append(ol);
