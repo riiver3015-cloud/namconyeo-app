@@ -416,7 +416,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const signed = async (paths) => { const ps = paths.filter(Boolean); if (!ps.length) return {}; const { data } = await sb.storage.from('survey-photos').createSignedUrls(ps, 3600); return Object.fromEntries((data || []).map((d) => [d.path, d.signedUrl])); };
     const upload = async (file, tag) => { const blob = await shrink(file, 1600); const path = `${id}/${tag}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.jpg`; const { error } = await sb.storage.from('survey-photos').upload(path, blob, { contentType: 'image/jpeg' }); if (error) throw error; return path; };
     // 사진 한 장 칸 (얼굴·안경)
-    const slot = (parent, label, get, set, tag) => {
+    const slot = (parent, label, get, set, tag, fallback) => {
       const box = el('div', 'slot'); parent.append(box);
       const draw = async () => {
         box.replaceChildren(el('b', null, label));
@@ -425,8 +425,9 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
           const u = (await signed([path]))[path]; const im = el('img'); im.src = u || ''; im.alt = label; box.append(im);
           const x = el('button', 'btn', '다시 찍기'); x.type = 'button'; x.onclick = () => { set(null); draw(); queueSave(); }; box.append(x);
         } else {
-          const lab = el('label', 'btn up'); const inp = el('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.hidden = true;
-          lab.append('사진 찍기·올리기', inp); box.append(lab);
+          if (fallback) { const u = (await signed([fallback]))[fallback]; const im = el('img'); im.src = u || ''; im.alt = label; box.append(im, el('span', 'cap', '고객이 보낸 사진')); }
+          const lab = el('label', fallback ? 'btn' : 'btn up'); const inp = el('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.hidden = true;
+          lab.append(fallback ? '내가 찍은 사진으로 교체' : '사진 찍기·올리기', inp); box.append(lab);
           inp.onchange = async () => { if (!inp.files[0]) return; lab.firstChild.textContent = '올리는 중…'; try { set(await upload(inp.files[0], tag)); queueSave(); } catch (e) { lab.firstChild.textContent = '실패: ' + e.message; return; } draw(); };
         }
       };
@@ -456,10 +457,27 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     };
 
     // 1. 실측
-    const s1 = step(1, '어깨 · 허리 · 골반 너비 재기', '정면 직선거리(cm). 넣으면 대표님 기준표(O → A → I → V → H)로 바로 계산돼요.');
+    const s1 = step(1, '실제 치수 재기', '줄자로 잰 값(cm)을 넣으면 체형과 얼굴 비율이 바로 계산돼요.');
+    s1.append(el('p', 'sub', '① 체형 — 어깨 · 허리 · 골반 너비 (정면 직선거리). 대표님 기준표(O → A → I → V → H)로 계산'));
     const form1 = el('div', 'form');
     for (const [k, l] of [['shoulder', '어깨너비'], ['waist', '허리너비'], ['hip', '골반너비']]) { const lab = el('label', 'field', l); const i = el('input'); i.type = 'number'; i.step = '0.5'; i.inputMode = 'decimal'; i.dataset.on = k; i.value = o[k] ?? ''; lab.append(i); form1.append(lab); }
     const bodyBox = el('div', 'result'); s1.append(form1, bodyBox);
+    s1.append(el('p', 'sub', '② 얼굴 — 상안부 · 중안부 · 하안부 길이와 얼굴 가로 너비'));
+    const form1f = el('div', 'form'); const faceIn = {};
+    for (const [k, l] of [['face_upper_cm', '상안부 길이 (헤어라인~눈썹)'], ['face_middle_cm', '중안부 길이 (눈썹~코끝 아래)'], ['face_lower_cm', '하안부 길이 (코끝 아래~턱끝)'], ['face_width_cm', '얼굴 가로 너비 (광대 기준)']]) { const lab = el('label', 'field', l); const i = el('input'); i.type = 'number'; i.step = '0.1'; i.inputMode = 'decimal'; i.dataset.rtxt = k; i.value = rep[k] || ''; lab.append(i); form1f.append(lab); faceIn[k] = i; }
+    const faceBox = el('div', 'result'); const whIn = el('input'); whIn.type = 'hidden'; whIn.dataset.rtxt = 'face_wh'; whIn.value = rep.face_wh || '';
+    s1.append(form1f, faceBox, whIn);
+    // 얼굴 길이를 넣으면 비율을 계산해 보여주고, 4단계의 '실제 비율' 칸에도 넣음
+    const calcFace = (fill) => {
+      const v = (k) => parseFloat(faceIn[k].value); const u = v('face_upper_cm'), m = v('face_middle_cm'), lo = v('face_lower_cm'), w = v('face_width_cm');
+      faceBox.replaceChildren();
+      if (!(u > 0 && m > 0 && lo > 0)) { faceBox.append(el('span', 'cap', '상 · 중 · 하안부 길이를 모두 넣으면 비율이 계산돼요.')); return; }
+      const r3 = `1 : ${(m / u).toFixed(1)} : ${(lo / u).toFixed(1)}`;
+      faceBox.append(el('span', 'cap', '상 : 중 : 하안부'), el('span', 'type', r3));
+      if (w > 0) { const wh = `1 : ${((u + m + lo) / w).toFixed(2)}`; faceBox.append(el('span', 'cap', '가로 : 세로'), el('span', 'type', wh)); whIn.value = wh; } else { faceBox.append(el('span', 'cap', '가로 너비를 넣으면 가로 : 세로 비율도 나와요.')); whIn.value = ''; }
+      if (fill) { const r = root.querySelector('[data-rtxt="face_ratio"]'); if (r) r.value = r3; }
+    };
+    form1f.addEventListener('input', () => calcFace(true));
     // 2. 체형
     const s2 = step(2, 'A / I / O / H / V 체형 고르기', '실측을 넣으면 계산 결과가 먼저 눌려요. 직접 보고 다르면 바꾸세요.');
     const bodyRow = chipRow(s2, 'body_type', null, ['A형', 'I형', 'O형', 'H형', 'V형'], false, o.body_type || rep.body, 'col');
@@ -472,10 +490,11 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     chipRow(s3, 'bone', null, R.BONE, false, o.bone || ai.bone, 'col');
     { const lab = el('label', 'field', '예외사항 (혼합 골격 비율, 선택지로 안 맞는 점 — 리포트 골격 페이지에 같이 나가요)'); const t = el('textarea'); t.dataset.on = 'exception'; t.value = o.exception || ''; t.placeholder = '예) 스트레이트 베이스에 내추럴 30%'; lab.append(t); s3.append(lab); }
     // 4. 얼굴 진단 (사진 + 상중하안부 · 두상 · 이목구비 · 얼굴형)
-    const s4 = step(4, '얼굴 진단 — 사진 (왼쪽 · 정면 · 오른쪽) + 상 · 중 · 하안부 비율');
+    const s4 = step(4, '얼굴 진단 — 사진 (왼쪽 · 정면 · 오른쪽) + 상 · 중 · 하안부 비율', '사진은 고객이 보낸 것이 기본이에요. 현장에서 찍은 사진을 올리면 그 사진으로 바뀌어요.');
     const g4 = el('div', 'slots'); s4.append(g4);
-    for (const [k, l] of [['left', '왼쪽'], ['front', '정면'], ['right', '오른쪽']]) slot(g4, l, () => rep.face[k], (v) => { rep.face[k] = v; }, 'face_' + k);
-    txt(s4, 'face_ratio', '상 : 중 : 하안부 실제 비율', '예) 1 : 1.1 : 0.9');
+    const sFace = (s.photos?.face || []); // 고객이 보낸 얼굴 사진 (정면을 먼저 올린 것으로 보고 배치 — 순서가 다르면 직접 찍은 사진으로 교체)
+    for (const [k, l, fb] of [['left', '왼쪽', sFace[1]], ['front', '정면', sFace[0]], ['right', '오른쪽', sFace[2]]]) slot(g4, l, () => rep.face[k], (v) => { rep.face[k] = v; }, 'face_' + k, fb);
+    txt(s4, 'face_ratio', '상 : 중 : 하안부 실제 비율 (1단계에서 길이를 넣으면 자동으로 채워져요)', '예) 1 : 1.1 : 0.9');
     // AI 초안 (1~4단계 뒤에 누름)
     const aiLi = el('li', 'step aistep'); stepsBox.append(aiLi);
     aiLi.append(el('h4', null, '✨ AI 초안 채우기 — 6~9단계'), el('p', 'cap', '1~4단계(실측·체형·골격·얼굴)까지 하고 누르면, AI가 6~9단계(이미지·안경·헤어·스타일)에서 비어 있는 칸만 미리 골라 둬요. 이미 고른 칸은 그대로예요. 30초~1분 걸리고 누를 때마다 AI 사용료가 조금 들어요.'));
@@ -683,7 +702,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const progress = (row) => {
       const r = row.report, any = (a) => Object.values(a || {}).some(Boolean);
       const ok = [null, row.shoulder != null && row.waist != null && row.hip != null, !!row.body_type, !!row.bone,
-        ['left', 'front', 'right'].every((k) => r.face[k]),
+        ['left', 'front', 'right'].every((k) => r.face[k]) || (s.photos?.face || []).length > 0,
         !!row.color_temp, (r.image || []).length > 0, any(r.glasses), R.HAIR.some(([k]) => r[k]) || !!r.hair_style,
         R.STYLE.some(([, rows]) => rows.some(([k]) => (r[k] || []).length)), (r.purchases || []).length > 0 || r.tag_photos.length > 0, r.shop_photos.length > 0];
       const N = ok.length - 1;
@@ -706,7 +725,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
 
     const detail = $('#detail'); detail.replaceChildren(node);
     window.__nkFlush = () => { if (timer) saveOnsite(); };
-    calc();
+    calc(); calcFace(false);
     s1.querySelectorAll('[data-on]').forEach((i) => i.addEventListener('input', calc));
     root.addEventListener('input', queueSave);
     root.addEventListener('click', (e) => { if (e.target.closest('.chip') || e.target.matches('[data-check]')) queueSave(); });
