@@ -480,7 +480,7 @@ const pt = obj({ x: { type: "integer" }, y: { type: "integer" } });
 const marksSchema = obj({
   body_front: obj({ found: { type: "boolean" }, head_top: pt, neck_base: pt, shoulder_left: pt, shoulder_right: pt, waist_left: pt, waist_right: pt, hip_left: pt, hip_right: pt, feet_bottom: pt, note: str }),
   body_side: obj({ found: { type: "boolean" }, head_top: pt, chest_front: pt, chest_back: pt, hip_front: pt, hip_back: pt, feet_bottom: pt, note: str }),
-  face: obj({ found: { type: "boolean" }, hairline: pt, brow_line: pt, nose_base: pt, chin: pt, outline: { type: "array", items: pt }, shape: { type: "string", enum: ["타원형", "둥근형", "각진형", "긴형", "하트형", "역삼각형", "마름모형"] }, shape_note: str, note: str }),
+  face: obj({ found: { type: "boolean" }, hairline: pt, brow_line: pt, nose_base: pt, chin: pt, outline: { type: "array", items: pt }, shape: str, shape_note: str, note: str }),
 });
 const MARK_INSTRUCTIONS = `당신은 남성 스타일 컨설팅에서 고객 사진 위에 분석용 선을 긋기 위한 좌표를 찾습니다.
 좌표는 각 사진의 왼쪽 위를 (0,0), 오른쪽 아래를 (1000,1000)으로 하는 정수입니다. left/right 는 사진에서 보이는 왼쪽/오른쪽입니다.
@@ -502,10 +502,17 @@ const MARK_INSTRUCTIONS = `당신은 남성 스타일 컨설팅에서 고객 사
 - hairline: 이마와 머리카락 경계(헤어라인)의 가운데. 머리카락이 이마를 덮으면 머리카락 아래 실제 헤어라인을 추정.
 - brow_line: 두 눈썹 사이(미간) 높이의 얼굴 중심. nose_base: 코끝 아래, 인중이 시작되는 점. chin: 턱 끝.
 - outline: 얼굴 윤곽(이마 헤어라인~광대~턱선~턱끝)을 따라가는 점 16개. 헤어라인 가운데에서 시작해 시계 방향. 귀와 머리카락은 제외.
-- shape: 윤곽(이마 너비·광대 너비·턱 너비·얼굴 길이)을 보고 가장 가까운 얼굴형 하나. shape_note: 왜 그 얼굴형인지 고객에게 보여 줄 한 문장(예: "광대와 턱 너비가 비슷하고 턱선이 둥글어 둥근형에 가까워요").
+- shape: 윤곽(이마 너비·광대 너비·턱 너비·얼굴 길이)을 보고 가장 가까운 얼굴형 하나. 반드시 다음 중 하나를 글자 그대로: 타원형, 둥근형, 각진형, 긴형, 하트형, 역삼각형, 마름모형. shape_note: 왜 그 얼굴형인지 고객에게 보여 줄 한 문장(예: "광대와 턱 너비가 비슷하고 턱선이 둥글어 둥근형에 가까워요").
 - note: 상안부·중안부·하안부 길이를 평균(1 : 1 : 1)과 비교한 결론 한 문장(예: "평균보다 중안부가 긴 편이고 하안부는 짧은 편이에요").`;
 
 // 좌표를 찾아 돌려줌 (실패하면 오류를 던짐)
+const MARK_FORMAT = `
+
+답 형식: 설명 없이 아래 모양의 JSON 하나만 출력합니다. 모든 좌표는 {"x": 정수, "y": 정수}.
+{"body_front": {"found": true, "head_top": {"x":0,"y":0}, "neck_base": {"x":0,"y":0}, "shoulder_left": {"x":0,"y":0}, "shoulder_right": {"x":0,"y":0}, "waist_left": {"x":0,"y":0}, "waist_right": {"x":0,"y":0}, "hip_left": {"x":0,"y":0}, "hip_right": {"x":0,"y":0}, "feet_bottom": {"x":0,"y":0}, "note": ""},
+ "body_side": {"found": true, "head_top": {"x":0,"y":0}, "chest_front": {"x":0,"y":0}, "chest_back": {"x":0,"y":0}, "hip_front": {"x":0,"y":0}, "hip_back": {"x":0,"y":0}, "feet_bottom": {"x":0,"y":0}, "note": ""},
+ "face": {"found": true, "hairline": {"x":0,"y":0}, "brow_line": {"x":0,"y":0}, "nose_base": {"x":0,"y":0}, "chin": {"x":0,"y":0}, "outline": [{"x":0,"y":0}], "shape": "", "shape_note": "", "note": ""}}`;
+
 async function computeMarks(surveyId: string): Promise<Record<string, unknown>> {
   const [{ data: s }, { data: o }] = await Promise.all([
     supabase.from("surveys").select("photos").eq("id", surveyId).single(),
@@ -523,8 +530,8 @@ async function computeMarks(surveyId: string): Promise<Record<string, unknown>> 
     max_tokens: 16000,
     betas: ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
-    output_config: { effort: "high", format: { type: "json_schema", schema: marksSchema } },
-    system: MARK_INSTRUCTIONS,
+    output_config: { effort: "high" },
+    system: MARK_INSTRUCTIONS + MARK_FORMAT,
     messages: [{ role: "user", content: [
       { type: "text", text: `아래 사진에서 좌표를 찾아 주세요.${missing.length ? ` 없는 사진: ${missing.join(", ")} (found=false)` : ""}` },
       ...images,
@@ -533,7 +540,19 @@ async function computeMarks(surveyId: string): Promise<Record<string, unknown>> 
   if (response.stop_reason === "refusal") throw new Error("AI가 작성을 거절했어요");
   if (response.stop_reason === "max_tokens") throw new Error("응답이 중간에 끊겼어요");
   const text = response.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
-  return { marks: JSON.parse(text), paths, model: response.model, usage: response.usage, at: new Date().toISOString() };
+  // 정해진 출력 형식(json_schema)은 좌표 칸이 많아 한도를 넘으므로, 일반 JSON으로 받아 직접 확인함
+  const i0 = text.indexOf("{"), i1 = text.lastIndexOf("}");
+  if (i0 < 0 || i1 <= i0) throw new Error("좌표 응답을 읽지 못했어요");
+  const marks = JSON.parse(text.slice(i0, i1 + 1));
+  const okPt = (q: any) => q && Number.isFinite(q.x) && Number.isFinite(q.y);
+  const B = marks.body_front, S = marks.body_side, F = marks.face;
+  if (!B || !S || !F) throw new Error("좌표 응답에 빠진 칸이 있어요");
+  if (B.found && !["head_top", "neck_base", "shoulder_left", "shoulder_right", "waist_left", "waist_right", "hip_left", "hip_right", "feet_bottom"].every((k) => okPt(B[k]))) B.found = false;
+  if (S.found && !["head_top", "chest_front", "chest_back", "hip_front", "hip_back", "feet_bottom"].every((k) => okPt(S[k]))) S.found = false;
+  if (F.found && !(["hairline", "brow_line", "nose_base", "chin"].every((k) => okPt(F[k])) && Array.isArray(F.outline) && F.outline.length >= 8 && F.outline.every(okPt))) F.found = false;
+  // 얼굴형은 정해진 7가지 중 하나만 받음 (출력 형식을 단순하게 유지하려고 여기서 확인)
+  if (marks?.face && !["타원형", "둥근형", "각진형", "긴형", "하트형", "역삼각형", "마름모형"].includes(marks.face.shape)) { marks.face.shape = ""; marks.face.shape_note = ""; }
+  return { marks, paths, model: response.model, usage: response.usage, at: new Date().toISOString() };
 }
 
 // 계획서(plan.marks)에 저장. 다른 칸은 그대로 둠
