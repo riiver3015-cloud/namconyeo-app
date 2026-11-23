@@ -142,8 +142,9 @@ figure { margin:0; }
 
   // ---- 표지 ----
   const toc = [];
-  if (bodyT || o.bone) toc.push('체형');
-  if (rep.face_shape || imgs.length) toc.push('얼굴 · 이미지');
+  if (bodyT) toc.push('체형');
+  if (o.bone) toc.push('골격');
+  if (rep.face_shape || imgs.length || P.marks?.marks?.face?.found || rep.face_ratio) toc.push('얼굴 · 이미지');
   if (hasColor) toc.push('어울리는 색');
   if (hasHair) toc.push('헤어스타일');
   if ((P.lookbook || []).length) toc.push('오늘 완성할 코디');
@@ -155,31 +156,52 @@ figure { margin:0; }
     const ul = el('ol', 'toc'); toc.forEach((t, i) => { const li = el('li', null, t); li.dataset.n = String(i + 1).padStart(2, '0'); ul.append(li); }); c.append(ul);
   }
 
-  // ---- 체형 ----
-  let bodyHost = null;
-  if (bodyT || o.bone) {
-    const c = slide('체형');
-    const h = []; if (bodyT) h.push(bodyT + ' 체형'); if (o.bone) h.push(o.bone + ' 골격');
-    c.append(el('h2', null, h.join(' · ')));
+  // ---- 체형 (A · I · O · H · V) : 고객 사진 + 그 체형 예시 사진 ----
+  let bodyHost = null, boneHost = null;
+  const exFig = (info, cap) => (info?.img ? [[info.img, cap]] : []);
+  if (bodyT) {
+    const c = slide('체형'); const bi = (R.BODY_INFO || {})[bodyT];
+    c.append(el('h2', null, bodyT + ' 체형'));
     bodyHost = el('div'); c.append(bodyHost);
-    const ph = [[uFront, '정면'], [uSide, '측면']].filter(([u]) => u); if (ph.length) bodyHost.append(pics(ph));
+    bodyHost.append(figs([...(uFront ? [[uFront, '고객님 정면']] : []), ...exFig(bi, `${bodyT} 체형 예시`)]));
     const txt = el('div', 'boxes'); c.append(txt);
-    const bi = (R.BODY_INFO || {})[bodyT], gi = (R.BONE_INFO || {})[o.bone];
-    if (bi) { box(txt, '체형 특징', bi.look); box(txt, '이렇게 입어요', bi.how); }
-    if (gi) { box(txt, `${o.bone} 골격 특징`, gi.look); box(txt, `${o.bone} 골격에 맞는 옷`, gi.how); }
+    if (bi) { box(txt, '체형 특징', bi.look); box(txt, '이렇게 입어요', bi.how); box(txt, '피하면 좋은 것', bi.avoid); }
+  }
+  // ---- 골격 (스트레이트 · 웨이브 · 내추럴) : 고객 사진 + 그 골격 예시 사진 ----
+  if (o.bone) {
+    const c = slide('골격'); const gi = (R.BONE_INFO || {})[o.bone];
+    c.append(el('h2', null, o.bone + ' 골격'));
+    boneHost = el('div'); c.append(boneHost);
+    boneHost.append(figs([...(uFront ? [[uFront, '고객님 정면']] : []), ...exFig(gi, `${o.bone} 골격 예시`)]));
+    const txt = el('div', 'boxes'); c.append(txt);
+    if (gi) { box(txt, `${o.bone} 골격 특징`, gi.look); box(txt, '이렇게 입어요', gi.how); box(txt, '피하면 좋은 것', gi.avoid); }
     if (o.exception) box(txt, '고객님만의 포인트', o.exception);
   }
 
-  // ---- 얼굴 · 이미지 ----
+  // ---- 얼굴 · 이미지 : 얼굴형 결론 + 상·중·하안부 결론 ----
+  const MK0 = P.marks?.marks || null;
+  const mkFaceOk = !!(MK0?.face?.found && (P.marks?.paths || {}).face === (rep.face?.front || (photos.face || [])[0]));
+  const faceShape = rep.face_shape || (mkFaceOk ? MK0.face.shape : '') || '';
+  // 상·중·하안부를 평균(1 : 1 : 1)과 비교. 1단계 실측이 있으면 실측, 없으면 사진 위 선 기준
+  const thirds = (() => {
+    let r = null, src = '';
+    const m = String(rep.face_ratio || '').match(/([\d.]+)\s*:\s*([\d.]+)\s*:\s*([\d.]+)/);
+    if (m) { r = m.slice(1).map(Number); src = '실측'; }
+    else if (mkFaceOk) { const F = MK0.face; const d = [F.brow_line.y - F.hairline.y, F.nose_base.y - F.brow_line.y, F.chin.y - F.nose_base.y]; if (d.every((x) => x > 0)) { r = d; src = '사진'; } }
+    if (!r || !(r[0] > 0)) return null;
+    const mean = (r[0] + r[1] + r[2]) / 3; const w = r.map((x) => (x / mean > 1.06 ? '긴 편' : x / mean < 0.94 ? '짧은 편' : '보통'));
+    const diff = ['상안부', '중안부', '하안부'].map((n, i) => (w[i] === '보통' ? null : `${n}가 ${w[i]}`)).filter(Boolean);
+    return { ratio: `1 : ${(r[1] / r[0]).toFixed(1)} : ${(r[2] / r[0]).toFixed(1)}`, src, text: diff.length ? `평균(1 : 1 : 1)과 비교하면 ${diff.join(', ')}이에요.` : '평균(1 : 1 : 1)에 가까운 균형 잡힌 비율이에요.' };
+  })();
   let faceHost = null;
-  if (rep.face_shape || imgs.length) {
+  if (faceShape || thirds || imgs.length) {
     const c = slide('얼굴 · 이미지');
-    c.append(el('h2', null, imgs.length ? `${imgs.join(' · ')} 이미지가 잘 어울려요` : '얼굴 진단'));
+    c.append(el('h2', null, [faceShape && faceShape + ' 얼굴', imgs.length && imgs.join(' · ') + ' 이미지'].filter(Boolean).join(' · ') || '얼굴 진단'));
     faceHost = el('div'); c.append(faceHost);
     if (uFace) faceHost.append(pics([[uFace, '얼굴']]));
     const txt = el('div', 'boxes'); c.append(txt);
-    const facts = [rep.face_shape && `얼굴형 ${rep.face_shape}`, rep.features_line && `인상 ${rep.features_line}`, rep.face_ratio && `상·중·하안부 ${rep.face_ratio}`].filter(Boolean);
-    if (facts.length) c.insertBefore(tags(facts, true), txt);
+    if (faceShape) box(txt, `얼굴 윤곽 · ${faceShape}`, (mkFaceOk && MK0.face.shape === faceShape && MK0.face.shape_note) || `얼굴 윤곽이 ${faceShape}에 가까워요.`);
+    if (thirds) box(txt, `상 · 중 · 하안부 · ${thirds.ratio} (${thirds.src} 기준)`, thirds.text);
     imgs.forEach((x) => box(txt, x, (R.IMAGE_INFO || {})[x]));
   }
 
@@ -489,29 +511,27 @@ figure { margin:0; }
 
   const note = (host, t) => { let n = host.querySelector('.fignote'); if (!n) { n = el('p', 'fignote'); host.append(n); } n.textContent = t; };
   try {
-    if (bodyHost && uFront && (bodyT || o.bone)) {
-      note(bodyHost, '분석 그림을 그리는 중…');
+    if ((bodyHost || boneHost) && uFront) {
+      [bodyHost, boneHost].filter(Boolean).forEach((h) => note(h, '분석 그림을 그리는 중…'));
       const mF = hasM('body_front', pFront), mS = hasM('body_side', pSide);
       const imF = mF ? await loadImg(uFront) : null, bf = mF ? null : await readBody(uFront);
       if (imF || bf) {
-        const list = [];
-        if (bodyT) list.push([imF ? bodyFigM(imF, MK.body_front) : bodyFig(bf), `${bodyT} 체형 · 어깨 · 허리 · 골반`, mF ? MK.body_front.note : '']);
-        if (o.bone) {
+        if (bodyHost) bodyHost.replaceChildren(figs([[imF ? bodyFigM(imF, MK.body_front) : bodyFig(bf), '고객님 · 어깨 · 허리 · 골반', mF ? MK.body_front.note : ''], ...exFig((R.BODY_INFO || {})[bodyT], `${bodyT} 체형 예시`)]));
+        if (boneHost) {
           const strips = [imF ? boneStripM(imF, MK.body_front, false) : boneStrip(bf, false)];
           if (uSide) { if (mS) strips.push(boneStripM(await loadImg(uSide), MK.body_side, true)); else { const bs = await readBody(uSide).catch(() => null); if (bs) strips.push(boneStrip(bs, true)); } }
-          list.push([joinStrips(strips), `${o.bone} 골격 · ${strips.length > 1 ? '정면 / 측면' : '정면'}`, mS ? MK.body_side.note : '']);
+          boneHost.replaceChildren(figs([[joinStrips(strips), `고객님 · ${strips.length > 1 ? '정면 / 측면' : '정면'}`, mS ? MK.body_side.note : ''], ...exFig((R.BONE_INFO || {})[o.bone], `${o.bone} 골격 예시`)]));
         }
-        bodyHost.replaceChildren(figs(list));
-      } else note(bodyHost, '');
+      } else [bodyHost, boneHost].filter(Boolean).forEach((h) => note(h, ''));
     }
-  } catch (e) { console.warn('body fig', e); if (bodyHost) note(bodyHost, ''); }
+  } catch (e) { console.warn('body fig', e); [bodyHost, boneHost].filter(Boolean).forEach((h) => note(h, '')); }
   try {
     if (faceHost && uFace) {
       note(faceHost, '분석 그림을 그리는 중…');
       let pair = null, fnote = '';
-      if (hasM('face', pFace) && (MK.face.outline || []).length >= 6) { pair = faceFigsM(await loadImg(uFace), MK.face, rep.face_shape, rep.face_ratio); fnote = MK.face.note; }
-      else { const fb = await readFace(uFace); if (fb) pair = faceFigs(fb, rep.face_shape, rep.face_ratio); }
-      if (pair) faceHost.replaceChildren(figs([[pair[0], rep.face_shape ? `얼굴형 · ${rep.face_shape}` : '얼굴 윤곽'], [pair[1], '상안부 · 중안부 · 하안부', fnote]]));
+      if (hasM('face', pFace) && (MK.face.outline || []).length >= 6) { pair = faceFigsM(await loadImg(uFace), MK.face, faceShape, thirds?.ratio || ''); fnote = thirds?.src === '실측' ? '' : MK.face.note; }
+      else { const fb = await readFace(uFace); if (fb) pair = faceFigs(fb, faceShape, thirds?.ratio || ''); }
+      if (pair) faceHost.replaceChildren(figs([[pair[0], faceShape ? `얼굴형 · ${faceShape}` : '얼굴 윤곽'], [pair[1], '상안부 · 중안부 · 하안부', fnote]]));
       else note(faceHost, '');
     }
   } catch (e) { console.warn('face fig', e); if (faceHost) note(faceHost, ''); }
