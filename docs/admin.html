@@ -751,10 +751,10 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       const seen = new Set();
       detail.querySelectorAll('.card').forEach((c) => {
         if (c === toc || c.hidden || c.closest('[hidden]')) return;
-        const h = c.querySelector(':scope > h3, :scope > .top h3, :scope > details > summary h3'); if (!h) return;
+        const h = c.querySelector(':scope > h3, :scope > .top h3, :scope > details.fold > summary h3'); if (!h) return;
         const name = h.textContent.replace(/\s*\(.*\)\s*$/, '').replace(/ · 컨설팅 순서대로$/, '').trim(); if (!name || seen.has(name)) return; seen.add(name);
         const b = el('button', 'btn', name); b.type = 'button';
-        b.onclick = () => { const d = c.querySelector(':scope > details'); if (d) d.open = true; c.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+        b.onclick = () => { const d = c.querySelector(':scope > details.fold'); if (d) d.open = true; c.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
         toc.append(b);
       });
     }
@@ -940,7 +940,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       ol.append(li);
     });
     tryCard.insertBefore(ol, tryCtl); tryCard.insertBefore(el('p', 'cap', '코디 옆 ✨ 입혀보기를 누르면 아래에 예상 착장 사진이 만들어져요. (AI가 만든 참고용 — 실제와 다를 수 있어요)'), tryCtl);
-    box.append(tryCard);
+    box.append(tryCard.closest('.card') || tryCard);
     if ((P.lookbook || []).length) {
       const lb = card('추천 코디 사진 (남코녀 코디 모음에서 AI가 고름)'); const grid = el('div', 'looks'); lb.append(grid);
       const keys = P.lookbook.map((r) => r.key);
