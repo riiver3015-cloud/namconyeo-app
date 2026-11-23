@@ -755,7 +755,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       const head = detail.querySelector('[data-f="title"]')?.closest('.card');
       const items = [];
       detail.querySelectorAll('.card').forEach((c) => {
-        if (c === head || c.closest('[data-f="toc"]')) return;
+        if (c === head || c.closest('[data-f="toc"]') || c.hidden) return;
         const h = c.querySelector(':scope > h3, :scope > .top h3, :scope > details.fold > summary h3'); if (!h) return;
         const name = h.textContent.replace(/\s*\(.*\)\s*$/, '').replace(/ · 컨설팅 순서대로$/, '').trim(); if (!name) return;
         const it = items.find((x) => x.name === name); if (it) it.cards.push(c); else items.push({ name, cards: [c] });
