@@ -276,7 +276,7 @@ figure { margin:0; }
       let floor = ''; const fm = head.match(FLOOR); if (fm) { floor = fm[1].replace(/\s+/g, ' ').trim(); head = head.replace(fm[0], ''); }
       head = head.replace(/[()\[\]]/g, ' ').replace(/\s+/g, ' ').replace(/^[·,\s]+|[·,\s]+$/g, '').trim();
       const isStore = head && head.length <= 16 && !/정리|설명|이동|도착|점심|마무리|구매|체형|기준|추천|고객/.test(head);
-      if (!isStore) { if (/이동/.test(task) && task.length < 60) stops.push({ move: task.replace(/\.$/, '') }); return; }
+      if (!isStore) { if (/이동/.test(task) && task.length < 80) { const mv = task.match(/([가-힣A-Za-z0-9]+?)(?:으로|로)\s*(?:1회|한 번만|바로)?\s*이동/); stops.push({ move: mv ? `${mv[1]}로 이동` : '다음 매장으로 이동' }); } return; }
       const sh = shop.find((x) => `${x.item} ${x.brands}`.includes(head)); const won = sh ? clean(sh.budget) : '';
       stops.push({ head, floor, opt, time: r.time, items: [what && /미작성|미정/.test(what) ? '' : what, won].filter(Boolean) });
     });
