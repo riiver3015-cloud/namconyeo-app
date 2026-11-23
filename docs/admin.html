@@ -85,6 +85,10 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
 .media video { height:220px; max-width:100%; }
 .linkbox { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .linkbox input { flex:1 1 260px; min-width:0; font-size:.85rem; }
+.tabhide { display:none !important; }
+.tabs { position:sticky; top:0; z-index:4; display:flex; gap:6px; overflow-x:auto; flex-wrap:nowrap; padding:8px 2px; background:var(--bg); -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+.tabs button { flex:0 0 auto; white-space:nowrap; font:inherit; font-size:.9rem; padding:8px 14px; border-radius:999px; border:1px solid var(--line); background:var(--panel); color:var(--fg); cursor:pointer; }
+.tabs button[aria-selected="true"] { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
 details.fold > summary { cursor:pointer; list-style:none; display:flex; align-items:baseline; gap:8px; } details.fold > summary::-webkit-details-marker { display:none; } details.fold > summary h3 { margin:0; } details.fold > summary h3::before { content:"▸ "; } details.fold[open] > summary h3::before { content:"▾ "; } details.fold[open] > summary .cap { display:none; } details.fold[open] > summary { margin-bottom:12px; }
 a.home { color:inherit; text-decoration:none; } a.home:hover { text-decoration:underline; text-underline-offset:4px; }
 .layout.collapsed { grid-template-columns:minmax(0,1fr); } .layout.collapsed > nav { display:none; }
@@ -157,7 +161,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" data-act="save-meta">일정 저장</button><button class="btn" data-act="reanalyze">AI 계획서 다시 만들기</button><span class="cap" data-f="metamsg"></span></div>
   </div>
-  <nav class="card" data-f="toc" aria-label="목록" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"></nav>
+  <nav class="tabs" data-f="toc" aria-label="목록" role="tablist"></nav>
   <div data-f="day" style="display:flex;flex-direction:column;gap:16px"></div>
   <div class="card"><details class="fold"><summary><h3>사전설문</h3><span class="cap"> 눌러서 펼치기</span></summary><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;margin:8px 0"><span class="cap" data-f="factsmsg"></span><button class="btn" type="button" data-act="edit-facts">답변 수정</button></div><dl class="facts" data-f="facts"></dl></details></div>
   <div class="card"><details class="fold"><summary><h3>설문 사진</h3><span class="cap"> 눌러서 펼치기</span></summary><div class="photos" data-f="photos" style="margin-top:8px"></div></details></div>
@@ -322,7 +326,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       const r1 = el('div', 'row'); r1.append(el('b', null, s.name), statusPill(state.plans[s.id]));
       const when = s.consult_date ? `${s.consult_date.slice(5).replace('-', '/')} ${s.consult_time || ''}` : '일정 미정';
       b.append(r1, el('span', 'cap', `${when} · ${s.service || '서비스 미정'} · ${s.height_weight || ''}`));
-      b.onclick = () => { state.current = s.id; renderList(); renderDetail(s.id); };
+      b.onclick = () => { try { sessionStorage.removeItem('nk_tab'); } catch (e) {} state.current = s.id; renderList(); renderDetail(s.id); };
       list.append(b);
     });
   }
@@ -746,17 +750,28 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const queueSave = () => { clearTimeout(timer); f2('onmsg').textContent = '입력 중…'; timer = setTimeout(saveOnsite, 1200); };
 
     const detail = $('#detail'); detail.replaceChildren(node);
-    { // 목록: 누르면 그 카드로 이동 (접혀 있으면 펼침)
-      const toc = detail.querySelector('[data-f="toc"]'); toc.replaceChildren(el('b', null, '목록'));
-      const seen = new Set();
+    { // 목록: 가로 메뉴. 누른 항목 하나만 보이고 나머지는 숨김. 기본은 '현장 기록'
+      const toc = detail.querySelector('[data-f="toc"]'); toc.replaceChildren();
+      const head = detail.querySelector('[data-f="title"]')?.closest('.card');
+      const items = [];
       detail.querySelectorAll('.card').forEach((c) => {
-        if (c === toc || c.hidden || c.closest('[hidden]')) return;
+        if (c === head || c.closest('[data-f="toc"]')) return;
         const h = c.querySelector(':scope > h3, :scope > .top h3, :scope > details.fold > summary h3'); if (!h) return;
-        const name = h.textContent.replace(/\s*\(.*\)\s*$/, '').replace(/ · 컨설팅 순서대로$/, '').trim(); if (!name || seen.has(name)) return; seen.add(name);
-        const b = el('button', 'btn', name); b.type = 'button';
-        b.onclick = () => { const d = c.querySelector(':scope > details.fold'); if (d) d.open = true; c.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-        toc.append(b);
+        const name = h.textContent.replace(/\s*\(.*\)\s*$/, '').replace(/ · 컨설팅 순서대로$/, '').trim(); if (!name) return;
+        const it = items.find((x) => x.name === name); if (it) it.cards.push(c); else items.push({ name, cards: [c] });
       });
+      const first = items.findIndex((x) => x.name === '현장 기록'); if (first > 0) items.unshift(...items.splice(first, 1));
+      const show = (name) => {
+        items.forEach((it) => {
+          const on = it.name === name;
+          it.cards.forEach((c) => { c.classList.toggle('tabhide', !on); const d = c.querySelector(':scope > details.fold'); if (on && d) d.open = true; });
+          it.btn.setAttribute('aria-selected', String(on));
+        });
+        try { sessionStorage.setItem('nk_tab', name); } catch (e) {}
+      };
+      items.forEach((it) => { const b = el('button', null, it.name); b.type = 'button'; b.setAttribute('role', 'tab'); b.onclick = () => { show(it.name); b.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }; it.btn = b; toc.append(b); });
+      let start = '현장 기록'; try { const v = sessionStorage.getItem('nk_tab'); if (v && items.some((x) => x.name === v)) start = v; } catch (e) {}
+      if (items.length) show(items.some((x) => x.name === start) ? start : items[0].name);
     }
     window.__nkFlush = () => { if (timer) saveOnsite(); };
     calc(); calcFace(false);
