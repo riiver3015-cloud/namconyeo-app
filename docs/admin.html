@@ -168,7 +168,9 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
   <div data-f="plan" style="display:flex;flex-direction:column;gap:16px"></div>
   <div class="card">
     <div class="top"><h3 style="margin:0">현장 기록 · 컨설팅 순서대로</h3><span class="pill" data-f="progress"></span></div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" data-act="explain">고객에게 보여주기 (설명 모드)</button><span class="cap">체형·골격·얼굴·이미지·컬러를 고른 뒤 누르세요. 저장한 값만 나가고, 메모·❓는 안 보여요.</span></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" data-act="explain">고객에게 보여주기 (설명 모드)</button><button class="btn" data-act="marks">📐 사진 선·도형 다시 만들기</button><span class="cap">체형·골격·얼굴·이미지·컬러를 고른 뒤 누르세요. 저장한 값만 나가고, 메모·❓는 안 보여요.</span></div>
+    <p class="cap" data-f="marksmsg" style="margin:0"></p>
+    <div data-f="marksnotes" class="form" hidden></div>
     <p class="cap" data-f="onmsg">고르거나 입력하면 자동으로 저장돼요.</p>
     <ol class="steps" data-f="steps"></ol>
     <section class="step"><h4>리포트 마무리 — 나만의 스타일링 공식 (3줄)</h4><div data-f="formulas" class="repbox"></div></section>
@@ -754,6 +756,40 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       const w = window.open('', '_blank'); // 팝업 차단을 피하려고 클릭 순간 먼저 엶
       if (await saveOnsite()) { if (w) w.location = 'report.html?id=' + id; else location.href = 'report.html?id=' + id; } else if (w) w.close();
     };
+    // 설명 모드용 사진 선·도형 좌표 (AI 계획서를 만들 때 자동으로 같이 만들어짐. 현장에서 사진을 바꾸면 다시 만들기)
+    {
+      const mmsg = root.querySelector('[data-f="marksmsg"]'), mbox = root.querySelector('[data-f="marksnotes"]');
+      const NOTES = [['body_front', '체형 그림 아래 한 줄'], ['body_side', '골격(측면) 그림 아래 한 줄'], ['face', '얼굴 그림 아래 한 줄']];
+      const drawMarks = () => {
+        const mk = state.plans[id]?.plan?.marks;
+        mbox.replaceChildren(); mbox.hidden = !mk;
+        if (!mk) { mmsg.textContent = '설명 모드 사진의 선·도형: 아직 AI 좌표가 없어서 기본 방식(무료)으로 그려요. 버튼을 누르면 AI가 사진을 보고 더 정확히 그려요 (약 200원, 30초~1분).'; return; }
+        mmsg.textContent = `설명 모드 사진의 선·도형: AI 좌표 있음 (${new Date(mk.at || Date.now()).toLocaleString('ko-KR')}). 현장에서 전신·얼굴 사진을 바꿨으면 다시 만들어 주세요. 아래 한 줄은 고객 화면 그림 밑에 나가니 확인하고 고쳐 주세요.`;
+        NOTES.forEach(([k, l]) => {
+          if (!mk.marks?.[k]?.found) return;
+          const lab = el('label', 'field', l); const ta = el('textarea'); ta.rows = 2; ta.value = mk.marks[k].note || '';
+          ta.onchange = async () => { mk.marks[k].note = ta.value.trim(); const { error } = await sb.from('plans').update({ plan: state.plans[id].plan }).eq('survey_id', id); mmsg.textContent = error ? '⚠ 저장 실패: ' + error.message : '한 줄 설명을 저장했어요.'; };
+          lab.append(ta); mbox.append(lab);
+        });
+      };
+      drawMarks();
+      $('#detail [data-act="marks"]').onclick = async (ev) => {
+        const btn = ev.currentTarget;
+        if (!state.plans[id]?.plan) { mmsg.textContent = 'AI 계획서를 먼저 만들어 주세요.'; return; }
+        if (!confirm('AI가 전신·얼굴 사진을 보고 선·도형 위치를 다시 찾을까요? (약 200원, 30초~1분)')) return;
+        await saveOnsite(); // 현장에서 고른 사진 기준으로 찾도록 먼저 저장
+        btn.disabled = true; mmsg.textContent = 'AI가 사진을 보는 중… (30초~1분)';
+        try {
+          const { data: { session } } = await sb.auth.getSession();
+          const r = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ survey_id: id, mode: 'photo_marks' }) });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok || !j.marks) throw new Error(j.error || ('응답 오류 ' + r.status));
+          state.plans[id].plan.marks = { marks: j.marks, paths: j.paths, model: j.model, at: j.at };
+          drawMarks();
+        } catch (e) { mmsg.textContent = '⚠ ' + e.message; }
+        btn.disabled = false;
+      };
+    }
     $('#detail [data-act="explain"]').onclick = async () => {
       // 같은 탭에서 열어 '닫기'를 누르면 이 화면으로 돌아옴
       if (await saveOnsite()) { try { sessionStorage.setItem('nk_back', id); } catch (e) {} location.href = 'explain.html?id=' + id; }
