@@ -210,6 +210,7 @@ figure { margin:0; }
     }
     const txt = el('div', 'boxes'); c.append(txt);
     box(txt, '앞머리 기장', rep.hair_bangs);
+    if (rep.hair_down === '필요') box(txt, '다운펌', '옆머리가 뜨지 않게 다운펌을 함께 하면 좋아요.');
     box(txt, '헤어샵에서 이렇게 말해 보세요', rep.hair_request);
   }
 
@@ -501,7 +502,7 @@ figure { margin:0; }
       let pair = null, fnote = '';
       if (hasM('face', pFace) && (MK.face.outline || []).length >= 6) { pair = faceFigsM(await loadImg(uFace), MK.face, rep.face_shape, rep.face_ratio); fnote = MK.face.note; }
       else { const fb = await readFace(uFace); if (fb) pair = faceFigs(fb, rep.face_shape, rep.face_ratio); }
-      if (pair) faceHost.replaceChildren(figs([[pair[0], `얼굴형 · ${rep.face_shape || ''}`], [pair[1], '상안부 · 중안부 · 하안부', fnote]]));
+      if (pair) faceHost.replaceChildren(figs([[pair[0], rep.face_shape ? `얼굴형 · ${rep.face_shape}` : '얼굴 윤곽'], [pair[1], '상안부 · 중안부 · 하안부', fnote]]));
       else note(faceHost, '');
     }
   } catch (e) { console.warn('face fig', e); if (faceHost) note(faceHost, ''); }
