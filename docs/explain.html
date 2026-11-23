@@ -48,6 +48,7 @@ figure { margin:0; }
 .route li::before { content:""; position:absolute; left:19px; top:40px; bottom:0; width:2px; background:var(--line); }
 .route li:last-child::before { display:none; }
 .route .n { width:40px; height:40px; border-radius:50%; background:var(--brown); color:#fff; display:grid; place-items:center; font-weight:700; font-size:1.1rem; }
+.route li.move .n { background:none; color:var(--muted); font-size:1.2rem; } .route li.move .what { color:var(--muted); font-size:.9rem; margin-top:10px; }
 .route li.opt .n { background:var(--soft); color:var(--brown); border:2px dashed var(--brown); }
 .route .shop { font-size:clamp(1.1rem, 4vw, 1.35rem); font-weight:700; }
 .route .fl { font-size:.85rem; color:var(--brown); font-weight:500; margin-left:6px; }
@@ -262,33 +263,30 @@ figure { margin:0; }
     const budget = String(s.budget || '').replace(/LEVEL\s*\d+\s*/i, '').replace(/[()]/g, '').replace(/^\s*(총\s*)?예산\s*[:：]?\s*/, '').trim();
     c.append(el('h2', null, `${area && area.length <= 8 ? area : '오늘'} 동선`));
     if (budget) c.append(el('p', 'big muted', `의류 예산 ${budget} 안에서 골라요`));
-    // 줄마다 매장 · 층 · 살 것 · 예산을 뽑음
-    //  새 계획서: item = "매장(층): 살 것"   /   예전 계획서: item = 살 것, brands = "매장A, 매장B"
+    // 동선은 대시보드 '당일 진행'(시간표)에서 바로 만듦: 매장 줄만 골라 순서대로, 이동 줄은 작게
+    const FLOOR = /(IFC\s*몰?\s*[LB]\d|더현대(?:\s*서울)?\s*(?:[LB]\d|\d\s*층)|롯데(?:월드몰|백화점)?\s*\d\s*층|[LB]\d|\d\s*층)/i;
     const stops = [];
-    shop.forEach((r) => {
-      const opt = /조건|남을|선택|여유/.test(r.priority || '');
-      const raw = clean(r.item); const ix = raw.indexOf(':');
-      let head, what;
-      if (ix > 0 && ix < 30) { head = raw.slice(0, ix).trim(); what = raw.slice(ix + 1).trim(); }
-      else { head = clean(r.brands).split(/\s*[,/·]\s*|\s+또는\s+|\s+or\s+/i)[0] || ''; what = raw; }
-      if (/미작성|미정/.test(what)) what = '';
-      let floor = ''; const fm = head.match(/\(([^)]*)\)\s*$/); if (fm) { floor = fm[1]; head = head.slice(0, fm.index).trim(); }
-      else { const wm = what.match(/\(([^)]*(L\d|B\d|\d층)[^)]*)\)\s*$/); if (wm) { floor = wm[1]; what = what.slice(0, wm.index).trim(); } }
-      head = head.replace(/^(신발|가성비|클래식|포인트)\s*[:·]?\s*/, '').trim() || head;
-      const won = clean(r.budget);
-      let st = stops.find((x) => x.head === head && x.opt === opt);
-      if (!st) { st = { head, floor, opt, items: [] }; stops.push(st); }
-      if (!st.floor && floor) st.floor = floor;
-      if (what) st.items.push(won ? `${what} · ${won}` : what); else if (won) st.items.push(won);
+    (P.timeline || []).forEach((r, i) => {
+      const task = clean(r.task); if (!task) return;
+      if (i === 0 && /분석|설명|진단/.test(`${r.time} ${task}`)) return;
+      const m = task.match(/^\[([^\]]{1,40})\]\s*(.*)$/) || task.match(/^([^:：]{1,40})[:：]\s*(.*)$/);
+      let head = m ? m[1] : '', what = m ? m[2] : '';
+      const opt = /조건|남으면|남을|여유|선택/.test(head) || /^\(?조건부\)?/.test(task);
+      head = head.replace(/\(?조건부\)?|예산.*$/g, '').trim();
+      let floor = ''; const fm = head.match(FLOOR); if (fm) { floor = fm[1].replace(/\s+/g, ' ').trim(); head = head.replace(fm[0], ''); }
+      head = head.replace(/[()\[\]]/g, ' ').replace(/\s+/g, ' ').replace(/^[·,\s]+|[·,\s]+$/g, '').trim();
+      const isStore = head && head.length <= 16 && !/정리|설명|이동|도착|점심|마무리|구매|체형|기준|추천|고객/.test(head);
+      if (!isStore) { if (/이동/.test(task) && task.length < 60) stops.push({ move: task.replace(/\.$/, '') }); return; }
+      const sh = shop.find((x) => `${x.item} ${x.brands}`.includes(head)); const won = sh ? clean(sh.budget) : '';
+      stops.push({ head, floor, opt, time: r.time, items: [what && /미작성|미정/.test(what) ? '' : what, won].filter(Boolean) });
     });
-    // 매장 순서는 대시보드 '당일 진행'(시간표)에 나오는 순서를 따름. 시간표에 없는 매장은 뒤로
-    const tl = (P.timeline || []).map((r) => `${r.time} ${r.task}`).join(' \n ').replace(/\s/g, '');
-    const key = (h) => h.replace(/\s/g, '').replace(/^무신사스탠다드$/, '무탠다드');
-    const pos = (st) => { const k = key(st.head); let i = tl.indexOf(k); if (i < 0 && k === '무탠다드') i = tl.indexOf('무신사스탠다드'); return i < 0 ? 1e9 : i; };
-    stops.forEach((st, i) => { st.i = i; });
-    stops.sort((x, y) => (x.opt - y.opt) || (pos(x) - pos(y)) || (x.i - y.i));
+    if (stops.filter((x) => !x.move).length < 2) { // 시간표에서 매장을 못 찾으면 쇼핑 리스트로
+      stops.length = 0;
+      shop.forEach((r) => { const raw = clean(r.item); const ix = raw.indexOf(':'); const head = ix > 0 && ix < 30 ? raw.slice(0, ix).trim() : clean(r.brands).split(/\s*[,/·]\s*/)[0]; stops.push({ head, floor: '', opt: /조건|남을|선택|여유/.test(r.priority || ''), items: [ix > 0 && ix < 30 ? raw.slice(ix + 1).trim() : raw, clean(r.budget)].filter(Boolean) }); });
+    }
     const ol = el('ol', 'route'); let n = 0;
     stops.forEach((st) => {
+      if (st.move) { const li = el('li', 'move'); li.append(el('div', 'n', '↓'), el('p', 'what', st.move)); ol.append(li); return; }
       const li = el('li', st.opt ? 'opt' : ''); li.append(el('div', 'n', st.opt ? '+' : String(++n)));
       const body = el('div'); const tt = el('div', 'shop', st.head); if (st.floor) tt.append(el('span', 'fl', st.floor)); body.append(tt);
       st.items.forEach((x) => body.append(el('p', 'what', (st.opt ? '여유가 있으면 · ' : '') + x)));
