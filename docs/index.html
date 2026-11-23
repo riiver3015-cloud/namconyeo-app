@@ -133,6 +133,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
         <label><input type="radio" name="hair_curl" value="반곱슬">반곱슬</label>
         <label><input type="radio" name="hair_curl" value="악성곱슬">심한 곱슬</label>
       </div>
+      <p class="hint" style="margin:8px 0 2px">아침에 머리 손질에 쓰는 시간</p>
+      <div class="opts" data-group="hair_care" data-radio>
+        <label><input type="radio" name="hair_care" value="5분 미만">5분 미만</label>
+        <label><input type="radio" name="hair_care" value="5~10분">5~10분</label>
+        <label><input type="radio" name="hair_care" value="10분 이상">10분 이상</label>
+      </div>
     </div>
 
     <div class="q consent">
@@ -244,7 +250,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
         height_weight: val('hw'), sizes: val('sizes'), body_concerns: other('body_concerns', 'concern_other'),
         budget: other('budget', 'budget_other')[0], fashion_level: checked('fashion_level')[0].value,
         expectation: val('exp'), prior_services: checked('prior_services').map((i) => i.value), prior_result: val('prior'),
-        shoes: val('shoes'), pants: val('pants'), hair_thick: checked('hair_thick')[0]?.value || null, hair_amount: checked('hair_amount')[0]?.value || null, hair_curl: checked('hair_curl')[0]?.value || null, photos, consent_privacy: true, consent_ai: true,
+        shoes: val('shoes'), pants: val('pants'), hair_thick: checked('hair_thick')[0]?.value || null, hair_amount: checked('hair_amount')[0]?.value || null, hair_curl: checked('hair_curl')[0]?.value || null, hair_care: checked('hair_care')[0]?.value || null, photos, consent_privacy: true, consent_ai: true,
       };
       const { error } = await sb.from('surveys').insert(row);
       if (error) throw error;
