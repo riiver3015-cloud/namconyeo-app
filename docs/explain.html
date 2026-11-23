@@ -281,6 +281,12 @@ figure { margin:0; }
       if (!st.floor && floor) st.floor = floor;
       if (what) st.items.push(won ? `${what} · ${won}` : what); else if (won) st.items.push(won);
     });
+    // 매장 순서는 대시보드 '당일 진행'(시간표)에 나오는 순서를 따름. 시간표에 없는 매장은 뒤로
+    const tl = (P.timeline || []).map((r) => `${r.time} ${r.task}`).join(' \n ').replace(/\s/g, '');
+    const key = (h) => h.replace(/\s/g, '').replace(/^무신사스탠다드$/, '무탠다드');
+    const pos = (st) => { const k = key(st.head); let i = tl.indexOf(k); if (i < 0 && k === '무탠다드') i = tl.indexOf('무신사스탠다드'); return i < 0 ? 1e9 : i; };
+    stops.forEach((st, i) => { st.i = i; });
+    stops.sort((x, y) => (x.opt - y.opt) || (pos(x) - pos(y)) || (x.i - y.i));
     const ol = el('ol', 'route'); let n = 0;
     stops.forEach((st) => {
       const li = el('li', st.opt ? 'opt' : ''); li.append(el('div', 'n', st.opt ? '+' : String(++n)));
