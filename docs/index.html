@@ -114,6 +114,27 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
     <div class="q"><label for="shoes">가지고 있는 신발</label><input id="shoes" name="shoes" type="text" maxlength="200" placeholder="예) 에어포스 화이트, 독일군 스니커즈"></div>
     <div class="q"><label for="pants">가지고 있는 바지</label><input id="pants" name="pants" type="text" maxlength="200" placeholder="예) 흑청 와이드, 블랙 와이드 슬랙스"></div>
 
+    <div class="q"><span class="t">머리카락 상태 (아는 만큼만 골라 주세요)</span><p class="hint">헤어스타일 추천에 써요. 잘 모르면 비워 두셔도 돼요.</p>
+      <p class="hint" style="margin:8px 0 2px">모질 (머리카락 굵기)</p>
+      <div class="opts" data-group="hair_thick" data-radio>
+        <label><input type="radio" name="hair_thick" value="얇음">얇음</label>
+        <label><input type="radio" name="hair_thick" value="중간">중간</label>
+        <label><input type="radio" name="hair_thick" value="두꺼움">두꺼움</label>
+      </div>
+      <p class="hint" style="margin:8px 0 2px">숱</p>
+      <div class="opts" data-group="hair_amount" data-radio>
+        <label><input type="radio" name="hair_amount" value="많음">많음</label>
+        <label><input type="radio" name="hair_amount" value="보통">보통</label>
+        <label><input type="radio" name="hair_amount" value="적음">적음</label>
+      </div>
+      <p class="hint" style="margin:8px 0 2px">곱슬 여부</p>
+      <div class="opts" data-group="hair_curl" data-radio>
+        <label><input type="radio" name="hair_curl" value="직모">직모</label>
+        <label><input type="radio" name="hair_curl" value="반곱슬">반곱슬</label>
+        <label><input type="radio" name="hair_curl" value="악성곱슬">심한 곱슬</label>
+      </div>
+    </div>
+
     <div class="q consent">
       <div class="opts">
         <label><input id="c1" type="checkbox"><span>[필수] 개인정보 수집·이용에 동의합니다.</span></label>
@@ -223,7 +244,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
         height_weight: val('hw'), sizes: val('sizes'), body_concerns: other('body_concerns', 'concern_other'),
         budget: other('budget', 'budget_other')[0], fashion_level: checked('fashion_level')[0].value,
         expectation: val('exp'), prior_services: checked('prior_services').map((i) => i.value), prior_result: val('prior'),
-        shoes: val('shoes'), pants: val('pants'), photos, consent_privacy: true, consent_ai: true,
+        shoes: val('shoes'), pants: val('pants'), hair_thick: checked('hair_thick')[0]?.value || null, hair_amount: checked('hair_amount')[0]?.value || null, hair_curl: checked('hair_curl')[0]?.value || null, photos, consent_privacy: true, consent_ai: true,
       };
       const { error } = await sb.from('surveys').insert(row);
       if (error) throw error;
