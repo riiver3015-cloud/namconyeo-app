@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>남코녀 스타일 설명</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500;700&display=swap">
+<style>
+/* 고객에게 화면을 보여주며 설명하는 모드 — 대표님 메모·AI 근거 표시(📏🔶❓)는 나오지 않음 */
+:root { --brown:#7a5a43; --ink:#2b2420; --muted:#7a6e66; --line:#e4dbd1; --paper:#fffdf9; --soft:#f3eee8; color-scheme: light; }
+* { box-sizing:border-box; }
+[hidden] { display:none !important; }
+html, body { margin:0; height:100%; background:var(--paper); color:var(--ink); font-family:"Noto Sans KR", system-ui, sans-serif; -webkit-text-size-adjust:100%; }
+.deck { height:100dvh; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none; overscroll-behavior-x:contain; }
+.deck::-webkit-scrollbar { display:none; }
+.slide { flex:0 0 100%; height:100%; scroll-snap-align:start; overflow-y:auto; padding:calc(56px + env(safe-area-inset-top)) 20px calc(72px + env(safe-area-inset-bottom)); }
+.in { max-width:1040px; margin:0 auto; display:flex; flex-direction:column; gap:18px; }
+.kick { color:var(--brown); font-weight:700; letter-spacing:.08em; font-size:.85rem; }
+h1 { font-family:"Noto Serif KR", serif; font-size:clamp(2rem, 7vw, 3.4rem); margin:0; line-height:1.25; }
+h2 { font-size:clamp(1.6rem, 5.5vw, 2.4rem); margin:0; line-height:1.3; }
+.big { font-size:clamp(1.05rem, 3.6vw, 1.35rem); line-height:1.7; margin:0; }
+.muted { color:var(--muted); }
+.tag { display:inline-block; background:var(--brown); color:#fff; border-radius:999px; padding:4px 14px; font-weight:700; font-size:clamp(1rem, 3.6vw, 1.25rem); margin:0 6px 6px 0; }
+.tag.ghost { background:var(--soft); color:var(--ink); }
+.two { display:grid; gap:18px; }
+@media (min-width:760px) { .two { grid-template-columns:minmax(0,2fr) minmax(0,3fr); align-items:start; } }
+.photos { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; }
+.photos.one { grid-template-columns:minmax(0,1fr); }
+.photos img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:12px; background:var(--soft); display:block; }
+.photos figcaption { text-align:center; font-size:.85rem; color:var(--muted); margin-top:4px; }
+figure { margin:0; }
+.box { background:var(--soft); border-radius:14px; padding:16px 18px; }
+.box h3 { margin:0 0 6px; font-size:1rem; color:var(--brown); }
+.box p { margin:0; font-size:clamp(1rem, 3.4vw, 1.15rem); line-height:1.7; }
+.box + .box { margin-top:10px; }
+.sw { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
+@media (min-width:760px) { .sw { grid-template-columns:repeat(6, minmax(0,1fr)); } }
+.sw div { text-align:center; font-size:.9rem; } .sw i { display:block; height:64px; border-radius:12px; border:1px solid var(--line); margin-bottom:6px; }
+.axes { display:flex; flex-wrap:wrap; gap:6px; }
+.looks { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
+.looks img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:12px; background:var(--soft); display:block; }
+.looks figcaption { font-size:.8rem; color:var(--muted); margin-top:4px; line-height:1.4; }
+.route { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0; }
+.route li { display:grid; grid-template-columns:40px minmax(0,1fr); gap:12px; position:relative; padding-bottom:16px; }
+.route li::before { content:""; position:absolute; left:19px; top:40px; bottom:0; width:2px; background:var(--line); }
+.route li:last-child::before { display:none; }
+.route .n { width:40px; height:40px; border-radius:50%; background:var(--brown); color:#fff; display:grid; place-items:center; font-weight:700; font-size:1.1rem; }
+.route li.opt .n { background:var(--soft); color:var(--brown); border:2px dashed var(--brown); }
+.route .shop { font-size:clamp(1.1rem, 4vw, 1.35rem); font-weight:700; }
+.route .fl { font-size:.85rem; color:var(--brown); font-weight:500; margin-left:6px; }
+.route .what { margin:2px 0 0; font-size:clamp(.95rem, 3.3vw, 1.08rem); line-height:1.6; }
+.route .won { font-size:.85rem; color:var(--muted); }
+.cover { justify-content:center; min-height:100%; }
+.cover .in { min-height:100%; justify-content:center; }
+.toc { list-style:none; padding:0; margin:8px 0 0; display:flex; flex-direction:column; gap:10px; font-size:clamp(1.05rem, 3.8vw, 1.3rem); }
+.toc li::before { content:attr(data-n); display:inline-block; width:2.2em; color:var(--brown); font-weight:700; }
+.logo { font-family:"Noto Serif KR", serif; letter-spacing:.14em; color:var(--brown); }
+.nav { position:fixed; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; gap:14px; padding:10px 16px calc(10px + env(safe-area-inset-bottom)); background:linear-gradient(rgba(255,253,249,0), var(--paper) 40%); pointer-events:none; }
+.nav > * { pointer-events:auto; }
+.nav button { font:inherit; width:44px; height:44px; border-radius:50%; border:1px solid var(--line); background:#fff; color:var(--ink); font-size:1.2rem; cursor:pointer; }
+.dots { display:flex; gap:8px; } .dots i { width:8px; height:8px; border-radius:50%; background:var(--line); cursor:pointer; } .dots i.on { background:var(--brown); width:22px; border-radius:4px; }
+.top { position:fixed; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:center; padding:calc(10px + env(safe-area-inset-top)) 16px 10px; background:linear-gradient(var(--paper) 60%, rgba(255,253,249,0)); z-index:2; }
+.top button { font:inherit; font-size:.85rem; border:0; background:none; color:var(--muted); cursor:pointer; padding:6px 4px; }
+.msg { max-width:560px; margin:20vh auto; padding:24px; text-align:center; line-height:1.7; }
+</style>
+</head>
+<body>
+<div class="top"><button id="close" aria-label="설명 모드 닫기">✕ 닫기</button><span class="logo">NAM CO NYEO</span></div>
+<main class="deck" id="deck"><div class="msg" id="msg">불러오는 중…</div></main>
+<div class="nav" id="nav" hidden><button id="prev" aria-label="이전">‹</button><div class="dots" id="dots"></div><button id="next" aria-label="다음">›</button></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="nk-report.js?v=9"></script>
+<script>
+(async () => {
+  const cfg = window.NK_CONFIG, R = window.NK_REPORT;
+  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  const deck = document.getElementById('deck');
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const fail = (t) => { const m = document.getElementById('msg'); if (m) m.textContent = t; };
+  const id = new URLSearchParams(location.search).get('id');
+  document.getElementById('close').onclick = () => { if (history.length > 1) history.back(); else window.close(); };
+  if (!id) return fail('고객이 지정되지 않았어요. 관리자 화면의 "고객에게 보여주기"로 열어 주세요.');
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return fail('관리자 로그인이 필요해요. 관리자 화면에서 로그인한 뒤 다시 열어 주세요.');
+  const [sr, pr, orr] = await Promise.all([
+    sb.from('surveys').select('*').eq('id', id).maybeSingle(),
+    sb.from('plans').select('plan').eq('survey_id', id).maybeSingle(),
+    sb.from('onsite').select('*').eq('survey_id', id).maybeSingle(),
+  ]);
+  const s = sr.data; if (!s) return fail('고객 정보를 불러오지 못했어요. (관리자 계정인지 확인해 주세요)');
+  const P = pr.data?.plan || {}, o = orr.data || {}, rep = o.report || {};
+  document.title = `${s.name}님 · 남코녀 스타일 설명`;
+
+  // AI 초안 문장에서 대표님용 표시(📏🔶❓, 확인 메모)를 지워 고객용 문장으로
+  const clean = (t) => String(t || '')
+    .replace(/\([^()]*(❓|대표님|확인|규칙|기준)[^()]*\)/g, '')
+    .replace(/[📏🔶❓]/gu, '')
+    .replace(/최종\s*결정은\s*대표님\.?/g, '')
+    .replace(/\s{2,}/g, ' ').replace(/\s+([,.)])/g, '$1').trim();
+  const sign = async (bucket, paths) => { const ps = paths.filter(Boolean); if (!ps.length) return []; const { data } = await sb.storage.from(bucket).createSignedUrls(ps, 3600); return (data || []).map((d) => d.signedUrl); };
+  const photos = s.photos || {}, bp = rep.body_photo || {};
+  const [[uFront, uSide], [uFace]] = await Promise.all([
+    sign('survey-photos', [bp.front || (photos.body || [])[0], bp.side || (photos.body || [])[1]]).then((u) => [u[0], u[1]]),
+    sign('survey-photos', [rep.face?.front || (photos.face || [])[0]]),
+  ]);
+
+  const slides = [];
+  const slide = (cls) => { const sec = el('section', 'slide ' + (cls || '')); const inn = el('div', 'in'); sec.append(inn); slides.push(sec); return inn; };
+  const tags = (vals, ghost) => { const d = el('div'); [].concat(vals || []).filter(Boolean).forEach((v) => d.append(el('span', ghost ? 'tag ghost' : 'tag', v))); return d; };
+  const box = (parent, title, text) => { if (!text) return; const b = el('div', 'box'); b.append(el('h3', null, title), el('p', null, text)); parent.append(b); };
+  const pics = (list) => { const g = el('div', 'photos' + (list.length === 1 ? ' one' : '')); list.forEach(([u, cap]) => { const f = el('figure'); const i = el('img'); i.src = u; i.alt = cap; f.append(i, el('figcaption', null, cap)); g.append(f); }); return g; };
+
+  // ---- 표지 ----
+  const toc = [];
+  const bodyT = [].concat(o.body_type || rep.body || [])[0];
+  const imgs = [].concat(rep.image || []).filter(Boolean);
+  const hasColor = R.COLOR.some(([k]) => o[k]);
+  const shop = (P.shopping || []).filter((r) => !/제외/.test(r.priority || ''));
+  if (bodyT || o.bone) toc.push('체형');
+  if (rep.face_shape || imgs.length || rep.hair_style) toc.push('얼굴 · 이미지');
+  if (hasColor) toc.push('어울리는 색');
+  if ((P.lookbook || []).length) toc.push('오늘 완성할 코디');
+  if (shop.length) toc.push('오늘 쇼핑 동선');
+  {
+    const c = slide('cover');
+    c.append(el('div', 'kick', 'TODAY’S STYLING'), el('h1', null, `${s.name} 님,\n오늘의 스타일 방향`));
+    c.lastChild.style.whiteSpace = 'pre-line';
+    const ul = el('ol', 'toc'); toc.forEach((t, i) => { const li = el('li', null, t); li.dataset.n = String(i + 1).padStart(2, '0'); ul.append(li); }); c.append(ul);
+  }
+
+  // ---- 체형 ----
+  if (bodyT || o.bone) {
+    const c = slide(); c.append(el('div', 'kick', '01 체형'));
+    const h = []; if (bodyT) h.push(bodyT + ' 체형'); if (o.bone) h.push(o.bone + ' 골격');
+    c.append(el('h2', null, h.join(' · ')));
+    const two = el('div', 'two'); c.append(two);
+    const ph = [[uFront, '정면'], [uSide, '측면']].filter(([u]) => u); two.append(ph.length ? pics(ph) : el('div'));
+    const txt = el('div'); two.append(txt);
+    const bi = (R.BODY_INFO || {})[bodyT], gi = (R.BONE_INFO || {})[o.bone];
+    if (bi) { box(txt, '체형 특징', bi.look); box(txt, '이렇게 입어요', bi.how); }
+    if (gi) box(txt, `${o.bone} 골격에 맞는 옷`, gi.how);
+    if (o.exception) box(txt, '고객님만의 포인트', o.exception);
+  }
+
+  // ---- 얼굴 · 이미지 ----
+  if (rep.face_shape || imgs.length || rep.hair_style) {
+    const c = slide(); c.append(el('div', 'kick', '02 얼굴 · 이미지'));
+    c.append(el('h2', null, imgs.length ? `${imgs.join(' · ')} 이미지가 잘 어울려요` : '얼굴 진단'));
+    const two = el('div', 'two'); c.append(two);
+    two.append(uFace ? pics([[uFace, '얼굴']]) : el('div'));
+    const txt = el('div'); two.append(txt);
+    const facts = [rep.face_shape && `얼굴형 ${rep.face_shape}`, rep.features_line && `인상 ${rep.features_line}`, rep.face_ratio && `상·중·하안부 ${rep.face_ratio}`].filter(Boolean);
+    if (facts.length) txt.append(tags(facts, true));
+    imgs.forEach((x) => box(txt, x, (R.IMAGE_INFO || {})[x]));
+    if (rep.hair_style) box(txt, '추천 헤어', rep.hair_style + (rep.hair_bangs ? ` · 앞머리 ${rep.hair_bangs}` : ''));
+  }
+
+  // ---- 컬러 ----
+  if (hasColor) {
+    const c = slide(); c.append(el('div', 'kick', '03 어울리는 색'));
+    c.append(el('h2', null, [o.color_temp, o.color_value, o.color_chroma, o.color_clarity].filter(Boolean).join(' · ')));
+    const CI = R.COLOR_INFO || {};
+    const txt = el('div'); c.append(txt);
+    R.COLOR.forEach(([k, l]) => { if (o[k] && CI[o[k]]) box(txt, `${l} · ${o[k]}`, CI[o[k]]); });
+    const pal = (R.PALETTE || {})[`${o.color_temp} ${o.color_value}`];
+    if (pal) { const sw = el('div', 'sw'); pal.forEach(([n, hex]) => { const d = el('div'); const i = el('i'); i.style.background = hex; d.append(i, el('span', null, n)); sw.append(d); }); c.append(el('h3', null, '이 색들이 얼굴을 살려 줘요'), sw); }
+    const av = (R.COLOR_AVOID || {})[o.color_temp]; if (av) c.append(el('p', 'big muted', '피하면 좋은 색 · ' + av));
+  }
+
+  // ---- 완성 코디 ----
+  if ((P.lookbook || []).length) {
+    const c = slide(); c.append(el('div', 'kick', '04 오늘 완성할 코디'));
+    c.append(el('h2', null, '이런 느낌으로 맞춰 볼게요'));
+    const keys = P.lookbook.slice(0, 3).map((r) => r.key);
+    const [{ data: lb }, urls] = await Promise.all([sb.from('lookbook').select('key,items,colors').in('key', keys), sign('lookbook', keys.map((k) => k + '.jpg'))]);
+    const g = el('div', 'looks'); keys.forEach((k, i) => { const f = el('figure'); const im = el('img'); im.src = urls[i]; im.alt = '코디 ' + (i + 1); const row = (lb || []).find((r) => r.key === k); f.append(im, el('figcaption', null, row?.items || '')); g.append(f); });
+    c.append(g);
+  }
+
+  // ---- 쇼핑 동선 ----
+  if (shop.length) {
+    const c = slide(); c.append(el('div', 'kick', '05 오늘 쇼핑 동선'));
+    const area = clean(String(P.area || '').split(/[—\-:]/)[0]);
+    const budget = String(s.budget || '').replace(/LEVEL\s*\d+\s*/i, '').replace(/[()]/g, '').trim();
+    c.append(el('h2', null, `${area || '오늘'} 동선`));
+    if (budget) c.append(el('p', 'big muted', `의류 예산 ${budget} 안에서 골라요`));
+    const ol = el('ol', 'route'); let n = 0;
+    shop.forEach((r) => {
+      const opt = /조건|남을|선택|여유/.test(r.priority || '');
+      const raw = clean(r.item); const ix = raw.indexOf(':');
+      let head = ix > 0 ? raw.slice(0, ix) : clean(r.brands) || raw; const what = ix > 0 ? raw.slice(ix + 1).trim() : (ix > 0 ? '' : '');
+      const fm = head.match(/\(([^)]*)\)\s*$/); const floor = fm ? fm[1] : ''; if (fm) head = head.slice(0, fm.index).trim();
+      const li = el('li', opt ? 'opt' : ''); li.append(el('div', 'n', opt ? '+' : String(++n)));
+      const body = el('div'); const t = el('div', 'shop', head); if (floor) t.append(el('span', 'fl', floor)); body.append(t);
+      if (what) body.append(el('p', 'what', what));
+      const won = clean(r.budget); if (won) body.append(el('div', 'won', (opt ? '여유가 있으면 · ' : '') + won));
+      li.append(body); ol.append(li);
+    });
+    c.append(ol);
+  }
+
+  deck.replaceChildren(...slides);
+  // ---- 넘기기 (스와이프 · 화살표 · 키보드) ----
+  const nav = document.getElementById('nav'), dots = document.getElementById('dots');
+  nav.hidden = slides.length < 2;
+  slides.forEach((_, i) => { const d = el('i'); d.onclick = () => go(i); dots.append(d); });
+  const cur = () => Math.round(deck.scrollLeft / deck.clientWidth);
+  const go = (i) => deck.scrollTo({ left: Math.max(0, Math.min(slides.length - 1, i)) * deck.clientWidth, behavior: 'smooth' });
+  const mark = () => [...dots.children].forEach((d, i) => d.classList.toggle('on', i === cur()));
+  deck.addEventListener('scroll', () => requestAnimationFrame(mark), { passive: true }); mark();
+  document.getElementById('prev').onclick = () => go(cur() - 1);
+  document.getElementById('next').onclick = () => go(cur() + 1);
+  addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(cur() + 1); } if (e.key === 'ArrowLeft') go(cur() - 1); });
+  addEventListener('resize', () => go(cur()));
+  window.NK_READY = true;
+})();
+</script>
+</body>
+</html>
