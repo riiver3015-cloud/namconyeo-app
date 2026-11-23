@@ -64,6 +64,17 @@ figure { margin:0; }
 .dots { display:flex; gap:8px; } .dots i { width:8px; height:8px; border-radius:50%; background:var(--line); cursor:pointer; } .dots i.on { background:var(--brown); width:22px; border-radius:4px; }
 .top { position:fixed; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:center; padding:calc(10px + env(safe-area-inset-top)) 16px 10px; background:linear-gradient(var(--paper) 60%, rgba(255,253,249,0)); z-index:2; }
 .top button { font:inherit; font-size:.85rem; border:0; background:none; color:var(--muted); cursor:pointer; padding:6px 4px; }
+.figs { display:grid; gap:12px; grid-template-columns:minmax(0,1fr); }
+@media (min-width:760px) { .figs { grid-template-columns:repeat(2, minmax(0,1fr)); align-items:start; } }
+.figs img { width:100%; height:auto; display:block; border-radius:12px; background:var(--soft); }
+@media (max-width:759px) { .figs img { max-height:68vh; width:auto; max-width:100%; margin:0 auto; } }
+.figs figcaption { text-align:center; font-size:.9rem; color:var(--muted); margin-top:6px; font-weight:500; }
+.fignote { text-align:center; color:var(--muted); font-size:.85rem; margin:6px 0 0; }
+.boxes { display:grid; gap:10px; } .boxes .box + .box { margin-top:0; }
+@media (min-width:760px) { .boxes { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+.hairs { display:grid; gap:16px; } @media (min-width:760px) { .hairs { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+.hhd { display:flex; align-items:center; gap:8px; margin-bottom:8px; } .hhd .tag { margin:0; } .hname { font-size:clamp(1.15rem, 4vw, 1.4rem); font-weight:700; }
+.hp { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; } .hp img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:12px; background:var(--soft); display:block; }
 .msg { max-width:560px; margin:20vh auto; padding:24px; text-align:center; line-height:1.7; }
 </style>
 </head>
@@ -110,81 +121,116 @@ figure { margin:0; }
   ]);
 
   const slides = [];
-  const slide = (cls) => { const sec = el('section', 'slide ' + (cls || '')); const inn = el('div', 'in'); sec.append(inn); slides.push(sec); return inn; };
+  let secN = 0;
+  const slide = (kick, cls) => { const sec = el('section', 'slide ' + (cls || '')); const inn = el('div', 'in'); sec.append(inn); slides.push(sec); if (kick) inn.append(el('div', 'kick', String(++secN).padStart(2, '0') + ' ' + kick)); return inn; };
   const tags = (vals, ghost) => { const d = el('div'); [].concat(vals || []).filter(Boolean).forEach((v) => d.append(el('span', ghost ? 'tag ghost' : 'tag', v))); return d; };
   const box = (parent, title, text) => { if (!text) return; const b = el('div', 'box'); b.append(el('h3', null, title), el('p', null, text)); parent.append(b); };
   const pics = (list) => { const g = el('div', 'photos' + (list.length === 1 ? ' one' : '')); list.forEach(([u, cap]) => { const f = el('figure'); const i = el('img'); i.src = u; i.alt = cap; f.append(i, el('figcaption', null, cap)); g.append(f); }); return g; };
+  const figs = (list) => { const g = el('div', 'figs'); list.forEach(([u, cap]) => { const f = el('figure'); const i = el('img'); i.src = u; i.alt = cap; f.append(i, el('figcaption', null, cap)); g.append(f); }); return g; };
 
-  // ---- 표지 ----
-  const toc = [];
   const bodyT = [].concat(o.body_type || rep.body || [])[0];
   const imgs = [].concat(rep.image || []).filter(Boolean);
   const hasColor = R.COLOR.some(([k]) => o[k]);
   const shop = (P.shopping || []).filter((r) => !/제외/.test(r.priority || ''));
+  let hairNames = [].concat(rep.hair_pick || []).filter(Boolean);
+  if (!hairNames.length && rep.hair_style) hairNames = (R.HAIR_STYLES || []).map(([n]) => n).filter((n) => rep.hair_style.replace(/\s/g, '').includes(n.replace(/\s|\(.*\)/g, '')));
+  hairNames = hairNames.slice(0, 2);
+  const hasHair = hairNames.length > 0 || !!rep.hair_style;
+
+  // ---- 표지 ----
+  const toc = [];
   if (bodyT || o.bone) toc.push('체형');
-  if (rep.face_shape || imgs.length || rep.hair_style) toc.push('얼굴 · 이미지');
+  if (rep.face_shape || imgs.length) toc.push('얼굴 · 이미지');
   if (hasColor) toc.push('어울리는 색');
+  if (hasHair) toc.push('헤어스타일');
   if ((P.lookbook || []).length) toc.push('오늘 완성할 코디');
   if (shop.length) toc.push('오늘 쇼핑 동선');
   {
-    const c = slide('cover');
+    const c = slide(null, 'cover');
     c.append(el('div', 'kick', 'TODAY’S STYLING'), el('h1', null, `${s.name} 님,\n오늘의 스타일 방향`));
     c.lastChild.style.whiteSpace = 'pre-line';
     const ul = el('ol', 'toc'); toc.forEach((t, i) => { const li = el('li', null, t); li.dataset.n = String(i + 1).padStart(2, '0'); ul.append(li); }); c.append(ul);
   }
 
   // ---- 체형 ----
+  let bodyHost = null;
   if (bodyT || o.bone) {
-    const c = slide(); c.append(el('div', 'kick', '01 체형'));
+    const c = slide('체형');
     const h = []; if (bodyT) h.push(bodyT + ' 체형'); if (o.bone) h.push(o.bone + ' 골격');
     c.append(el('h2', null, h.join(' · ')));
-    const two = el('div', 'two'); c.append(two);
-    const ph = [[uFront, '정면'], [uSide, '측면']].filter(([u]) => u); two.append(ph.length ? pics(ph) : el('div'));
-    const txt = el('div'); two.append(txt);
+    bodyHost = el('div'); c.append(bodyHost);
+    const ph = [[uFront, '정면'], [uSide, '측면']].filter(([u]) => u); if (ph.length) bodyHost.append(pics(ph));
+    const txt = el('div', 'boxes'); c.append(txt);
     const bi = (R.BODY_INFO || {})[bodyT], gi = (R.BONE_INFO || {})[o.bone];
     if (bi) { box(txt, '체형 특징', bi.look); box(txt, '이렇게 입어요', bi.how); }
-    if (gi) box(txt, `${o.bone} 골격에 맞는 옷`, gi.how);
+    if (gi) { box(txt, `${o.bone} 골격 특징`, gi.look); box(txt, `${o.bone} 골격에 맞는 옷`, gi.how); }
     if (o.exception) box(txt, '고객님만의 포인트', o.exception);
   }
 
   // ---- 얼굴 · 이미지 ----
-  if (rep.face_shape || imgs.length || rep.hair_style) {
-    const c = slide(); c.append(el('div', 'kick', '02 얼굴 · 이미지'));
+  let faceHost = null;
+  if (rep.face_shape || imgs.length) {
+    const c = slide('얼굴 · 이미지');
     c.append(el('h2', null, imgs.length ? `${imgs.join(' · ')} 이미지가 잘 어울려요` : '얼굴 진단'));
-    const two = el('div', 'two'); c.append(two);
-    two.append(uFace ? pics([[uFace, '얼굴']]) : el('div'));
-    const txt = el('div'); two.append(txt);
+    faceHost = el('div'); c.append(faceHost);
+    if (uFace) faceHost.append(pics([[uFace, '얼굴']]));
+    const txt = el('div', 'boxes'); c.append(txt);
     const facts = [rep.face_shape && `얼굴형 ${rep.face_shape}`, rep.features_line && `인상 ${rep.features_line}`, rep.face_ratio && `상·중·하안부 ${rep.face_ratio}`].filter(Boolean);
-    if (facts.length) txt.append(tags(facts, true));
+    if (facts.length) c.insertBefore(tags(facts, true), txt);
     imgs.forEach((x) => box(txt, x, (R.IMAGE_INFO || {})[x]));
-    if (rep.hair_style) box(txt, '추천 헤어', rep.hair_style + (rep.hair_bangs ? ` · 앞머리 ${rep.hair_bangs}` : ''));
   }
 
   // ---- 컬러 ----
   if (hasColor) {
-    const c = slide(); c.append(el('div', 'kick', '03 어울리는 색'));
+    const c = slide('어울리는 색');
     c.append(el('h2', null, [o.color_temp, o.color_value, o.color_chroma, o.color_clarity].filter(Boolean).join(' · ')));
     const CI = R.COLOR_INFO || {};
-    const txt = el('div'); c.append(txt);
+    const txt = el('div', 'boxes'); c.append(txt);
     R.COLOR.forEach(([k, l]) => { if (o[k] && CI[o[k]]) box(txt, `${l} · ${o[k]}`, CI[o[k]]); });
     const pal = (R.PALETTE || {})[`${o.color_temp} ${o.color_value}`];
     if (pal) { const sw = el('div', 'sw'); pal.forEach(([n, hex]) => { const d = el('div'); const i = el('i'); i.style.background = hex; d.append(i, el('span', null, n)); sw.append(d); }); c.append(el('h3', null, '이 색들이 얼굴을 살려 줘요'), sw); }
     const av = (R.COLOR_AVOID || {})[o.color_temp]; if (av) c.append(el('p', 'big muted', '피하면 좋은 색 · ' + av));
   }
 
-  // ---- 완성 코디 ----
+  // ---- 헤어스타일 (1순위 · 2순위, 사진과 함께) ----
+  if (hasHair) {
+    const c = slide('헤어스타일');
+    c.append(el('h2', null, hairNames.length ? `${hairNames[0]}${hairNames[1] ? ' · ' + hairNames[1] : ''}` : rep.hair_style));
+    if (hairNames.length) {
+      const list = R.HAIR_STYLES || [];
+      const g = el('div', 'hairs');
+      for (const [i, n] of hairNames.entries()) {
+        const nums = (list.find(([x]) => x === n) || [, []])[1].slice(0, 2);
+        const urls = await sign('lookbook', nums.map((x) => `hair/IMG_${x}.jpg`));
+        const b = el('div', 'hair'); const hd = el('div', 'hhd'); hd.append(el('span', 'tag', i === 0 ? '1순위' : '2순위'), el('span', 'hname', n)); b.append(hd);
+        const ph = el('div', 'hp'); urls.filter(Boolean).forEach((u) => { const im = el('img'); im.src = u; im.alt = n; ph.append(im); }); b.append(ph);
+        g.append(b);
+      }
+      c.append(g);
+    }
+    const txt = el('div', 'boxes'); c.append(txt);
+    box(txt, '앞머리 기장', rep.hair_bangs);
+    box(txt, '헤어샵에서 이렇게 말해 보세요', rep.hair_request);
+  }
+
+  // ---- 완성 코디 (고객 얼굴 합성본이 있으면 그걸로) ----
   if ((P.lookbook || []).length) {
-    const c = slide(); c.append(el('div', 'kick', '04 오늘 완성할 코디'));
+    const c = slide('오늘 완성할 코디');
     c.append(el('h2', null, '이런 느낌으로 맞춰 볼게요'));
     const keys = P.lookbook.slice(0, 3).map((r) => r.key);
-    const [{ data: lb }, urls] = await Promise.all([sb.from('lookbook').select('key,items,colors').in('key', keys), sign('lookbook', keys.map((k) => k + '.jpg'))]);
-    const g = el('div', 'looks'); keys.forEach((k, i) => { const f = el('figure'); const im = el('img'); im.src = urls[i]; im.alt = '코디 ' + (i + 1); const row = (lb || []).find((r) => r.key === k); f.append(im, el('figcaption', null, row?.items || '')); g.append(f); });
+    const FL = P.face_looks || {};
+    const [{ data: lb }, orig, mine] = await Promise.all([
+      sb.from('lookbook').select('key,items,colors').in('key', keys),
+      sign('lookbook', keys.map((k) => k + '.jpg')),
+      Promise.all(keys.map((k) => FL[k] ? sign('survey-photos', [FL[k]]).then((u) => u[0]) : null)),
+    ]);
+    const g = el('div', 'looks'); keys.forEach((k, i) => { const f = el('figure'); const im = el('img'); im.src = mine[i] || orig[i]; im.alt = '코디 ' + (i + 1); const row = (lb || []).find((r) => r.key === k); f.append(im, el('figcaption', null, row?.items || '')); g.append(f); });
     c.append(g);
   }
 
   // ---- 쇼핑 동선 ----
   if (shop.length) {
-    const c = slide(); c.append(el('div', 'kick', '05 오늘 쇼핑 동선'));
+    const c = slide('오늘 쇼핑 동선');
     const area = clean(String(P.area || '').split(/[—\-:]/)[0]);
     const budget = String(s.budget || '').replace(/LEVEL\s*\d+\s*/i, '').replace(/[()]/g, '').trim();
     c.append(el('h2', null, `${area || '오늘'} 동선`));
@@ -220,6 +266,180 @@ figure { margin:0; }
   addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(cur() + 1); } if (e.key === 'ArrowLeft') go(cur() - 1); });
   addEventListener('resize', () => go(cur()));
   window.NK_READY = true;
+
+  // ================= 사진 위 분석 그림 =================
+  // 구글 MediaPipe(무료)로 몸·얼굴 위치를 찾아 선과 도형을 그림. 실패하면 원래 사진이 그대로 남음.
+  const MPV = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+  const MODEL = 'https://storage.googleapis.com/mediapipe-models/';
+  let mpP = null, poseP = null, faceP = null;
+  const mp = () => mpP || (mpP = (async () => { const m = await import(MPV + '/vision_bundle.mjs'); const files = await m.FilesetResolver.forVisionTasks(MPV + '/wasm'); return { m, files }; })());
+  const getPose = () => poseP || (poseP = mp().then(({ m, files }) => m.PoseLandmarker.createFromOptions(files, { baseOptions: { modelAssetPath: MODEL + 'pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task', delegate: 'CPU' }, runningMode: 'IMAGE', numPoses: 1, outputSegmentationMasks: true })));
+  const getFace = () => faceP || (faceP = mp().then(({ m, files }) => m.FaceLandmarker.createFromOptions(files, { baseOptions: { modelAssetPath: MODEL + 'face_landmarker/face_landmarker/float16/1/face_landmarker.task', delegate: 'CPU' }, runningMode: 'IMAGE', numFaces: 1 })));
+  const loadImg = async (url) => { const b = await (await fetch(url)).blob(); const im = new Image(); im.src = URL.createObjectURL(b); await im.decode(); return im; };
+
+  const ACC = '#FFC928';
+  const rr = (g, x, y, w, h, r) => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); };
+  const line = (g, x1, y1, x2, y2, w, dash) => {
+    g.save(); g.lineCap = 'round'; g.setLineDash(dash || []);
+    g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineWidth = w * 1.9; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+    g.strokeStyle = ACC; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); g.restore();
+  };
+  const path = (g, pts, w, dash, fill, close = true) => {
+    const trace = () => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); if (close) g.closePath(); };
+    g.save(); g.lineJoin = 'round'; g.setLineDash(dash || []);
+    if (fill) { trace(); g.fillStyle = fill; g.fill(); }
+    trace(); g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineWidth = w * 1.9; g.stroke();
+    trace(); g.strokeStyle = ACC; g.lineWidth = w; g.stroke(); g.restore();
+  };
+  const label = (g, text, x, y, size, align = 'left') => {
+    g.save(); g.font = `700 ${size}px "Noto Sans KR", sans-serif`; const tw = g.measureText(text).width, pad = size * 0.45;
+    let bx = align === 'right' ? x - tw - pad * 2 : align === 'center' ? x - tw / 2 - pad : x;
+    bx = Math.max(4, Math.min(g.canvas.width - tw - pad * 2 - 4, bx));
+    g.fillStyle = 'rgba(43,36,32,.85)'; rr(g, bx, y - size * 0.85, tw + pad * 2, size * 1.7, size * 0.45); g.fill();
+    g.fillStyle = '#fff'; g.textBaseline = 'middle'; g.fillText(text, bx + pad, y + size * 0.05); g.restore();
+  };
+  // 원본 사진 일부를 잘라 캔버스로 (X, Y: 원본 좌표 → 캔버스 좌표)
+  const crop = (im, sx, sy, sw, sh, outW) => {
+    const W = im.naturalWidth, H = im.naturalHeight;
+    sw = Math.min(sw, W); sh = Math.min(sh, H); sx = Math.max(0, Math.min(W - sw, sx)); sy = Math.max(0, Math.min(H - sh, sy));
+    const k = outW / sw; const c = document.createElement('canvas'); c.width = Math.round(outW); c.height = Math.round(sh * k);
+    const g = c.getContext('2d'); g.drawImage(im, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    return { c, g, k, X: (x) => (x - sx) * k, Y: (y) => (y - sy) * k };
+  };
+
+  const readBody = async (url) => {
+    const im = await loadImg(url); const pose = await getPose(); const r = pose.detect(im);
+    const L = r.landmarks?.[0]; const mk = r.segmentationMasks?.[0];
+    let md = null, mw = 0, mh = 0; if (mk) { md = mk.getAsFloat32Array().slice(); mw = mk.width; mh = mk.height; mk.close(); }
+    if (!L) return null;
+    const W = im.naturalWidth, H = im.naturalHeight;
+    const Pt = (i) => ({ x: L[i].x * W, y: L[i].y * H });
+    const on = (x, y) => { if (!md) return false; const mx = Math.round(x / W * (mw - 1)), my = Math.round(y / H * (mh - 1)); return mx >= 0 && my >= 0 && mx < mw && my < mh && md[my * mw + mx] > 0.5; };
+    // 가운데에서 바깥으로 가며 몸 경계 찾기 (팔이 붙어 있으면 예상 너비로 대신)
+    const span = (y, cx, exp) => {
+      const step = Math.max(1, W / 500);
+      const edge = (dir) => { let last = cx, miss = 0; for (let x = cx; x > 0 && x < W; x += dir * step) { if (on(x, y)) { last = x; miss = 0; } else if (++miss > 3) break; } return last; };
+      let l = edge(-1), r2 = edge(1); const w = r2 - l;
+      if (!md || w > exp * 1.35 || w < exp * 0.55) { l = cx - exp / 2; r2 = cx + exp / 2; }
+      return [l, r2];
+    };
+    const s1 = Pt(11), s2 = Pt(12), h1 = Pt(23), h2 = Pt(24), nose = Pt(0), a1 = Pt(27), a2 = Pt(28);
+    const sy = (s1.y + s2.y) / 2, hy = (h1.y + h2.y) / 2, T = hy - sy;
+    return { im, W, H, span, s1, s2, h1, h2, sy, hy, T, top: nose.y - T * 0.95, bot: Math.max(a1.y, a2.y) + T * 0.28 };
+  };
+
+  // 체형: 정면 1장에 어깨·허리·골반 선 + 실루엣
+  const bodyFig = (b) => {
+    const cx = (b.s1.x + b.s2.x + b.h1.x + b.h2.x) / 4, sw = Math.abs(b.s1.x - b.s2.x), hw = Math.abs(b.h1.x - b.h2.x);
+    const rows = [['어깨', b.sy + b.T * 0.05, sw * 1.25], ['허리', b.sy + b.T * 0.62, hw * 1.45], ['골반', b.hy + b.T * 0.1, hw * 1.65]].map(([n, y, exp]) => [n, y, ...b.span(y, cx, exp)]);
+    const ch = b.bot - b.top, cw = ch * 0.75;
+    const { c, g, X, Y } = crop(b.im, cx - cw / 2, b.top, cw, ch, 900);
+    const lw = c.width * 0.009, fs = c.width * 0.04;
+    const poly = [[rows[0][2], rows[0][1]], [rows[0][3], rows[0][1]], [rows[1][3], rows[1][1]], [rows[2][3], rows[2][1]], [rows[2][2], rows[2][1]], [rows[1][2], rows[1][1]]].map(([x, y]) => [X(x), Y(y)]);
+    path(g, poly, lw * 0.7, [lw * 2, lw * 2], 'rgba(255,201,40,.18)');
+    rows.forEach(([n, y, l, r2]) => {
+      const yy = Y(y), xl = X(l), xr = X(r2);
+      line(g, xl, yy, xr, yy, lw); line(g, xl, yy - fs * 0.5, xl, yy + fs * 0.5, lw); line(g, xr, yy - fs * 0.5, xr, yy + fs * 0.5, lw);
+      label(g, n, xl - fs * 0.6, yy, fs, 'right');
+    });
+    return c.toDataURL('image/jpeg', 0.88);
+  };
+
+  // 골격: 정면·측면 각각 선을 긋고 세로로 잘라 한 장으로
+  const boneStrip = (b, side) => {
+    const ch = b.bot - b.top, cw = ch * 0.42;
+    const cxS = (b.s1.x + b.s2.x) / 2, cxH = (b.h1.x + b.h2.x) / 2, cx = (cxS + cxH) / 2;
+    const { c, g, X, Y } = crop(b.im, cx - cw / 2, b.top, cw, ch, 600);
+    const lw = c.width * 0.013, fs = c.width * 0.06;
+    if (!side) {
+      const sw = Math.abs(b.s1.x - b.s2.x); const y = b.sy + b.T * 0.03; const [l, r2] = b.span(y, cxS, sw * 1.25);
+      const neck = [X(cxS), Y(b.sy - sw * 0.32)];
+      line(g, neck[0], neck[1], X(l), Y(y), lw); line(g, neck[0], neck[1], X(r2), Y(y), lw);
+      const wy = b.sy + b.T * 0.62, [wl, wr] = b.span(wy, cx, Math.abs(b.h1.x - b.h2.x) * 1.45);
+      line(g, X(l), Y(y), X(wl), Y(wy), lw * 0.7, [lw * 2, lw * 2]); line(g, X(r2), Y(y), X(wr), Y(wy), lw * 0.7, [lw * 2, lw * 2]);
+      label(g, '어깨선', neck[0], neck[1] - fs * 1.2, fs, 'center');
+    } else {
+      const dep = b.T * 0.5;
+      const cy = b.sy + b.T * 0.28, [cl, cr] = b.span(cy, cxS, dep);
+      const hy = b.hy + b.T * 0.06, [hl, hr] = b.span(hy, cxH, dep * 1.1);
+      [[cl, cr, cy, '상체 두께'], [hl, hr, hy, '하체 두께']].forEach(([l, r2, y, n]) => {
+        line(g, X(l), Y(y), X(r2), Y(y), lw); line(g, X(l), Y(y) - fs * 0.4, X(l), Y(y) + fs * 0.4, lw); line(g, X(r2), Y(y) - fs * 0.4, X(r2), Y(y) + fs * 0.4, lw);
+        label(g, n, X((l + r2) / 2), Y(y) - fs * 1.1, fs, 'center');
+      });
+    }
+    return c;
+  };
+  const joinStrips = (cs) => {
+    const H0 = 1100, gap = 14; const sc = cs.map((c) => H0 / c.height); const W0 = cs.reduce((a, c, i) => a + c.width * sc[i], 0) + gap * (cs.length - 1);
+    const out = document.createElement('canvas'); out.width = Math.round(W0); out.height = H0; const g = out.getContext('2d'); g.fillStyle = '#fffdf9'; g.fillRect(0, 0, out.width, out.height);
+    let x = 0; cs.forEach((c, i) => { const w = c.width * sc[i]; g.drawImage(c, x, 0, w, H0); label(g, ['정면', '측면'][i], x + w / 2, H0 - 40, 30, 'center'); x += w + gap; });
+    return out.toDataURL('image/jpeg', 0.88);
+  };
+
+  // 얼굴: 얼굴형 도형 1장 + 상·중·하안부 선 1장
+  const readFace = async (url) => {
+    const im = await loadImg(url); const f = await getFace(); const r = f.detect(im); const L = r.faceLandmarks?.[0]; if (!L) return null;
+    const W = im.naturalWidth, H = im.naturalHeight; return { im, Pt: (i) => ({ x: L[i].x * W, y: L[i].y * H }) };
+  };
+  const faceFigs = (fb, shape, ratio) => {
+    const Pt = fb.Pt; const top = Pt(10), chin = Pt(152), cl = Pt(234), cr = Pt(454), jl = Pt(172), jr = Pt(397), fl = Pt(54), fr = Pt(284), nose = Pt(2);
+    const browY = (Pt(105).y + Pt(334).y) / 2, faceH = chin.y - top.y, hair = top.y - faceH * 0.07, fw = cr.x - cl.x, cx = (cl.x + cr.x) / 2;
+    const size = Math.max(fw * 2, (chin.y - hair) * 1.5), cy = (hair + chin.y) / 2;
+    const mk = () => crop(fb.im, cx - size / 2, cy - size / 2, size, size, 800);
+    // A. 얼굴형 도형
+    const A = mk(); { const { c, g, X, Y } = A; const lw = c.width * 0.008, fs = c.width * 0.045;
+      const ex = fw / 2 * 1.03, my = (hair + chin.y) / 2, ey = (chin.y - hair) / 2;
+      const ell = (rx, ry) => { const pts = []; for (let i = 0; i < 72; i++) { const t = i / 72 * Math.PI * 2; pts.push([X(cx + Math.cos(t) * rx), Y(my + Math.sin(t) * ry)]); } return pts; };
+      let pts;
+      if (shape === '둥근형') pts = ell(ex * 1.04, ey * 0.96);
+      else if (shape === '긴형') { const w = ex * 0.95; pts = [[cx - w, hair + ey * 0.25], [cx - w * 0.85, hair], [cx + w * 0.85, hair], [cx + w, hair + ey * 0.25], [cx + w, chin.y - ey * 0.3], [cx + w * 0.5, chin.y], [cx - w * 0.5, chin.y], [cx - w, chin.y - ey * 0.3]].map(([x, y]) => [X(x), Y(y)]); }
+      else if (shape === '각진형') pts = [[fl.x - fw * 0.06, hair], [fr.x + fw * 0.06, hair], [cr.x, browY], [cr.x, nose.y], [jr.x, jr.y], [cx + fw * 0.18, chin.y], [cx - fw * 0.18, chin.y], [jl.x, jl.y], [cl.x, nose.y], [cl.x, browY]].map(([x, y]) => [X(x), Y(y)]);
+      else if (shape === '하트형' || shape === '역삼각형') pts = [[cl.x, hair + ey * 0.15], [cx - fw * 0.2, hair], [cx + fw * 0.2, hair], [cr.x, hair + ey * 0.15], [cr.x, browY], [cx, chin.y], [cl.x, browY]].map(([x, y]) => [X(x), Y(y)]);
+      else if (shape === '마름모형') pts = [[cx, hair], [cr.x, (browY + nose.y) / 2], [cx, chin.y], [cl.x, (browY + nose.y) / 2]].map(([x, y]) => [X(x), Y(y)]);
+      else pts = ell(ex, ey); // 타원형 · 기타
+      path(g, pts, lw, null, 'rgba(255,201,40,.12)');
+      line(g, X(cx), Y(hair) - fs * 0.6, X(cx), Y(chin.y) + fs * 0.6, lw * 0.6, [lw * 2, lw * 2]);
+      line(g, X(cl.x) - fs * 0.4, Y(my), X(cr.x) + fs * 0.4, Y(my), lw * 0.6, [lw * 2, lw * 2]);
+      if (shape) label(g, shape, c.width / 2, c.height - fs * 1.3, fs * 1.1, 'center');
+    }
+    // B. 상·중·하안부
+    const B = mk(); { const { c, g, X, Y } = B; const lw = c.width * 0.007, fs = c.width * 0.04;
+      const x1 = X(cl.x - fw * 0.1), x2 = X(cr.x + fw * 0.1), bx = X(cr.x + fw * 0.22);
+      const ys = [hair, browY, nose.y, chin.y].map(Y);
+      ys.forEach((y, i) => line(g, x1, y, x2, y, lw, i === 0 ? [lw * 2.5, lw * 2] : null));
+      ['상안부', '중안부', '하안부'].forEach((n, i) => {
+        line(g, bx, ys[i] + lw * 2, bx, ys[i + 1] - lw * 2, lw * 0.8);
+        line(g, bx - fs * 0.25, ys[i] + lw * 2, bx + fs * 0.25, ys[i] + lw * 2, lw * 0.8); line(g, bx - fs * 0.25, ys[i + 1] - lw * 2, bx + fs * 0.25, ys[i + 1] - lw * 2, lw * 0.8);
+        label(g, n, bx + fs * 0.6, (ys[i] + ys[i + 1]) / 2, fs, 'left');
+      });
+      if (ratio) label(g, ratio, c.width / 2, c.height - fs * 1.3, fs * 1.1, 'center');
+    }
+    return [A.c.toDataURL('image/jpeg', 0.88), B.c.toDataURL('image/jpeg', 0.88)];
+  };
+
+  const note = (host, t) => { let n = host.querySelector('.fignote'); if (!n) { n = el('p', 'fignote'); host.append(n); } n.textContent = t; };
+  try {
+    if (bodyHost && uFront && (bodyT || o.bone)) {
+      note(bodyHost, '분석 그림을 그리는 중…');
+      const bf = await readBody(uFront);
+      const bs = uSide && o.bone ? await readBody(uSide).catch(() => null) : null;
+      if (bf) {
+        const list = [];
+        if (bodyT) list.push([bodyFig(bf), `${bodyT} 체형 · 어깨 · 허리 · 골반`]);
+        if (o.bone) list.push([joinStrips(bs ? [boneStrip(bf, false), boneStrip(bs, true)] : [boneStrip(bf, false)]), `${o.bone} 골격 · ${bs ? '정면 / 측면' : '정면'}`]);
+        bodyHost.replaceChildren(figs(list));
+      } else note(bodyHost, '');
+    }
+  } catch (e) { console.warn('body fig', e); if (bodyHost) note(bodyHost, ''); }
+  try {
+    if (faceHost && uFace) {
+      note(faceHost, '분석 그림을 그리는 중…');
+      const fb = await readFace(uFace);
+      if (fb) { const [a, b] = faceFigs(fb, rep.face_shape, rep.face_ratio); faceHost.replaceChildren(figs([[a, `얼굴형 · ${rep.face_shape || ''}`], [b, '상안부 · 중안부 · 하안부']])); }
+      else note(faceHost, '');
+    }
+  } catch (e) { console.warn('face fig', e); if (faceHost) note(faceHost, ''); }
+  window.NK_FIGS = true;
 })();
 </script>
 </body>
