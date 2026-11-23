@@ -625,6 +625,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
           [].concat(vals || []).forEach((v) => { const c = [...row.querySelectorAll('.chip')].find((x) => x.textContent === v); if (c) { c.setAttribute('aria-pressed', 'true'); n++; } });
           if (!row.dataset.multi) { const on = row.querySelectorAll('.chip[aria-pressed="true"]'); on.forEach((c, i) => { if (i) c.setAttribute('aria-pressed', 'false'); }); }
         };
+        { const row = root.querySelector('[data-pick="body_type"]'); if (row && d.body_type && !row.querySelector('.chip[aria-pressed="true"]')) { const c = [...row.querySelectorAll('.chip')].find((x) => x.textContent === d.body_type); if (c) { c.setAttribute('aria-pressed', 'true'); n++; } } }
         fill('image', d.image);
         R.GLASSES.forEach(([k]) => fill('g_' + k, d.glasses?.[k]));
         fill('hair_forehead', d.hair_forehead);
