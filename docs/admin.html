@@ -168,8 +168,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
   <div data-f="plan" style="display:flex;flex-direction:column;gap:16px"></div>
   <div class="card">
     <div class="top"><h3 style="margin:0">현장 기록 · 컨설팅 순서대로</h3><span class="pill" data-f="progress"></span></div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" data-act="explain">고객에게 보여주기 (설명 모드)</button><button class="btn" data-act="facelook">✨ 코디 사진에 고객 얼굴 합성 (3장)</button><span class="cap">체형·골격·얼굴·이미지·컬러를 고른 뒤 누르세요. 저장한 값만 나가고, 메모·❓는 안 보여요.</span></div>
-    <p class="cap" data-f="facemsg" style="margin:0">얼굴 합성은 컨설팅 전에 미리 눌러 두세요. 1장에 1~2분, AI 사용료 약 100원씩 들어요. 만든 사진은 설명 모드 '오늘 완성할 코디'에 자동으로 나와요 (안 만들면 원래 코디 사진).</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" data-act="explain">고객에게 보여주기 (설명 모드)</button><span class="cap">체형·골격·얼굴·이미지·컬러를 고른 뒤 누르세요. 저장한 값만 나가고, 메모·❓는 안 보여요.</span></div>
     <p class="cap" data-f="onmsg">고르거나 입력하면 자동으로 저장돼요.</p>
     <ol class="steps" data-f="steps"></ol>
     <section class="step"><h4>리포트 마무리 — 나만의 스타일링 공식 (3줄)</h4><div data-f="formulas" class="repbox"></div></section>
@@ -758,27 +757,6 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     $('#detail [data-act="explain"]').onclick = async () => {
       // 같은 탭에서 열어 '닫기'를 누르면 이 화면으로 돌아옴
       if (await saveOnsite()) { try { sessionStorage.setItem('nk_back', id); } catch (e) {} location.href = 'explain.html?id=' + id; }
-    };
-    $('#detail [data-act="facelook"]').onclick = async (ev) => {
-      const btn = ev.currentTarget, msg = root.querySelector('[data-f="facemsg"]');
-      const plan = state.plans[id]?.plan; const keys = (plan?.lookbook || []).slice(0, 3).map((r) => r.key);
-      if (!keys.length) { msg.textContent = 'AI 계획서에 고른 코디가 없어요. 계획서를 먼저 만들어 주세요.'; return; }
-      if (!confirm(`코디 사진 ${keys.length}장에 고객 얼굴을 합성할까요? (약 ${keys.length * 100}원, ${keys.length * 2}분 안팎)`)) return;
-      await saveOnsite(); // 현장 정면 얼굴 사진이 있으면 그걸 씀
-      btn.disabled = true;
-      const { data: { session } } = await sb.auth.getSession();
-      let ok = 0;
-      for (let i = 0; i < keys.length; i++) {
-        msg.textContent = `${i + 1} / ${keys.length}장 만드는 중… (1장에 1~2분)`;
-        try {
-          const r = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ survey_id: id, mode: 'face_look', key: keys[i] }) });
-          const j = await r.json().catch(() => ({}));
-          if (!r.ok || !j.path) throw new Error(j.error || ('응답 오류 ' + r.status));
-          plan.face_looks = { ...(plan.face_looks || {}), [keys[i]]: j.path }; ok++;
-        } catch (e) { msg.textContent = `⚠ ${i + 1}번째 실패: ${e.message}`; await new Promise((res) => setTimeout(res, 2500)); }
-      }
-      msg.textContent = `${ok} / ${keys.length}장 완성. 설명 모드 '오늘 완성할 코디'에 나와요. 얼굴이 어색하면 고객에게 보여주기 전에 확인하세요.`;
-      btn.disabled = false;
     };
   }
 
