@@ -480,7 +480,7 @@ const pt = obj({ x: { type: "integer" }, y: { type: "integer" } });
 const marksSchema = obj({
   body_front: obj({ found: { type: "boolean" }, head_top: pt, neck_base: pt, shoulder_left: pt, shoulder_right: pt, waist_left: pt, waist_right: pt, hip_left: pt, hip_right: pt, feet_bottom: pt, note: str }),
   body_side: obj({ found: { type: "boolean" }, head_top: pt, chest_front: pt, chest_back: pt, hip_front: pt, hip_back: pt, feet_bottom: pt, note: str }),
-  face: obj({ found: { type: "boolean" }, hairline: pt, brow_line: pt, nose_base: pt, chin: pt, outline: { type: "array", items: pt }, note: str }),
+  face: obj({ found: { type: "boolean" }, hairline: pt, brow_line: pt, nose_base: pt, chin: pt, outline: { type: "array", items: pt }, shape: { type: "string", enum: ["타원형", "둥근형", "각진형", "긴형", "하트형", "역삼각형", "마름모형"] }, shape_note: str, note: str }),
 });
 const MARK_INSTRUCTIONS = `당신은 남성 스타일 컨설팅에서 고객 사진 위에 분석용 선을 긋기 위한 좌표를 찾습니다.
 좌표는 각 사진의 왼쪽 위를 (0,0), 오른쪽 아래를 (1000,1000)으로 하는 정수입니다. left/right 는 사진에서 보이는 왼쪽/오른쪽입니다.
@@ -502,7 +502,8 @@ const MARK_INSTRUCTIONS = `당신은 남성 스타일 컨설팅에서 고객 사
 - hairline: 이마와 머리카락 경계(헤어라인)의 가운데. 머리카락이 이마를 덮으면 머리카락 아래 실제 헤어라인을 추정.
 - brow_line: 두 눈썹 사이(미간) 높이의 얼굴 중심. nose_base: 코끝 아래, 인중이 시작되는 점. chin: 턱 끝.
 - outline: 얼굴 윤곽(이마 헤어라인~광대~턱선~턱끝)을 따라가는 점 16개. 헤어라인 가운데에서 시작해 시계 방향. 귀와 머리카락은 제외.
-- note: 상안부·중안부·하안부 길이를 비교한 한 문장.`;
+- shape: 윤곽(이마 너비·광대 너비·턱 너비·얼굴 길이)을 보고 가장 가까운 얼굴형 하나. shape_note: 왜 그 얼굴형인지 고객에게 보여 줄 한 문장(예: "광대와 턱 너비가 비슷하고 턱선이 둥글어 둥근형에 가까워요").
+- note: 상안부·중안부·하안부 길이를 평균(1 : 1 : 1)과 비교한 결론 한 문장(예: "평균보다 중안부가 긴 편이고 하안부는 짧은 편이에요").`;
 
 // 좌표를 찾아 돌려줌 (실패하면 오류를 던짐)
 async function computeMarks(surveyId: string): Promise<Record<string, unknown>> {
