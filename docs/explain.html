@@ -74,6 +74,9 @@ figure { margin:0; }
 @media (min-width:760px) { .boxes { grid-template-columns:repeat(2, minmax(0,1fr)); } }
 .hairs { display:grid; gap:16px; } @media (min-width:760px) { .hairs { grid-template-columns:repeat(2, minmax(0,1fr)); } }
 .hhd { display:flex; align-items:center; gap:8px; margin-bottom:8px; } .hhd .tag { margin:0; } .hname { font-size:clamp(1.15rem, 4vw, 1.4rem); font-weight:700; }
+@media (min-width:760px) { .hairs.n3 { grid-template-columns:repeat(3, minmax(0,1fr)); } }
+.hp.one { grid-template-columns:minmax(0,1fr); } .hwhy { margin:8px 0 0; font-size:clamp(.95rem, 3.2vw, 1.05rem); line-height:1.6; }
+.box p { white-space:pre-line; }
 .hp { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; } .hp img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:12px; background:var(--soft); display:block; }
 .msg { max-width:560px; margin:20vh auto; padding:24px; text-align:center; line-height:1.7; }
 </style>
@@ -134,7 +137,7 @@ figure { margin:0; }
   const shop = (P.shopping || []).filter((r) => !/제외/.test(r.priority || ''));
   let hairNames = [].concat(rep.hair_pick || []).filter(Boolean);
   if (!hairNames.length && rep.hair_style) hairNames = (R.HAIR_STYLES || []).map(([n]) => n).filter((n) => rep.hair_style.replace(/\s/g, '').includes(n.replace(/\s|\(.*\)/g, '')));
-  hairNames = hairNames.slice(0, 2);
+  hairNames = hairNames.slice(0, 3);
   const hasHair = hairNames.length > 0 || !!rep.hair_style;
 
   // ---- 표지 ----
@@ -192,26 +195,32 @@ figure { margin:0; }
     const av = (R.COLOR_AVOID || {})[o.color_temp]; if (av) c.append(el('p', 'big muted', '피하면 좋은 색 · ' + av));
   }
 
-  // ---- 헤어스타일 (1순위 · 2순위, 사진과 함께) ----
+  // ---- 헤어스타일 (진단 한 줄 → 1~3순위 사진과 이유 → 처방 → 요청 멘트 → 홈 스타일링) ----
   if (hasHair) {
     const c = slide('헤어스타일');
-    c.append(el('h2', null, hairNames.length ? `${hairNames[0]}${hairNames[1] ? ' · ' + hairNames[1] : ''}` : rep.hair_style));
+    c.append(el('h2', null, hairNames.length ? hairNames[0] + (rep.hair_down === '필요' ? ' + 다운펌' : '') : rep.hair_style));
+    if (rep.hair_diag) c.append(el('p', 'big', rep.hair_diag));
     if (hairNames.length) {
       const list = R.HAIR_STYLES || [];
-      const g = el('div', 'hairs');
+      const g = el('div', 'hairs n' + hairNames.length);
       for (const [i, n] of hairNames.entries()) {
-        const nums = (list.find(([x]) => x === n) || [, []])[1].slice(0, 2);
+        const nums = (list.find(([x]) => x === n) || [, []])[1].slice(0, hairNames.length > 2 ? 1 : 2);
         const urls = await sign('lookbook', nums.map((x) => `hair/IMG_${x}.jpg`));
-        const b = el('div', 'hair'); const hd = el('div', 'hhd'); hd.append(el('span', 'tag', i === 0 ? '1순위' : '2순위'), el('span', 'hname', n)); b.append(hd);
-        const ph = el('div', 'hp'); urls.filter(Boolean).forEach((u) => { const im = el('img'); im.src = u; im.alt = n; ph.append(im); }); b.append(ph);
+        const b = el('div', 'hair'); const hd = el('div', 'hhd'); hd.append(el('span', 'tag', `${i + 1}순위`), el('span', 'hname', n)); b.append(hd);
+        const ph = el('div', 'hp' + (urls.length < 2 ? ' one' : '')); urls.filter(Boolean).forEach((u) => { const im = el('img'); im.src = u; im.alt = n; ph.append(im); }); b.append(ph);
+        const why = (rep.hair_why || [])[i]; if (why) b.append(el('p', 'hwhy', why));
         g.append(b);
       }
       c.append(g);
     }
     const txt = el('div', 'boxes'); c.append(txt);
     box(txt, '앞머리 기장', rep.hair_bangs);
+    box(txt, '옆머리', rep.hair_side);
+    box(txt, '뒷머리', rep.hair_back);
     if (rep.hair_down === '필요') box(txt, '다운펌', '옆머리가 뜨지 않게 다운펌을 함께 하면 좋아요.');
+    if (rep.hair_perm && !/필요\s*없/.test(rep.hair_perm)) box(txt, '펌', rep.hair_perm);
     box(txt, '헤어샵에서 이렇게 말해 보세요', rep.hair_request);
+    box(txt, '집에서 손질하는 법', rep.hair_home);
   }
 
   // ---- 완성 코디 ----
