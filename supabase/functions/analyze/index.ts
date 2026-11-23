@@ -459,6 +459,58 @@ async function tryOn(req: Request, surveyId: string, body: Record<string, unknow
   return json({ path, outfit, usage: j.usage ?? null });
 }
 
+// 코디 사진 모음(lookbook) 속 모델 얼굴을 고객 얼굴로 바꾼 사진 (설명 모드 '오늘 완성할 코디'용)
+const FACE_LOOK_PROMPT = `첫 번째 사진은 남성 코디 화보, 두 번째 사진은 고객의 얼굴 사진이야.
+첫 번째 사진 속 모델의 얼굴만 두 번째 사진 속 사람의 얼굴로 자연스럽게 바꿔 줘.
+- 옷, 신발, 가방, 자세, 몸, 배경, 조명, 구도는 첫 번째 사진 그대로 둬.
+- 눈·코·입·얼굴형·피부색·헤어스타일은 두 번째 사진의 사람과 똑같이. 더 잘생기게 보정하지 마.
+- 실제 사진처럼 자연스럽게. 글자나 워터마크는 넣지 마.`;
+
+async function faceLook(req: Request, surveyId: string, body: Record<string, unknown>): Promise<Response> {
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  const denied = await requireAdmin(req);
+  if (denied) return json({ error: denied }, 401);
+  const key = Deno.env.get("OPENAI_API_KEY");
+  if (!key) return json({ error: "OpenAI API 키가 아직 등록되지 않았어요 (Supabase Secrets: OPENAI_API_KEY)" }, 400);
+  const look = String(body.key ?? "");
+  if (!/^[\w-]{1,80}$/.test(look)) return json({ error: "코디 사진 이름이 올바르지 않아요" }, 400);
+  const [{ data: s }, { data: o }] = await Promise.all([
+    supabase.from("surveys").select("photos").eq("id", surveyId).single(),
+    supabase.from("onsite").select("report").eq("survey_id", surveyId).maybeSingle(),
+  ]);
+  const face = (o?.report?.face?.front as string) || ((s?.photos?.face ?? []) as string[])[0];
+  if (!face) return json({ error: "고객 얼굴 사진이 없어요 (설문 얼굴 사진 또는 현장 정면 얼굴)" }, 400);
+  const [lk, fc] = await Promise.all([supabase.storage.from("lookbook").download(look + ".jpg"), supabase.storage.from(BUCKET).download(face)]);
+  if (lk.error || !lk.data) return json({ error: "코디 사진을 불러오지 못했어요" }, 500);
+  if (fc.error || !fc.data) return json({ error: "얼굴 사진을 불러오지 못했어요" }, 500);
+  const model = Deno.env.get("OPENAI_IMAGE_MODEL") || "gpt-image-2";
+  const form = new FormData();
+  form.append("model", model);
+  form.append("image[]", new File([lk.data], "look.jpg", { type: "image/jpeg" }));
+  form.append("image[]", new File([fc.data], "face." + (face.split(".").pop() || "jpg"), { type: fc.data.type || "image/jpeg" }));
+  form.append("prompt", FACE_LOOK_PROMPT);
+  form.append("size", "1024x1536");
+  form.append("quality", "medium");
+  form.append("output_format", "jpeg");
+  form.append("n", "1");
+  const r = await fetch("https://api.openai.com/v1/images/edits", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) return json({ error: `OpenAI 오류 ${r.status}: ${j?.error?.message ?? "알 수 없음"}` }, 502);
+  const b64 = j?.data?.[0]?.b64_json;
+  if (!b64) return json({ error: "이미지가 돌아오지 않았어요" }, 502);
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const path = `${surveyId}/facelook_${look}_${Date.now()}.jpg`;
+  const { error: uErr } = await supabase.storage.from(BUCKET).upload(path, bytes, { contentType: "image/jpeg" });
+  if (uErr) return json({ error: "저장 실패: " + uErr.message }, 500);
+  const { data: p } = await supabase.from("plans").select("plan").eq("survey_id", surveyId).maybeSingle();
+  if (p?.plan) {
+    const plan = p.plan as Record<string, any>;
+    plan.face_looks = { ...(plan.face_looks ?? {}), [look]: path };
+    await supabase.from("plans").update({ plan }).eq("survey_id", surveyId);
+  }
+  return json({ path, key: look, usage: j.usage ?? null });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -471,6 +523,7 @@ Deno.serve(async (req) => {
     if (mode === "read_tags") return await readTags(req, survey_id);
     if (mode === "write_tips") return await writeTips(req, survey_id);
     if (mode === "tryon") return await tryOn(req, survey_id, body);
+    if (mode === "face_look") return await faceLook(req, survey_id, body);
     // 오래 걸리는 분석은 응답을 먼저 돌려준 뒤 백그라운드에서 진행
     // @ts-ignore EdgeRuntime 은 Supabase 런타임 전역
     EdgeRuntime.waitUntil(analyze(survey_id));
