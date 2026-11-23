@@ -168,6 +168,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
   <div data-f="plan" style="display:flex;flex-direction:column;gap:16px"></div>
   <div class="card">
     <div class="top"><h3 style="margin:0">현장 기록 · 컨설팅 순서대로</h3><span class="pill" data-f="progress"></span></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" data-act="explain">고객에게 보여주기 (설명 모드)</button><span class="cap">체형·골격·얼굴·이미지·컬러를 고른 뒤 누르세요. 저장한 값만 나가고, 메모·❓는 안 보여요.</span></div>
     <p class="cap" data-f="onmsg">고르거나 입력하면 자동으로 저장돼요.</p>
     <ol class="steps" data-f="steps"></ol>
     <section class="step"><h4>리포트 마무리 — 나만의 스타일링 공식 (3줄)</h4><div data-f="formulas" class="repbox"></div></section>
@@ -292,6 +293,8 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     state.surveys = s.data || [];
     state.plans = Object.fromEntries((p.data || []).map((r) => [r.survey_id, r]));
     state.onsite = Object.fromEntries((o.data || []).map((r) => [r.survey_id, r]));
+    // 설명 모드에서 '닫기'로 돌아오면 보던 고객을 다시 엶
+    if (!state.current) { try { const back = sessionStorage.getItem('nk_back'); sessionStorage.removeItem('nk_back'); if (back && state.surveys.some((x) => x.id === back)) state.current = back; } catch (e) {} }
     renderList();
     if (state.current) renderDetail(state.current);
   }
@@ -750,6 +753,10 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     $('#detail [data-act="open-report"]').onclick = async () => {
       const w = window.open('', '_blank'); // 팝업 차단을 피하려고 클릭 순간 먼저 엶
       if (await saveOnsite()) { if (w) w.location = 'report.html?id=' + id; else location.href = 'report.html?id=' + id; } else if (w) w.close();
+    };
+    $('#detail [data-act="explain"]').onclick = async () => {
+      // 같은 탭에서 열어 '닫기'를 누르면 이 화면으로 돌아옴
+      if (await saveOnsite()) { try { sessionStorage.setItem('nk_back', id); } catch (e) {} location.href = 'explain.html?id=' + id; }
     };
   }
 
