@@ -103,6 +103,7 @@ function surveyText(s: Record<string, unknown>): string {
     ["받아본 서비스", (s.prior_services as string[] | null)?.join(", ")], ["이전 진단 결과", s.prior_result],
     ["보유 신발", s.shoes], ["보유 바지", s.pants],
     ["모질·숱·곱슬 (본인 선택)", [s.hair_thick, s.hair_amount, s.hair_curl].filter(Boolean).join(" / ")],
+    ["머리 손질 시간", s.hair_care],
     ["컨설팅 일정", [s.consult_date, s.consult_time].filter(Boolean).join(" ")], ["서비스", s.service],
   ];
   return lines.map(([k, v]) => `- ${k}: ${v === undefined || v === null || v === "" ? "(공란)" : v}`).join("\n");
@@ -186,7 +187,9 @@ const draftSchema = obj({
   hair_forehead: { type: "string", enum: ["넓음", "중간", "좁음"] },
   hair_bangs: { type: "string", enum: ["올림 (이마 드러냄)", "눈썹 위", "눈썹 선", "눈썹~눈 사이", "눈 아래"] },
   hair_down: { type: "string", enum: ["필요", "필요 없음"] },
+  hair_head: enumArr(["뒤통수 납작", "정수리 납작", "옆머리 뜸", "M자 헤어라인"]),
   hair_pick: enumArr(["댄디컷", "시스루 댄디컷", "덮은 머리 (긴 댄디)", "쉼표머리", "가르마펌", "사이드 가르마컷", "애즈펌", "리프컷", "아이비리그컷", "크롭컷", "텍스처드 펌", "볼륨펌", "히피펌", "울프컷"]),
+  hair_why: strs, hair_diag: str, hair_side: str, hair_back: str, hair_perm: str, hair_home: str,
   hair_request: str, hair_reason: str,
   top_neck: enumArr(["라운드넥", "브이넥", "헨리넥", "터틀넥", "카라넥"]),
   top_fit: enumArr(["슬림핏(머슬핏)", "레귤러 핏", "세미오버핏", "오버핏"]),
@@ -204,7 +207,10 @@ const DRAFT_INSTRUCTIONS = `당신은 남성 스타일 컨설팅 브랜드 '남�
 - 아래 "남코녀 분석 기준"을 먼저 따릅니다. 대표님이 현장에서 확정한 체형·골격·컬러가 있으면 사전 계획서보다 그것을 우선합니다.
 - image(어울리는 이미지)는 1~2개. 기준의 '체형 기준 + 얼굴 인상 기준' 매칭에서 겹치는 것을 고릅니다.
 - glasses는 안경 착용 X(none)·뿔테(horn)·하금테(brow)·실버테(silver) 각각에 1st/2nd/3rd/✕ 중 하나. 1st는 하나만. 안경 사진이 있으면 사진을 보고, 없으면 얼굴형 기준으로 판단하고 reason에 "사진 없음"이라고 적습니다.
-- 헤어: hair_forehead는 정면 사진으로 판단. hair_pick은 기준의 얼굴형·이마·두상 규칙과 고객의 모질·숱·곱슬기(설문에서 본인이 고른 값, 현장 기록이 있으면 그 값)에 맞는 추천 헤어스타일 2개를 1순위 먼저 적습니다. hair_bangs는 얼굴 비율(상안부 길이·이마 넓이)에 맞는 앞머리 기장 하나. hair_down은 옆머리가 뜨는 모질(반곱슬·악성곱슬·두꺼운 직모)이거나 사진에서 옆머리가 떠 보이면 "필요", 아니면 "필요 없음". hair_request는 고객이 헤어샵에서 그대로 말할 문장(존댓말, 2~3문장): 추천 1순위 헤어 이름, 앞머리 기장, 옆·뒷머리 처리, 다운펌 여부를 담습니다. 모질·숱·곱슬기 자체는 고르지 않습니다.
+- 헤어는 두 단계로 고릅니다. (1) 어울림: 기준의 얼굴형·이마·두상 규칙, 얼굴 비율(실측이 있으면 실측), 이목구비, 고른 이미지에 맞는 후보를 뽑습니다. (2) 구현 가능: 모질·숱·곱슬기(현장 확인값, 없으면 설문 본인 선택), 두상, 머리 손질 시간으로 걸러 매일 유지할 수 있는 것만 남깁니다. 얼굴에 어울려도 손질 시간이 5분 미만인 고객에게 매일 드라이가 필요한 스타일은 1순위로 두지 않습니다.
+- hair_forehead는 정면 사진으로 판단. hair_head는 사진에서 분명히 보이는 것만 고릅니다(없으면 빈 배열). hair_pick은 추천 헤어스타일 3개를 1순위부터. hair_why는 hair_pick과 같은 순서로 3개, 각각 "왜 어울리는지 + 왜 관리할 수 있는지"를 고객에게 보여 줄 한 문장으로. hair_diag는 얼굴 비율·헤어라인·모질을 묶은 진단 한 문장(고객용).
+- hair_bangs는 앞머리 기장 하나. hair_down은 옆머리가 뜨는 모질(반곱슬·악성곱슬·두꺼운 직모)이거나 사진에서 옆머리가 떠 보이면 "필요". hair_side·hair_back은 옆머리·뒷머리를 어떻게 자를지 짧게. hair_perm은 필요한 펌(없으면 "필요 없음").
+- hair_request는 고객이 헤어샵에서 그대로 말할 문장(존댓말, 2~3문장): 1순위 헤어 이름, 앞머리 기장, 옆·뒷머리, 다운펌·펌 여부. hair_home은 집에서 손질하는 법 3줄(드라이 방향, 제품, 순서)을 "1. … 2. … 3. …" 형태로, 고객의 손질 시간 안에 끝나게. 모질·숱·곱슬기 자체는 고르지 않습니다.
 - 스타일 방향성(top_*, bottom_*, outer_*)은 각 1~2개. 체형·골격·이미지·고객 고민(두꺼운 다리 등)·예산에 맞춥니다. 기준에 비어 있는 체형 규칙은 일반 원칙으로 판단합니다.
 - *_reason은 대표님이 읽을 한두 문장, 쉬운 한국어. 고객 이름은 쓰지 않습니다.`;
 
@@ -240,6 +246,7 @@ async function onsiteDraft(req: Request, surveyId: string): Promise<Response> {
     `- 컬러(현장): ${o?.color || "(아직 천 대보기 전)"}`,
     `- 예외사항: ${o?.exception || "(없음)"}`,
     `- 모질/숱/곱슬 (현장 확인값, 없으면 설문 본인 선택): ${[rep.hair_thick || s.hair_thick, rep.hair_amount || s.hair_amount, rep.hair_curl || s.hair_curl].map((x) => x || "?").join(" / ")}`,
+    `- 두상·헤어라인 (현장 체크): ${(rep.hair_head || []).join(", ") || "(없음)"}`,
     `- 얼굴 실측 비율 상:중:하안부 ${rep.face_ratio || "(없음)"} / 가로:세로 ${rep.face_wh || "(없음)"}`,
   ].join("\n");
   const planText = plan.summary ? `${plan.summary}\n${(plan.analysis || []).map((r: any) => `- ${r.item}: ${r.judgment}`).join("\n")}` : "(사전 계획서 없음)";
