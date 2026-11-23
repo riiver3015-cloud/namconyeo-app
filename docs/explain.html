@@ -28,6 +28,7 @@ h2 { font-size:clamp(1.6rem, 5.5vw, 2.4rem); margin:0; line-height:1.3; }
 @media (min-width:760px) { .two { grid-template-columns:minmax(0,2fr) minmax(0,3fr); align-items:start; } }
 .photos { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; }
 .photos.one { grid-template-columns:minmax(0,1fr); }
+@media (max-width:759px) { .photos img { max-height:46vh; } .photos.one img { width:auto; max-width:100%; margin:0 auto; } }
 .photos img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:12px; background:var(--soft); display:block; }
 .photos figcaption { text-align:center; font-size:.85rem; color:var(--muted); margin-top:4px; }
 figure { margin:0; }
@@ -192,8 +193,10 @@ figure { margin:0; }
     shop.forEach((r) => {
       const opt = /조건|남을|선택|여유/.test(r.priority || '');
       const raw = clean(r.item); const ix = raw.indexOf(':');
-      let head = ix > 0 ? raw.slice(0, ix) : clean(r.brands) || raw; const what = ix > 0 ? raw.slice(ix + 1).trim() : (ix > 0 ? '' : '');
-      const fm = head.match(/\(([^)]*)\)\s*$/); const floor = fm ? fm[1] : ''; if (fm) head = head.slice(0, fm.index).trim();
+      let head = ix > 0 ? raw.slice(0, ix) : clean(r.brands) || raw; let what = ix > 0 ? raw.slice(ix + 1).trim() : '';
+      if (/미작성|미정/.test(what)) what = ''; // 아직 안 정한 칸은 고객에게 안 보임
+      let floor = ''; const fm = head.match(/\(([^)]*)\)\s*$/); if (fm) { floor = fm[1]; head = head.slice(0, fm.index).trim(); }
+      else { const wm = what.match(/\(([^)]*(L\d|B\d|\d층)[^)]*)\)\s*$/); if (wm) { floor = wm[1]; what = what.slice(0, wm.index).trim(); } }
       const li = el('li', opt ? 'opt' : ''); li.append(el('div', 'n', opt ? '+' : String(++n)));
       const body = el('div'); const t = el('div', 'shop', head); if (floor) t.append(el('span', 'fl', floor)); body.append(t);
       if (what) body.append(el('p', 'what', what));
