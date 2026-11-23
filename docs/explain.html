@@ -68,6 +68,7 @@ figure { margin:0; }
 @media (min-width:760px) { .figs { grid-template-columns:repeat(2, minmax(0,1fr)); align-items:start; } }
 .figs img { width:auto; max-width:100%; height:auto; max-height:62vh; margin:0 auto; display:block; border-radius:12px; background:var(--soft); }
 .figs figcaption { text-align:center; font-size:.9rem; color:var(--muted); margin-top:6px; font-weight:500; }
+.figwhy { text-align:center; font-size:clamp(.95rem, 3.2vw, 1.05rem); line-height:1.6; margin:4px auto 0; max-width:34em; }
 .fignote { text-align:center; color:var(--muted); font-size:.85rem; margin:6px 0 0; }
 .boxes { display:grid; gap:10px; } .boxes .box + .box { margin-top:0; }
 @media (min-width:760px) { .boxes { grid-template-columns:repeat(2, minmax(0,1fr)); } }
@@ -125,7 +126,7 @@ figure { margin:0; }
   const tags = (vals, ghost) => { const d = el('div'); [].concat(vals || []).filter(Boolean).forEach((v) => d.append(el('span', ghost ? 'tag ghost' : 'tag', v))); return d; };
   const box = (parent, title, text) => { if (!text) return; const b = el('div', 'box'); b.append(el('h3', null, title), el('p', null, text)); parent.append(b); };
   const pics = (list) => { const g = el('div', 'photos' + (list.length === 1 ? ' one' : '')); list.forEach(([u, cap]) => { const f = el('figure'); const i = el('img'); i.src = u; i.alt = cap; f.append(i, el('figcaption', null, cap)); g.append(f); }); return g; };
-  const figs = (list) => { const g = el('div', 'figs'); list.forEach(([u, cap]) => { const f = el('figure'); const i = el('img'); i.src = u; i.alt = cap; f.append(i, el('figcaption', null, cap)); g.append(f); }); return g; };
+  const figs = (list) => { const g = el('div', 'figs'); list.forEach(([u, cap, why]) => { const f = el('figure'); const i = el('img'); i.src = u; i.alt = cap; f.append(i, el('figcaption', null, cap)); if (why) f.append(el('p', 'figwhy', why)); g.append(f); }); return g; };
 
   const bodyT = [].concat(o.body_type || rep.body || [])[0];
   const imgs = [].concat(rep.image || []).filter(Boolean);
@@ -411,16 +412,85 @@ figure { margin:0; }
     return [A.c.toDataURL('image/jpeg', 0.88), B.c.toDataURL('image/jpeg', 0.88)];
   };
 
+  // ---------- 저장된 좌표(Fable 5.2 가 사진을 보고 짚은 점)로 그리기 ----------
+  // 좌표는 사진 왼쪽 위 (0,0) ~ 오른쪽 아래 (1000,1000)
+  const MK = P.marks?.marks || null, MKP = P.marks?.paths || {};
+  const pFront = bp.front || (photos.body || [])[0], pSide = bp.side || (photos.body || [])[1], pFace = rep.face?.front || (photos.face || [])[0];
+  const hasM = (k, path) => !!(MK && MK[k]?.found && path && MKP[k] === path); // 사진이 바뀌었으면 쓰지 않음
+  const px = (im, p) => [p.x / 1000 * im.naturalWidth, p.y / 1000 * im.naturalHeight];
+  const tick = (g, x, y, h, lw) => line(g, x, y - h, x, y + h, lw);
+
+  const bodyFigM = (im, B) => {
+    const H = im.naturalHeight; const top = B.head_top.y / 1000 * H, bot = B.feet_bottom.y / 1000 * H, ch = (bot - top) * 1.1, cw = ch * 0.75;
+    const cx = (px(im, B.shoulder_left)[0] + px(im, B.shoulder_right)[0]) / 2;
+    const { c, g, X, Y } = crop(im, cx - cw / 2, top - (bot - top) * 0.06, cw, ch, 900);
+    const lw = c.width * 0.009, fs = c.width * 0.04;
+    const rows = [['어깨', B.shoulder_left, B.shoulder_right], ['허리', B.waist_left, B.waist_right], ['골반', B.hip_left, B.hip_right]].map(([n, l, r]) => [n, px(im, l), px(im, r)]);
+    path(g, [rows[0][1], rows[0][2], rows[1][2], rows[2][2], rows[2][1], rows[1][1]].map(([x, y]) => [X(x), Y(y)]), lw * 0.7, [lw * 2, lw * 2], 'rgba(255,201,40,.18)');
+    rows.forEach(([n, l, r]) => { const xl = X(l[0]), yl = Y(l[1]), xr = X(r[0]), yr = Y(r[1]); line(g, xl, yl, xr, yr, lw); tick(g, xl, yl, fs * 0.5, lw); tick(g, xr, yr, fs * 0.5, lw); label(g, n, xl - fs * 0.6, yl, fs, 'right'); });
+    return c.toDataURL('image/jpeg', 0.88);
+  };
+  const boneStripM = (im, B, side) => {
+    const H = im.naturalHeight; const top = B.head_top.y / 1000 * H, bot = B.feet_bottom.y / 1000 * H, ch = (bot - top) * 1.1, cw = ch * 0.42;
+    const mid = side ? (px(im, B.chest_front)[0] + px(im, B.chest_back)[0] + px(im, B.hip_front)[0] + px(im, B.hip_back)[0]) / 4 : (px(im, B.shoulder_left)[0] + px(im, B.shoulder_right)[0]) / 2;
+    const { c, g, X, Y } = crop(im, mid - cw / 2, top - (bot - top) * 0.06, cw, ch, 600);
+    const lw = c.width * 0.013, fs = c.width * 0.06; const q = (p) => { const [x, y] = px(im, p); return [X(x), Y(y)]; };
+    if (!side) {
+      const n = q(B.neck_base), sl = q(B.shoulder_left), sr = q(B.shoulder_right), wl = q(B.waist_left), wr = q(B.waist_right);
+      line(g, n[0], n[1], sl[0], sl[1], lw); line(g, n[0], n[1], sr[0], sr[1], lw);
+      line(g, sl[0], sl[1], wl[0], wl[1], lw * 0.7, [lw * 2, lw * 2]); line(g, sr[0], sr[1], wr[0], wr[1], lw * 0.7, [lw * 2, lw * 2]);
+      label(g, '어깨선', n[0], n[1] - fs * 1.3, fs, 'center');
+    } else {
+      [[B.chest_front, B.chest_back, '상체 두께'], [B.hip_front, B.hip_back, '하체 두께']].forEach(([a, b, name]) => {
+        const p1 = q(a), p2 = q(b); line(g, p1[0], p1[1], p2[0], p2[1], lw); tick(g, p1[0], p1[1], fs * 0.4, lw); tick(g, p2[0], p2[1], fs * 0.4, lw);
+        label(g, name, (p1[0] + p2[0]) / 2, Math.min(p1[1], p2[1]) - fs * 1.1, fs, 'center');
+      });
+    }
+    return c;
+  };
+  const faceFigsM = (im, F, shape, ratio) => {
+    const ol = F.outline.map((p) => px(im, p)); const hl = px(im, F.hairline), ch = px(im, F.chin);
+    const xs = ol.map((p) => p[0]), ys = ol.map((p) => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys, hl[1]), y1 = Math.max(...ys, ch[1]), fw = x1 - x0;
+    const size = Math.max(fw * 2, (y1 - y0) * 1.5), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const mk = () => crop(im, cx - size / 2, cy - size / 2, size, size, 800);
+    const A = mk(); { const { c, g, X, Y } = A; const lw = c.width * 0.008, fs = c.width * 0.045; const pts = ol.map(([x, y]) => [X(x), Y(y)]), n = pts.length;
+      // 점들을 부드러운 곡선으로 이음
+      const trace = () => { const mid = (i) => [(pts[i][0] + pts[(i + 1) % n][0]) / 2, (pts[i][1] + pts[(i + 1) % n][1]) / 2]; const m0 = mid(n - 1); g.beginPath(); g.moveTo(m0[0], m0[1]); for (let i = 0; i < n; i++) { const m = mid(i); g.quadraticCurveTo(pts[i][0], pts[i][1], m[0], m[1]); } g.closePath(); };
+      g.save(); g.lineJoin = 'round'; trace(); g.fillStyle = 'rgba(255,201,40,.12)'; g.fill(); trace(); g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineWidth = lw * 1.9; g.stroke(); trace(); g.strokeStyle = ACC; g.lineWidth = lw; g.stroke(); g.restore();
+      if (shape) label(g, shape, c.width / 2, c.height - fs * 1.3, fs * 1.1, 'center');
+    }
+    const B = mk(); { const { c, g, X, Y } = B; const lw = c.width * 0.007, fs = c.width * 0.04;
+      const xa = X(x0 - fw * 0.1), xb = X(x1 + fw * 0.1), bx = X(x1 + fw * 0.22);
+      const yy = [F.hairline, F.brow_line, F.nose_base, F.chin].map((p) => Y(px(im, p)[1]));
+      yy.forEach((y) => line(g, xa, y, xb, y, lw));
+      ['상안부', '중안부', '하안부'].forEach((nm, i) => {
+        line(g, bx, yy[i] + lw * 2, bx, yy[i + 1] - lw * 2, lw * 0.8);
+        line(g, bx - fs * 0.25, yy[i] + lw * 2, bx + fs * 0.25, yy[i] + lw * 2, lw * 0.8); line(g, bx - fs * 0.25, yy[i + 1] - lw * 2, bx + fs * 0.25, yy[i + 1] - lw * 2, lw * 0.8);
+        label(g, nm, bx + fs * 0.6, (yy[i] + yy[i + 1]) / 2, fs, 'left');
+      });
+      const d = [yy[1] - yy[0], yy[2] - yy[1], yy[3] - yy[2]];
+      label(g, ratio || `1 : ${(d[1] / d[0]).toFixed(1)} : ${(d[2] / d[0]).toFixed(1)}`, c.width / 2, c.height - fs * 1.3, fs * 1.1, 'center');
+    }
+    return [A.c.toDataURL('image/jpeg', 0.88), B.c.toDataURL('image/jpeg', 0.88)];
+  };
+  // 점검용 (관리자 미리보기·테스트에서 같은 그림 함수를 씀)
+  window.NK_DRAW = { loadImg, bodyFigM, boneStripM, joinStrips, faceFigsM };
+
   const note = (host, t) => { let n = host.querySelector('.fignote'); if (!n) { n = el('p', 'fignote'); host.append(n); } n.textContent = t; };
   try {
     if (bodyHost && uFront && (bodyT || o.bone)) {
       note(bodyHost, '분석 그림을 그리는 중…');
-      const bf = await readBody(uFront);
-      const bs = uSide && o.bone ? await readBody(uSide).catch(() => null) : null;
-      if (bf) {
+      const mF = hasM('body_front', pFront), mS = hasM('body_side', pSide);
+      const imF = mF ? await loadImg(uFront) : null, bf = mF ? null : await readBody(uFront);
+      if (imF || bf) {
         const list = [];
-        if (bodyT) list.push([bodyFig(bf), `${bodyT} 체형 · 어깨 · 허리 · 골반`]);
-        if (o.bone) list.push([joinStrips(bs ? [boneStrip(bf, false), boneStrip(bs, true)] : [boneStrip(bf, false)]), `${o.bone} 골격 · ${bs ? '정면 / 측면' : '정면'}`]);
+        if (bodyT) list.push([imF ? bodyFigM(imF, MK.body_front) : bodyFig(bf), `${bodyT} 체형 · 어깨 · 허리 · 골반`, mF ? MK.body_front.note : '']);
+        if (o.bone) {
+          const strips = [imF ? boneStripM(imF, MK.body_front, false) : boneStrip(bf, false)];
+          if (uSide) { if (mS) strips.push(boneStripM(await loadImg(uSide), MK.body_side, true)); else { const bs = await readBody(uSide).catch(() => null); if (bs) strips.push(boneStrip(bs, true)); } }
+          list.push([joinStrips(strips), `${o.bone} 골격 · ${strips.length > 1 ? '정면 / 측면' : '정면'}`, mS ? MK.body_side.note : '']);
+        }
         bodyHost.replaceChildren(figs(list));
       } else note(bodyHost, '');
     }
@@ -428,8 +498,10 @@ figure { margin:0; }
   try {
     if (faceHost && uFace) {
       note(faceHost, '분석 그림을 그리는 중…');
-      const fb = await readFace(uFace);
-      if (fb) { const [a, b] = faceFigs(fb, rep.face_shape, rep.face_ratio); faceHost.replaceChildren(figs([[a, `얼굴형 · ${rep.face_shape || ''}`], [b, '상안부 · 중안부 · 하안부']])); }
+      let pair = null, fnote = '';
+      if (hasM('face', pFace) && (MK.face.outline || []).length >= 6) { pair = faceFigsM(await loadImg(uFace), MK.face, rep.face_shape, rep.face_ratio); fnote = MK.face.note; }
+      else { const fb = await readFace(uFace); if (fb) pair = faceFigs(fb, rep.face_shape, rep.face_ratio); }
+      if (pair) faceHost.replaceChildren(figs([[pair[0], `얼굴형 · ${rep.face_shape || ''}`], [pair[1], '상안부 · 중안부 · 하안부', fnote]]));
       else note(faceHost, '');
     }
   } catch (e) { console.warn('face fig', e); if (faceHost) note(faceHost, ''); }
