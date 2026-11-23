@@ -212,18 +212,13 @@ figure { margin:0; }
     box(txt, '헤어샵에서 이렇게 말해 보세요', rep.hair_request);
   }
 
-  // ---- 완성 코디 (고객 얼굴 합성본이 있으면 그걸로) ----
+  // ---- 완성 코디 ----
   if ((P.lookbook || []).length) {
     const c = slide('오늘 완성할 코디');
     c.append(el('h2', null, '이런 느낌으로 맞춰 볼게요'));
     const keys = P.lookbook.slice(0, 3).map((r) => r.key);
-    const FL = P.face_looks || {};
-    const [{ data: lb }, orig, mine] = await Promise.all([
-      sb.from('lookbook').select('key,items,colors').in('key', keys),
-      sign('lookbook', keys.map((k) => k + '.jpg')),
-      Promise.all(keys.map((k) => FL[k] ? sign('survey-photos', [FL[k]]).then((u) => u[0]) : null)),
-    ]);
-    const g = el('div', 'looks'); keys.forEach((k, i) => { const f = el('figure'); const im = el('img'); im.src = mine[i] || orig[i]; im.alt = '코디 ' + (i + 1); const row = (lb || []).find((r) => r.key === k); f.append(im, el('figcaption', null, row?.items || '')); g.append(f); });
+    const [{ data: lb }, urls] = await Promise.all([sb.from('lookbook').select('key,items,colors').in('key', keys), sign('lookbook', keys.map((k) => k + '.jpg'))]);
+    const g = el('div', 'looks'); keys.forEach((k, i) => { const f = el('figure'); const im = el('img'); im.src = urls[i]; im.alt = '코디 ' + (i + 1); const row = (lb || []).find((r) => r.key === k); f.append(im, el('figcaption', null, row?.items || '')); g.append(f); });
     c.append(g);
   }
 
