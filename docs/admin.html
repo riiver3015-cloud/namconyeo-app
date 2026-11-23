@@ -466,7 +466,8 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const form1f = el('div', 'form'); const faceIn = {};
     for (const [k, l] of [['face_upper_cm', '상안부 길이 (헤어라인~눈썹)'], ['face_middle_cm', '중안부 길이 (눈썹~코끝 아래)'], ['face_lower_cm', '하안부 길이 (코끝 아래~턱끝)'], ['face_width_cm', '얼굴 가로 너비 (광대 기준)']]) { const lab = el('label', 'field', l); const i = el('input'); i.type = 'number'; i.step = '0.1'; i.inputMode = 'decimal'; i.dataset.rtxt = k; i.value = rep[k] || ''; lab.append(i); form1f.append(lab); faceIn[k] = i; }
     const faceBox = el('div', 'result'); const whIn = el('input'); whIn.type = 'hidden'; whIn.dataset.rtxt = 'face_wh'; whIn.value = rep.face_wh || '';
-    s1.append(form1f, faceBox, whIn);
+    const r3In = el('input'); r3In.type = 'hidden'; r3In.dataset.rtxt = 'face_ratio'; r3In.value = rep.face_ratio || '';
+    s1.append(form1f, faceBox, whIn, r3In);
     // 얼굴 길이를 넣으면 비율을 계산해 보여주고, 4단계의 '실제 비율' 칸에도 넣음
     const calcFace = (fill) => {
       const v = (k) => parseFloat(faceIn[k].value); const u = v('face_upper_cm'), m = v('face_middle_cm'), lo = v('face_lower_cm'), w = v('face_width_cm');
@@ -475,7 +476,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       const r3 = `1 : ${(m / u).toFixed(1)} : ${(lo / u).toFixed(1)}`;
       faceBox.append(el('span', 'cap', '상 : 중 : 하안부'), el('span', 'type', r3));
       if (w > 0) { const wh = `1 : ${((u + m + lo) / w).toFixed(2)}`; faceBox.append(el('span', 'cap', '가로 : 세로'), el('span', 'type', wh)); whIn.value = wh; } else { faceBox.append(el('span', 'cap', '가로 너비를 넣으면 가로 : 세로 비율도 나와요.')); whIn.value = ''; }
-      if (fill) { const r = root.querySelector('[data-rtxt="face_ratio"]'); if (r) r.value = r3; }
+      if (fill || !r3In.value) r3In.value = r3;
     };
     form1f.addEventListener('input', () => calcFace(true));
     // 2. 체형
@@ -490,11 +491,10 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     chipRow(s3, 'bone', null, R.BONE, false, o.bone || ai.bone, 'col');
     { const lab = el('label', 'field', '예외사항 (혼합 골격 비율, 선택지로 안 맞는 점 — 리포트 골격 페이지에 같이 나가요)'); const t = el('textarea'); t.dataset.on = 'exception'; t.value = o.exception || ''; t.placeholder = '예) 스트레이트 베이스에 내추럴 30%'; lab.append(t); s3.append(lab); }
     // 4. 얼굴 진단 (사진 + 상중하안부 · 두상 · 이목구비 · 얼굴형)
-    const s4 = step(4, '얼굴 진단 — 사진 (왼쪽 · 정면 · 오른쪽) + 상 · 중 · 하안부 비율', '사진은 고객이 보낸 것이 기본이에요. 현장에서 찍은 사진을 올리면 그 사진으로 바뀌어요.');
+    const s4 = step(4, '얼굴 진단 — 사진 (왼쪽 · 정면 · 오른쪽)', '사진은 고객이 보낸 것이 기본이에요. 현장에서 찍은 사진을 올리면 그 사진으로 바뀌어요.');
     const g4 = el('div', 'slots'); s4.append(g4);
     const sFace = (s.photos?.face || []); // 고객이 보낸 얼굴 사진 (정면을 먼저 올린 것으로 보고 배치 — 순서가 다르면 직접 찍은 사진으로 교체)
     for (const [k, l, fb] of [['left', '왼쪽', sFace[1]], ['front', '정면', sFace[0]], ['right', '오른쪽', sFace[2]]]) slot(g4, l, () => rep.face[k], (v) => { rep.face[k] = v; }, 'face_' + k, fb);
-    txt(s4, 'face_ratio', '상 : 중 : 하안부 실제 비율 (1단계에서 길이를 넣으면 자동으로 채워져요)', '예) 1 : 1.1 : 0.9');
     // AI 초안 (1~4단계 뒤에 누름)
     const aiLi = el('li', 'step aistep'); stepsBox.append(aiLi);
     aiLi.append(el('h4', null, '✨ AI 초안 채우기 — 6~9단계'), el('p', 'cap', '1~4단계(실측·체형·골격·얼굴)까지 하고 누르면, AI가 6~9단계(이미지·안경·헤어·스타일)에서 비어 있는 칸만 미리 골라 둬요. 이미 고른 칸은 그대로예요. 30초~1분 걸리고 누를 때마다 AI 사용료가 조금 들어요.'));
@@ -799,16 +799,19 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     // 설명 모드용 사진 선·도형 좌표 (AI 계획서를 만들 때 자동으로 같이 만들어짐. 현장에서 사진을 바꾸면 다시 만들기)
     {
       const mmsg = root.querySelector('[data-f="marksmsg"]'), mbox = root.querySelector('[data-f="marksnotes"]');
-      const NOTES = [['body_front', '체형 그림 아래 한 줄'], ['body_side', '골격(측면) 그림 아래 한 줄'], ['face', '얼굴 그림 아래 한 줄']];
+      const NOTES = [['body_front', '체형 그림 아래 한 줄', 'note'], ['body_side', '골격(측면) 그림 아래 한 줄', 'note'], ['face', '얼굴형 설명 한 줄', 'shape_note'], ['face', '상·중·하안부 그림 아래 한 줄 (실측 비율이 있으면 실측 결론이 대신 나가요)', 'note']];
+      const SHAPES = ['타원형', '둥근형', '각진형', '긴형', '하트형', '역삼각형', '마름모형'];
       const drawMarks = () => {
         const mk = state.plans[id]?.plan?.marks;
         mbox.replaceChildren(); mbox.hidden = !mk;
         if (!mk) { mmsg.textContent = '설명 모드 사진의 선·도형: 아직 AI 좌표가 없어서 기본 방식(무료)으로 그려요. 버튼을 누르면 AI가 사진을 보고 더 정확히 그려요 (약 200~300원, 30초~1분).'; return; }
         mmsg.textContent = `설명 모드 사진의 선·도형: AI 좌표 있음 (${new Date(mk.at || Date.now()).toLocaleString('ko-KR')}). 현장에서 전신·얼굴 사진을 바꿨으면 다시 만들어 주세요. 아래 한 줄은 고객 화면 그림 밑에 나가니 확인하고 고쳐 주세요.`;
-        NOTES.forEach(([k, l]) => {
+        const saveMk = async () => { const { error } = await sb.from('plans').update({ plan: state.plans[id].plan }).eq('survey_id', id); mmsg.textContent = error ? '⚠ 저장 실패: ' + error.message : '저장했어요.'; };
+        if (mk.marks?.face?.found) { const lab = el('label', 'field', '얼굴형 (AI 판단 — 다르면 바꾸세요)'); const sel = el('select'); ['', ...SHAPES].forEach((v) => { const o2 = el('option', null, v || '선택 안 함'); o2.value = v; sel.append(o2); }); sel.value = mk.marks.face.shape || ''; sel.onchange = () => { mk.marks.face.shape = sel.value; saveMk(); }; lab.append(sel); mbox.append(lab); }
+        NOTES.forEach(([k, l, fld]) => {
           if (!mk.marks?.[k]?.found) return;
-          const lab = el('label', 'field', l); const ta = el('textarea'); ta.rows = 2; ta.value = mk.marks[k].note || '';
-          ta.onchange = async () => { mk.marks[k].note = ta.value.trim(); const { error } = await sb.from('plans').update({ plan: state.plans[id].plan }).eq('survey_id', id); mmsg.textContent = error ? '⚠ 저장 실패: ' + error.message : '한 줄 설명을 저장했어요.'; };
+          const lab = el('label', 'field', l); const ta = el('textarea'); ta.rows = 2; ta.value = mk.marks[k][fld] || '';
+          ta.onchange = async () => { mk.marks[k][fld] = ta.value.trim(); const { error } = await sb.from('plans').update({ plan: state.plans[id].plan }).eq('survey_id', id); mmsg.textContent = error ? '⚠ 저장 실패: ' + error.message : '한 줄 설명을 저장했어요.'; };
           lab.append(ta); mbox.append(lab);
         });
       };
