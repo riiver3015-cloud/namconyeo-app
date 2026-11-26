@@ -36,6 +36,7 @@ textarea { width:100%; font:inherit; color:var(--fg); background:transparent; bo
 .pick { font:inherit; border:1px dashed var(--muted); border-radius:10px; padding:12px; background:transparent; color:var(--fg); cursor:pointer; }
 .submit { font:inherit; font-weight:700; font-size:1.05rem; padding:16px; border:0; border-radius:12px; background:var(--accent); color:var(--accent-fg); cursor:pointer; }
 .submit[disabled] { opacity:.5; cursor:progress; }
+.brief { margin:0; display:grid; grid-template-columns:auto 1fr; gap:6px 12px; } .brief dt { color:var(--muted); font-size:.9rem; white-space:nowrap; } .brief dd { margin:0; }
 .err { color:var(--bad); font-size:.9rem; } .ok { color:var(--ok); }
 button:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outline-offset:2px; }
 </style>
@@ -63,6 +64,11 @@ button:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outl
     </section>
 
     <form id="f" hidden style="display:flex;flex-direction:column;gap:14px">
+      <section class="card" id="brief">
+        <h2>남코녀 사전 진단 · 요청 내용</h2>
+        <p class="hint" id="briefat"></p>
+        <dl class="brief" id="briefdl"></dl>
+      </section>
       <section class="card" data-kind="before">
         <h2>비포 사진</h2>
         <p class="hint" data-hint="before">시술 전 사진</p>
@@ -133,12 +139,19 @@ button:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outl
       const b = el('button', 'cust'); b.type = 'button'; b.setAttribute('aria-pressed', String(picked && picked.id === c.id));
       const left = el('span'); left.append(el('b', null, c.label + ' 님'), el('br'), el('span', 'when', [fmtDate(c.date), c.time, c.service].filter(Boolean).join(' · ')));
       b.append(left);
-      if (c.sent) b.append(el('span', 'sent', `보낸 사진 ${c.sent}장`));
-      b.addEventListener('click', () => { picked = c; renderCustomers(); $('#f').hidden = false; $('#done').hidden = true; $('#err').hidden = true; $('#f').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      if (c.sent) b.append(el('span', 'sent', `보낸 사진 ${c.sent}장`)); else if (c.brief_at) b.append(el('span', 'sent', '요청서 있음'));
+      b.addEventListener('click', () => { picked = c; renderCustomers(); showBrief(c); $('#f').hidden = false; $('#done').hidden = true; $('#err').hidden = true; $('#f').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
       box.append(b);
     });
   }
 
+  // 대표님이 헤메 전에 확정한 진단·요청 내용 (없으면 안내만)
+  function showBrief(c) {
+    const dl = $('#briefdl'); dl.replaceChildren();
+    const rows = (Array.isArray(c.brief) ? c.brief : []).filter((r) => Array.isArray(r) && r[1]);
+    $('#briefat').textContent = rows.length ? `대표님이 ${new Date(c.brief_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}에 확정한 내용이에요. 이대로 시술해 주세요.` : '아직 대표님이 요청 내용을 확정하지 않았어요. 시술 전에 대표님께 확인해 주세요.';
+    rows.forEach(([k, v]) => dl.append(el('dt', null, k), el('dd', null, v)));
+  }
   const sections = [...document.querySelectorAll('[data-kind]')];
   function render(sec) {
     const kind = sec.dataset.kind, grid = sec.querySelector('.files');
