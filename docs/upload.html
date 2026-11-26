@@ -211,5 +211,16 @@ button:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outl
   load();
 })();
 </script>
+<style>#nkReload { position:fixed; right:calc(14px + env(safe-area-inset-right)); bottom:calc(16px + env(safe-area-inset-bottom)); z-index:50; width:44px; height:44px; border-radius:50%; border:0; background:rgba(40,34,30,.78); color:#fff; font-size:22px; line-height:44px; text-align:center; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); padding:0; } #nkReload:disabled { opacity:.6; } @media print { #nkReload { display:none !important; } }</style>
+<button id="nkReload" type="button" aria-label="새로고침" title="새로고침">↻</button>
+<script>
+document.getElementById('nkReload').onclick = async (e) => {
+  const b = e.currentTarget;
+  if (!confirm('새로고침하면 지금 입력 중인 내용이 지워질 수 있어요. 새로고침할까요?')) return;
+  b.disabled = true; b.textContent = '…';
+  try { if (window.__nkBeforeReload) await window.__nkBeforeReload(); } catch (err) {}
+  location.reload();
+};
+</script>
 </body>
 </html>
