@@ -74,7 +74,7 @@ const BASE_INSTRUCTIONS = `당신은 남성 스타일 컨설팅 브랜드 '남�
 - picks에는 현장 기록 칸에 미리 골라 둘 값을 하나씩 고릅니다: 골격(가장 가까운 것 하나), 퍼스널컬러 4축(채도·명도·청탁도·온도, colors의 1순위 후보와 맞게), 스타일(styles 1순위와 맞게). 사진 기반 임시 판단이며 대표님이 현장에서 바꿉니다. reason에 각 선택 이유를 한두 줄로 적습니다.
 - 예산은 컨설팅비를 뺀 의류 구매 예산입니다. 보유 옷과 겹치지 않게 사고, 보유 옷을 완성 코디에 활용합니다.
 - 서비스에 '헤메'가 있으면 hair.designer_note를 디자이너에게 그대로 전할 문장으로 씁니다. '촬영'이 있으면 checklist에 촬영 자세·각도 메모를 넣습니다.
-- 쇼핑 지역(area)은 여의도와 잠실 중 한 곳만 고릅니다(거주지·동선 기준). 다른 지역은 쓰지 않고, 이유를 한 줄 붙인 뒤 "최종 결정은 대표님"이라고 덧붙입니다.
+- 쇼핑 지역(area)은 대표님이 정합니다. 사전설문의 "쇼핑 지역 (대표님 확정)" 값을 그대로 area에 적고, 절대 바꾸거나 다른 지역을 권하지 않습니다(거주지로 추측하지 않음). 값이 (미정)이면 area에는 "미정"만 적고, shopping은 아이템·예산만 쓰되 매장·층은 쓰지 않으며, timeline의 쇼핑 칸은 "❓ 지역 미정 — 대표님이 지역을 정하면 동선을 다시 짭니다" 한 줄만 둡니다.
 - 쇼핑 지역이 잠실이면 기준의 "잠실 동선 매뉴얼", 여의도면 "여의도(영등포) 동선 매뉴얼"대로 shopping과 timeline을 짭니다. 매뉴얼에 ❓로 비어 있는 아이템·조건은 지어내지 말고 ❓로 남깁니다. 매뉴얼의 고객 구분 규칙(통통/날씬, 맑은 컬러, 예산)을 설문 숫자로 계산해 매장과 추천 제품을 고르고, 예산이 모자라면 매뉴얼의 빼는 순서를 따릅니다. 매장 순서는 매뉴얼 순서(층 동선)를 지키고, 각 매장 칸에 층과 살 것을 적습니다.
 - timeline의 첫 칸은 "0~10분 분석 설명"으로 하고, task에 대표님이 현장에서 그대로 읽을 짧은 설명을 체형 → 이미지·이목구비(헤어 한 줄) → 오늘 동선·예산 순으로 한두 문장씩 적습니다. 나머지 시간은 쇼핑에 씁니다.
 - lookbook에는 "남코녀 코디 사진 모음"에서 이 고객에게 입힐 코디를 정확히 3개 고릅니다. 체형·골격·퍼스널컬러 후보·스타일 순위·컨설팅 날짜의 계절·직업과 목적을 함께 보고, 서로 다른 느낌으로 고르며 1번이 가장 추천하는 코디입니다. reason에 왜 이 고객에게 맞는지 한두 줄로 적습니다.
@@ -105,6 +105,7 @@ function surveyText(s: Record<string, unknown>): string {
     ["모질·숱·곱슬 (본인 선택)", [s.hair_thick, s.hair_amount, s.hair_curl].filter(Boolean).join(" / ")],
     ["머리 손질 시간", s.hair_care],
     ["컨설팅 일정", [s.consult_date, s.consult_time].filter(Boolean).join(" ")], ["서비스", s.service],
+    ["쇼핑 지역 (대표님 확정)", s.shop_area || "(미정)"],
   ];
   return lines.map(([k, v]) => `- ${k}: ${v === undefined || v === null || v === "" ? "(공란)" : v}`).join("\n");
 }
@@ -162,13 +163,17 @@ async function analyze(surveyId: string) {
     if (response.stop_reason === "max_tokens") throw new Error("계획서가 너무 길어 중간에 끊김");
     const text = response.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
     const plan = JSON.parse(text);
+    plan.area = s.shop_area ? String(s.shop_area) : "미정"; // 지역은 AI가 고르지 않음 (대표님이 정한 값으로 고정)
 
     await supabase.from("plans").update({
       status: "done", plan, model: response.model, error: null,
       usage: response.usage as unknown as Record<string, unknown>, updated_at: new Date().toISOString(),
     }).eq("survey_id", surveyId);
     // 설명 모드용 사진 선·도형 좌표도 같이 만들어 둠 (실패해도 계획서는 그대로)
-    try { await saveMarks(surveyId, await computeMarks(surveyId)); } catch (e) { console.error("marks failed:", (e as Error).message); }
+    // 설명 모드용 사진 선·도형 좌표는 따로 한 번 더 불러서 만듦 (같은 실행 안에서 하면 시간 제한에 걸려 끊김)
+    try {
+      await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze`, { method: "POST", headers: { "Content-Type": "application/json", "x-nk-internal": adminKey(), apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "", Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") ?? ""}` }, body: JSON.stringify({ survey_id: surveyId, mode: "photo_marks_bg" }) });
+    } catch (e) { console.error("marks trigger failed:", (e as Error).message); }
   } catch (e) {
     const msg = e instanceof Anthropic.APIError ? `Claude API 오류 ${e.status}: ${e.message}` : (e as Error).message;
     await supabase.from("plans").update({ status: "error", error: msg, updated_at: new Date().toISOString() }).eq("survey_id", surveyId);
@@ -180,6 +185,7 @@ async function analyze(surveyId: string) {
 const enumArr = (vals: string[]) => ({ type: "array", items: { type: "string", enum: vals } });
 const RANK = { type: "string", enum: ["1st", "2nd", "3rd", "✕"] };
 const draftSchema = obj({
+  body_type: { type: "string", enum: ["A형", "I형", "O형", "H형", "V형"] },
   image: enumArr(["캐쥬얼", "댄디", "포멀", "스트리트", "아메카지"]),
   image_reason: str,
   glasses: obj({ none: RANK, horn: RANK, brow: RANK, silver: RANK }),
@@ -204,6 +210,7 @@ const draftSchema = obj({
 });
 const DRAFT_INSTRUCTIONS = `당신은 남성 스타일 컨설팅 브랜드 '남코녀'의 현장 보조입니다. 대표 컨설턴트가 고객을 만나 실측·체형·골격·얼굴 사진까지 기록했습니다.
 이 정보로 현장 기록 5~8단계 초안을 고릅니다. 대표님이 보고 틀린 것만 고칩니다.
+- body_type(A/I/O/H/V 체형): 현장에서 확정한 체형이 있으면 그대로. 없으면 실측 너비가 있으면 그것으로, 없으면 전신사진과 키·몸무게(BMI)로 기준의 판정 순서(O → A → I → V → H)를 따라 고릅니다.
 - 아래 "남코녀 분석 기준"을 먼저 따릅니다. 대표님이 현장에서 확정한 체형·골격·컬러가 있으면 사전 계획서보다 그것을 우선합니다.
 - image(어울리는 이미지)는 1~2개. 기준의 '체형 기준 + 얼굴 인상 기준' 매칭에서 겹치는 것을 고릅니다.
 - glasses는 안경 착용 X(none)·뿔테(horn)·하금테(brow)·실버테(silver) 각각에 1st/2nd/3rd/✕ 중 하나. 1st는 하나만. 안경 사진이 있으면 사진을 보고, 없으면 얼굴형 기준으로 판단하고 reason에 "사진 없음"이라고 적습니다.
@@ -309,6 +316,7 @@ const TAG_INSTRUCTIONS = `당신은 남성 스타일 컨설팅 브랜드 '남코
 {"items":[{"brand":"","item":"","color":"","size":"","price":0,"source":"","unsure":""}],"note":""}`;
 
 async function requireAdmin(req: Request): Promise<string | null> {
+  if (req.headers.get("x-nk-internal") && req.headers.get("x-nk-internal") === adminKey()) return null; // 이 함수가 스스로 부른 경우
   const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   const { data: u } = await supabase.auth.getUser(token);
   if (!u?.user) return "관리자 로그인이 필요해요";
@@ -591,6 +599,13 @@ Deno.serve(async (req) => {
     if (mode === "write_tips") return await writeTips(req, survey_id);
     if (mode === "tryon") return await tryOn(req, survey_id, body);
     if (mode === "photo_marks") return await photoMarks(req, survey_id);
+    if (mode === "photo_marks_bg") {
+      // 계획서를 다 만든 뒤 내부에서 부름: 응답은 바로 돌려주고 좌표는 뒤에서 만들어 저장
+      if (req.headers.get("x-nk-internal") !== adminKey()) return new Response(JSON.stringify({ error: "권한 없음" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+      // @ts-ignore EdgeRuntime 은 Supabase 런타임 전역
+      EdgeRuntime.waitUntil((async () => { try { await saveMarks(survey_id, await computeMarks(survey_id)); } catch (e) { console.error("marks failed:", (e as Error).message); } })());
+      return new Response(JSON.stringify({ accepted: true }), { status: 202, headers: { ...cors, "Content-Type": "application/json" } });
+    }
     // 오래 걸리는 분석은 응답을 먼저 돌려준 뒤 백그라운드에서 진행
     // @ts-ignore EdgeRuntime 은 Supabase 런타임 전역
     EdgeRuntime.waitUntil(analyze(survey_id));
