@@ -636,7 +636,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       });
       let start = null;
       const pos = (e) => { const r = img.getBoundingClientRect(); return [Math.max(0, Math.min(r.width, e.clientX - r.left)), Math.max(0, Math.min(r.height, e.clientY - r.top))]; };
-      stage.onpointerdown = (e) => { if (!src) return; stage.setPointerCapture(e.pointerId); start = pos(e); };
+      stage.onpointerdown = (e) => { if (!src) return; try { stage.setPointerCapture(e.pointerId); } catch { /* 무시 */ } start = pos(e); };
       stage.onpointermove = (e) => { if (!start) return; const [x, y] = pos(e); sel = [Math.min(x, start[0]), Math.min(y, start[1]), Math.abs(x - start[0]), Math.abs(y - start[1])];
         Object.assign(rect.style, { display: 'block', left: sel[0] + 'px', top: sel[1] + 'px', width: sel[2] + 'px', height: sel[3] + 'px' }); ok.disabled = !(sel[2] > 15 && sel[3] > 15); };
       stage.onpointerup = () => { start = null; };
