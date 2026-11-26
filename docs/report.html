@@ -291,8 +291,11 @@ if (PDF_MODE) {
   // 코디만: 06 헤어 · 향수 한 장 (1순위 + 요청법 + 향수)
   // 올인원: 06 헤어 두 장 (가르마·앞머리·1~3순위·요청법 / 손질법·추천템·비포애프터) → 07 메이크업 · 향수
   const isHM = /헤메/.test(s.service || '');
+  // 선생님이 링크에서 고른 것 (올인원): 헤어 = 가르마·앞머리·추천 헤어·손질 아이템, 메이크업 = 눈썹 모양·베이스·컨실러·립
+  const SP = Object.fromEntries(((await sb.from('stylist_picks').select('role,data').eq('survey_id', id)).data || []).map((x) => [x.role, x.data || {}]));
+  const H = SP.hair || {}, M = SP.makeup || {};
   const hairList = R.HAIR_STYLES || [];
-  let hairNames = [].concat(rep.hair_pick || []).filter(Boolean);
+  let hairNames = [].concat(isHM && (H.pick || []).length ? H.pick : (rep.hair_pick || [])).filter(Boolean);
   if (!hairNames.length && rep.hair_style) hairNames = hairList.map(([n]) => n).filter((n) => rep.hair_style.replace(/\s/g, '').includes(n.replace(/\s|\(.*\)/g, '')));
   hairNames = hairNames.slice(0, isHM ? 3 : 1);
   const hairPhotos = async (p) => {
@@ -300,7 +303,7 @@ if (PDF_MODE) {
     for (const [ni, n] of hairNames.entries()) {
       const nums = (hairList.find(([x]) => x === n) || [, []])[1].slice(0, hairNames.length > 2 ? 1 : 2);
       if (!nums.length) continue;
-      (await sign('lookbook', nums.map((x) => `hair/IMG_${x}.jpg`))).filter(Boolean).forEach((u) => picks.push([isHM ? `${ni + 1}순위 · ${n}` : n, u, (rep.hair_why || [])[ni]]));
+      (await sign('lookbook', nums.map((x) => `hair/IMG_${x}.jpg`))).filter(Boolean).forEach((u) => picks.push([isHM ? `${ni + 1}순위 · ${n}` : n, u, (rep.hair_why_map || {})[n] || ((rep.hair_pick || [])[ni] === n ? (rep.hair_why || [])[ni] : '')]));
     }
     if (!picks.length) return;
     const g = el('div', 'grid opt ' + (picks.length > 2 ? 'g3' : 'g4')); picks.forEach(([n, u, why]) => { const f = img(u, n, 'ph'); f.append(el('figcaption', null, n)); if (why) f.append(el('figcaption', 'small', why)); g.append(f); }); p.append(g);
@@ -314,25 +317,26 @@ if (PDF_MODE) {
     hd(p, title); const g = el('div', 'grid g4'); ba.forEach(([, cap], i) => { if (!us[i]) return; const f = img(us[i], cap, 'ph'); f.append(el('figcaption', null, cap)); g.append(f); }); p.append(g);
   };
   const perfume = (p) => { if (!rep.pf_text) return; hd(p, '어울리는 향수'); p.append(el('p', 'pftext', rep.pf_text)); };
-  const styleName = hairNames.length ? hairNames[0] + (rep.hair_down === '필요' ? ' + 다운펌' : '') : rep.hair_style;
+  const styleName = hairNames[0] || rep.hair_style;
 
   if (isHM) {
     const p7 = page(); head(p7, '06 헤어스타일');
-    const diag = [['진단', rep.hair_diag], ['가르마', rep.hair_part], ['앞머리', rep.hair_cover]].filter(([, v]) => v);
+    const diag = [['진단', rep.hair_diag], ['가르마', H.part || rep.hair_part], ['앞머리', H.cover || rep.hair_cover]].filter(([, v]) => v);
     if (diag.length) { hd(p7, '헤어 진단'); table(p7, diag); }
     if (hairNames.length) { hd(p7, '추천 헤어스타일 (1~3순위)'); await hairPhotos(p7); }
     if (rep.hair_request) { hd(p7, '요청법'); table(p7, [['미용실에서 이렇게 말해 보세요', rep.hair_request]]); }
     const p7b = page(); head(p7b, '06 헤어스타일');
-    const care = [['손질법', rep.hair_home], ['헤어스타일링 추천템', rep.hair_items]].filter(([, v]) => v);
-    if (care.length) { hd(p7b, '손질법 · 추천템'); table(p7b, care); }
+    const care = [['손질법', rep.hair_home], ['추천 손질 아이템', H.items || rep.hair_items]].filter(([, v]) => v);
+    if (care.length) { hd(p7b, '손질법 · 추천 손질 아이템'); table(p7b, care); }
     await beforeAfter(p7b, 'hair', '헤어 BEFORE · AFTER');
 
     const pm = page(); head(pm, '07 메이크업');
-    if (rep.mk_brow_shape || rep.mk_brow_shop) {
-      hd(pm, '어울리는 눈썹 모양'); pm.append(chips(R.BROW_SHAPES || [], rep.mk_brow_shape));
+    const brow = M.brow_shape || rep.mk_brow_shape;
+    if (brow || rep.mk_brow_shop) {
+      hd(pm, '어울리는 눈썹 모양'); pm.append(chips(R.BROW_SHAPES || [], brow));
       if (rep.mk_brow_shop) table(pm, [['눈썹 정리 매장 추천', rep.mk_brow_shop]]);
     }
-    const cos = [['베이스', rep.mk_base], ['컨실러', rep.mk_concealer]].filter(([, v]) => v);
+    const cos = [['베이스', M.base || rep.mk_base], ['컨실러', M.concealer || rep.mk_concealer], ['립 제품', M.lip]].filter(([, v]) => v);
     if (cos.length) { hd(pm, '화장품 추천'); table(pm, cos); }
     if (rep.mk_steps) { hd(pm, '맞춤 메이크업 순서'); table(pm, [['순서', rep.mk_steps]]); }
     await beforeAfter(pm, 'makeup', '메이크업 BEFORE · AFTER');
