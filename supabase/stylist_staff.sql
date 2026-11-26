@@ -42,6 +42,7 @@ $$
         -- 대표님이 확정한 사전 진단 요청서 (자기 역할 것만)
         'brief', (select o.report->'hm_brief'->(case when st.role = 'hair' then 'hair' else 'makeup' end) from public.onsite o where o.survey_id = s.id),
         'brief_at', (select o.report->'hm_brief'->>'at' from public.onsite o where o.survey_id = s.id),
+        'picks', (select p.data from public.stylist_picks p where p.survey_id = s.id and p.role = st.role),
         'comments', (select json_agg(json_build_object('body', c.body, 'at', c.created_at) order by c.created_at) from public.stylist_comments c where c.survey_id = s.id and c.role = st.role)
       ) order by s.consult_date desc, s.consult_time desc)
       from public.surveys s
@@ -105,3 +106,41 @@ begin
 end
 $$;
 grant execute on function public.staff_comment(text, uuid, text) to anon, authenticated;
+
+-- 선생님이 고정 링크에서 직접 고르는 것 (헤어: 가르마·앞머리·추천 헤어·손질 아이템 / 메이크업: 눈썹 모양·베이스·컨실러·립). 고객 리포트에 그대로 나감
+create table if not exists public.stylist_picks (
+  survey_id uuid not null references public.surveys(id) on delete cascade,
+  role text not null,
+  data jsonb not null default '{}'::jsonb,
+  author text,
+  updated_at timestamptz not null default now(),
+  primary key (survey_id, role)
+);
+alter table public.stylist_picks enable row level security;
+grant select, insert, update, delete on public.stylist_picks to authenticated;
+grant all on public.stylist_picks to service_role;
+drop policy if exists "admin stylist picks" on public.stylist_picks;
+create policy "admin stylist picks" on public.stylist_picks for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+create or replace function public.staff_save_picks(t text, p_survey uuid, p_data jsonb)
+returns boolean language plpgsql security definer set search_path = public as
+$$
+declare st public.stylist_staff; clean jsonb;
+begin
+  select * into st from public.stylist_staff where token = t and active;
+  if st.token is null then raise exception '링크가 올바르지 않아요'; end if;
+  if not public.stylist_customer_ok(p_survey) then raise exception '선택할 수 없는 고객이에요'; end if;
+  if st.role = 'hair' then
+    clean := jsonb_build_object('part', left(p_data->>'part', 30), 'cover', left(p_data->>'cover', 30),
+      'pick', case when jsonb_typeof(p_data->'pick') = 'array' then (select coalesce(jsonb_agg(left(x, 40)), '[]'::jsonb) from (select x from jsonb_array_elements_text(p_data->'pick') x limit 3) q) else '[]'::jsonb end,
+      'items', left(p_data->>'items', 1000));
+  else
+    clean := jsonb_build_object('brow_shape', left(p_data->>'brow_shape', 30), 'base', left(p_data->>'base', 500), 'concealer', left(p_data->>'concealer', 500), 'lip', left(p_data->>'lip', 500));
+  end if;
+  insert into public.stylist_picks (survey_id, role, data, author, updated_at)
+  values (p_survey, st.role, clean, coalesce(st.salon || ' ', '') || st.name, now())
+  on conflict (survey_id, role) do update set data = excluded.data, author = excluded.author, updated_at = now();
+  return true;
+end
+$$;
+grant execute on function public.staff_save_picks(text, uuid, jsonb) to anon, authenticated;
