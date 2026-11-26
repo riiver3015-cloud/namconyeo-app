@@ -614,6 +614,95 @@ async function perfume(req: Request, surveyId: string): Promise<Response> {
   }
 }
 
+// ===== 구매한 옷 사진 찾기 (관리자 화면 10단계 "📷 구매한 옷 사진 찾기") =====
+// AI가 웹 검색으로 상품 상세 페이지를 찾고 → 서버가 그 페이지의 대표 사진(og:image)을 받아 survey-photos에 저장합니다. 경로만 돌려주고 DB에는 쓰지 않습니다.
+const PHOTO_INSTRUCTIONS = `당신은 남성 패션 컨설팅 브랜드 '남코녀'의 보조입니다. 고객이 동행쇼핑에서 산 옷마다 같은 제품의 상품 상세 페이지 주소를 웹 검색으로 찾습니다.
+- 각 아이템(key)마다 브랜드 공식몰이나 국내 쇼핑몰(무신사, 29CM, W컨셉, SSG닷컴, 롯데온, 더현대닷컴, H몰 등)의 상품 상세 페이지 URL을 최대 3개, 같은 제품일 가능성이 높은 순서로 고릅니다.
+- 브랜드·제품명·색이 맞는 페이지를 고릅니다. 검색 결과 목록, 카테고리 페이지, 블로그, 카페, 이미지 검색 페이지는 넣지 않습니다.
+- 검색 결과에서 실제로 본 주소만 씁니다. 주소를 지어내지 않습니다. 못 찾으면 urls는 빈 배열.
+- 마지막에 JSON 하나만 출력합니다: {"items":[{"key":"...","urls":["https://..."]}]}`;
+
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+const isPublicUrl = (u: string) => {
+  try {
+    const x = new URL(u); if (!/^https?:$/.test(x.protocol)) return false;
+    const h = x.hostname.toLowerCase();
+    return !(/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.)/.test(h) || h.endsWith(".local") || h.endsWith(".internal") || h.includes(":") || /^\d+\.\d+\.\d+\.\d+$/.test(h) && h.startsWith("100.64."));
+  } catch { return false; }
+};
+async function grabImage(url: string): Promise<{ bytes: Uint8Array; type: string } | null> {
+  if (!isPublicUrl(url)) return null;
+  const r = await fetch(url, { headers: { "User-Agent": BROWSER_UA, "Accept-Language": "ko-KR,ko;q=0.9" }, signal: AbortSignal.timeout(10000), redirect: "follow" }).catch(() => null);
+  if (!r || !r.ok || !isPublicUrl(r.url)) return null;
+  const ok = async (res: Response) => { const ct = (res.headers.get("content-type") || "").split(";")[0]; if (!ct.startsWith("image/") || ct.includes("svg")) return null; const b = new Uint8Array(await res.arrayBuffer()); return b.length > 3000 && b.length < 10e6 ? { bytes: b, type: ct } : null; };
+  const ct = r.headers.get("content-type") || "";
+  if (ct.startsWith("image/")) return await ok(r);
+  if (!ct.includes("html")) return null;
+  const html = (await r.text()).slice(0, 800000);
+  const m = html.match(/<meta[^>]+(?:property|name)=["'](?:og:image(?::secure_url)?|twitter:image)["'][^>]*content=["']([^"']+)["']/i) || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["'](?:og:image|twitter:image)["']/i);
+  if (!m) return null;
+  const img = new URL(m[1].replace(/&amp;/g, "&"), r.url).href;
+  if (!isPublicUrl(img)) return null;
+  const r2 = await fetch(img, { headers: { "User-Agent": BROWSER_UA, Referer: r.url }, signal: AbortSignal.timeout(10000) }).catch(() => null);
+  return r2 && r2.ok && isPublicUrl(r2.url) ? await ok(r2) : null;
+}
+async function storeBuyImage(surveyId: string, key: string, g: { bytes: Uint8Array; type: string }): Promise<string | null> {
+  const ext = g.type.includes("png") ? "png" : g.type.includes("webp") ? "webp" : g.type.includes("gif") ? "gif" : "jpg";
+  const path = `${surveyId}/buy_${String(key).replace(/[^a-z0-9]/gi, "").slice(0, 12)}_${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, g.bytes, { contentType: g.type, upsert: false });
+  return error ? null : path;
+}
+async function findPhotos(req: Request, surveyId: string, body: Record<string, unknown>): Promise<Response> {
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  const denied = await requireAdmin(req);
+  if (denied) return json({ error: denied }, 401);
+  const items = ((body.items ?? []) as any[]).slice(0, 4).map((x) => ({ key: String(x.key || "").slice(0, 20), brand: String(x.brand || "").slice(0, 60), item: String(x.item || "").slice(0, 120) })).filter((x) => x.key && (x.brand || x.item));
+  if (!items.length) return json({ error: "찾을 옷이 없어요" }, 400);
+  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: `## 찾을 옷\n${items.map((x) => `- key ${x.key}: ${x.brand} ${x.item}`).join("\n")}` }];
+  try {
+    let response: Anthropic.Beta.BetaMessage | null = null;
+    for (let turn = 0; turn < 4; turn++) {
+      response = await anthropic.beta.messages.create({
+        model: MODEL,
+        max_tokens: 8000,
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "low" },
+        system: [{ type: "text", text: PHOTO_INSTRUCTIONS }],
+        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: items.length * 3, user_location: { type: "approximate", country: "KR", city: "Seoul", timezone: "Asia/Seoul" } }],
+        messages,
+      });
+      if (response.stop_reason !== "pause_turn") break;
+      messages.push({ role: "assistant", content: response.content as Anthropic.Beta.BetaContentBlockParam[] });
+    }
+    if (!response) return json({ error: "AI 응답이 없어요" }, 502);
+    const text = response.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
+    const start = text.search(/\{\s*"items"\s*:(?![\s\S]*\{\s*"items"\s*:)/), end = text.lastIndexOf("}");
+    if (start < 0 || end < start) return json({ error: "AI 답을 읽지 못했어요. 한 번 더 눌러 주세요." }, 502);
+    const found = JSON.parse(text.slice(start, end + 1));
+    const photos: Record<string, string> = {}, pages: Record<string, string> = {};
+    await Promise.all((found.items ?? []).filter((it: any) => items.some((x) => x.key === it.key)).map(async (it: any) => {
+      for (const u of ((it.urls ?? []) as string[]).slice(0, 3)) {
+        const g = await grabImage(String(u)); if (!g) continue;
+        const p = await storeBuyImage(surveyId, it.key, g); if (p) { photos[it.key] = p; pages[it.key] = String(u); return; }
+      }
+    }));
+    return json({ photos, pages, usage: response.usage });
+  } catch (e) {
+    const msg = e instanceof Anthropic.APIError ? `Claude API 오류 ${e.status}: ${e.message}` : (e as Error).message;
+    return json({ error: msg }, 502);
+  }
+}
+async function fetchPhoto(req: Request, surveyId: string, body: Record<string, unknown>): Promise<Response> {
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  const denied = await requireAdmin(req);
+  if (denied) return json({ error: denied }, 401);
+  const g = await grabImage(String(body.url || "").trim());
+  if (!g) return json({ error: "이 주소에서 사진을 못 가져왔어요" }, 400);
+  const p = await storeBuyImage(surveyId, String(body.key || "x"), g);
+  return p ? json({ path: p }) : json({ error: "사진 저장에 실패했어요" }, 500);
+}
+
 // ===== 예상 착장 사진 (관리자 화면 "입혀보기") =====
 // 고객 전신사진 + 코디 설명 → OpenAI 이미지 편집으로 옷만 바꾼 사진을 만들어 survey-photos에 저장하고 plans.plan.tryon 에 기록합니다.
 // 필요한 비밀값: OPENAI_API_KEY (선택: OPENAI_IMAGE_MODEL, 기본 gpt-image-2)
@@ -782,6 +871,8 @@ Deno.serve(async (req) => {
     if (mode === "write_tips") return await writeTips(req, survey_id);
     if (mode === "perfume") return await perfume(req, survey_id);
     if (mode === "hair_texts") return await hairTexts(req, survey_id);
+    if (mode === "find_photos") return await findPhotos(req, survey_id, body);
+    if (mode === "fetch_photo") return await fetchPhoto(req, survey_id, body);
     if (mode === "tryon") return await tryOn(req, survey_id, body);
     if (mode === "photo_marks") return await photoMarks(req, survey_id);
     if (mode === "photo_marks_bg") {
