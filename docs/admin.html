@@ -337,6 +337,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
   }
 
   // ---------- 상세 ----------
+  window.__nkBeforeReload = async () => { if (window.__nkFlush) await window.__nkFlush(); if (state.current) sessionStorage.setItem('nk_back', state.current); };
   async function renderDetail(id) {
     if (window.__nkFlush) window.__nkFlush();
     const s = state.surveys.find((x) => x.id === id); if (!s) return;
@@ -802,7 +803,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       let start = '현장 기록'; try { const v = sessionStorage.getItem('nk_tab'); if (v && items.some((x) => x.name === v)) start = v; } catch (e) {}
       if (items.length) show(items.some((x) => x.name === start) ? start : items[0].name);
     }
-    window.__nkFlush = () => { if (timer) saveOnsite(); };
+    window.__nkFlush = () => { if (timer) return saveOnsite(); return saving; };
     calc(); calcFace(false);
     s1.querySelectorAll('[data-on]').forEach((i) => i.addEventListener('input', calc));
     root.addEventListener('input', queueSave);
@@ -1003,6 +1004,16 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
   sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_IN' && !$('#login').hidden) location.reload(); });
   boot();
 })();
+</script>
+<style>#nkReload { position:fixed; right:calc(14px + env(safe-area-inset-right)); bottom:calc(16px + env(safe-area-inset-bottom)); z-index:50; width:44px; height:44px; border-radius:50%; border:0; background:rgba(40,34,30,.78); color:#fff; font-size:22px; line-height:44px; text-align:center; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); padding:0; } #nkReload:disabled { opacity:.6; } @media print { #nkReload { display:none !important; } }</style>
+<button id="nkReload" type="button" aria-label="새로고침" title="새로고침">↻</button>
+<script>
+document.getElementById('nkReload').onclick = async (e) => {
+  const b = e.currentTarget;
+  b.disabled = true; b.textContent = '…';
+  try { if (window.__nkBeforeReload) await window.__nkBeforeReload(); } catch (err) {}
+  location.reload();
+};
 </script>
 </body>
 </html>
