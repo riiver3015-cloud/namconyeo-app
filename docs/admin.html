@@ -162,6 +162,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       <label class="field">컨설팅 날짜<input type="date" data-in="consult_date"></label>
       <label class="field">시간<input type="text" data-in="consult_time" placeholder="14:00"></label>
       <label class="field">서비스<select data-in="service"><option value="">선택</option><option>오프라인</option><option>오프라인+헤메</option><option>오프라인+헤메+촬영</option><option>온라인 컨설팅</option></select></label>
+      <label class="field">쇼핑 지역 (예약 시트 T열)<select data-in="shop_area"><option value="">미정</option><option>잠실</option><option>여의도</option></select></label>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" data-act="save-meta">일정 저장</button><button class="btn" data-act="reanalyze">AI 계획서 다시 만들기</button><span class="cap" data-f="metamsg"></span></div>
   </div>
@@ -816,6 +817,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       const { error } = await sb.from('surveys').update(upd).eq('id', id);
       $('#detail [data-f="metamsg"]').textContent = error ? '저장 실패: ' + error.message : '저장했어요.';
       if (!error) { Object.assign(s, upd); renderList(); hmCard.hidden = !/헤메/.test(s.service || ''); }
+      if (!error && p?.plan && (p.plan.area || '미정') !== (upd.shop_area || '미정')) $('#detail [data-f="metamsg"]').textContent = '저장했어요. 쇼핑 지역이 계획서와 달라요 — "AI 계획서 다시 만들기"를 눌러야 동선이 바뀌어요 (1회 약 500~800원).';
     };
     // 사전설문 답변 수정
     const editBtn = $('#detail [data-act="edit-facts"]'), factsMsg = $('#detail [data-f="factsmsg"]');
