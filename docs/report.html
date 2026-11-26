@@ -25,6 +25,7 @@ td { border:1px solid var(--line); padding:8px 10px; vertical-align:middle; }
 td.k { width:24%; text-align:center; font-weight:500; }
 .chips span { white-space:nowrap; } .chips span + span::before { content:" / "; color:var(--muted); }
 mark { background:var(--hl); padding:0 3px; font-weight:500; }
+.pftext { white-space:pre-line; line-height:1.7; font-size:.92rem; margin:0; }
 .grid { display:grid; gap:10px; } .g2 { grid-template-columns:repeat(2, minmax(0,1fr)); } .g3 { grid-template-columns:repeat(3, minmax(0,1fr)); } .g4 { grid-template-columns:repeat(4, minmax(0,1fr)); } .g5 { grid-template-columns:repeat(5, minmax(0,1fr)); }
 @media (max-width:640px) { .g4, .g5 { grid-template-columns:repeat(2, minmax(0,1fr)); } .g3 { grid-template-columns:repeat(2, minmax(0,1fr)); } }
 figure { margin:0; } figure img { width:100%; display:block; border-radius:4px; background:#f1ede7; }
@@ -312,7 +313,7 @@ if (PDF_MODE) {
     const us = await sign('stylist-uploads', ba.map(([x]) => x));
     hd(p, title); const g = el('div', 'grid g4'); ba.forEach(([, cap], i) => { if (!us[i]) return; const f = img(us[i], cap, 'ph'); f.append(el('figcaption', null, cap)); g.append(f); }); p.append(g);
   };
-  const perfume = (p) => { const rows = [['추천 향수', rep.pf_pick], ['어울리는 이유', rep.pf_why], ['뿌리는 법', rep.pf_how]].filter(([, v]) => v); if (!rows.length) return; hd(p, '향수'); table(p, rows); };
+  const perfume = (p) => { if (!rep.pf_text) return; hd(p, '어울리는 향수'); p.append(el('p', 'pftext', rep.pf_text)); };
   const styleName = hairNames.length ? hairNames[0] + (rep.hair_down === '필요' ? ' + 다운펌' : '') : rep.hair_style;
 
   if (isHM) {
@@ -326,7 +327,7 @@ if (PDF_MODE) {
     if (care.length) { hd(p7b, '손질법 · 추천템'); table(p7b, care); }
     await beforeAfter(p7b, 'hair', '헤어 BEFORE · AFTER');
 
-    const pm = page(); head(pm, '07 메이크업 · 향수');
+    const pm = page(); head(pm, '07 메이크업');
     if (rep.mk_brow_shape || rep.mk_brow_shop) {
       hd(pm, '어울리는 눈썹 모양'); pm.append(chips(R.BROW_SHAPES || [], rep.mk_brow_shape));
       if (rep.mk_brow_shop) table(pm, [['눈썹 정리 매장 추천', rep.mk_brow_shop]]);
@@ -335,7 +336,7 @@ if (PDF_MODE) {
     if (cos.length) { hd(pm, '화장품 추천'); table(pm, cos); }
     if (rep.mk_steps) { hd(pm, '맞춤 메이크업 순서'); table(pm, [['순서', rep.mk_steps]]); }
     await beforeAfter(pm, 'makeup', '메이크업 BEFORE · AFTER');
-    perfume(pm);
+    if (rep.pf_text) { const pp = page(); head(pp, '08 향수'); perfume(pp); }
   } else {
     const p7 = page(); head(p7, '06 헤어스타일 · 향수');
     if (hairNames.length) { hd(p7, '추천 헤어스타일'); await hairPhotos(p7); }
@@ -345,7 +346,7 @@ if (PDF_MODE) {
   }
 
   // ---- 동행쇼핑 ----
-  const p8 = page(); head(p8, (isHM ? '08' : '07') + ' 동행쇼핑');
+  const p8 = page(); head(p8, (isHM ? (rep.pf_text ? '09' : '08') : '07') + ' 동행쇼핑');
   if (uShop.length) { const g = el('div', 'grid g3'); uShop.slice(0, 6).forEach((u, i) => g.append(img(u, '동행쇼핑 ' + (i + 1), 'ph'))); p8.append(g); }
   const buys = rep.purchases || [];
   if (buys.length) {
