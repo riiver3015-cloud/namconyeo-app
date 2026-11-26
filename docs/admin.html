@@ -172,6 +172,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
   <div class="card"><details class="fold" data-f="phfold"><summary><h3>설문 사진</h3><span class="cap"> 눌러서 펼치기</span></summary><div class="photos" data-f="photos" style="margin-top:8px"></div></details></div>
   <div class="card" data-f="hmcard">
     <h3 style="margin:0">헤어·메이크업 결과</h3>
+    <div data-f="hmbrief" style="display:flex;flex-direction:column;gap:8px"></div>
     <details><summary class="cap" style="cursor:pointer">선생님 고정 링크 보기</summary><div data-f="slink" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div></details>
     <p class="cap">선생님 목록에는 서비스에 '헤메'가 들어 있고, 일정이 최근 30일~앞으로 7일인 고객만 보여요.</p>
     <div data-f="stylist" style="display:flex;flex-direction:column;gap:12px"></div>
@@ -555,7 +556,8 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       chipRow(cell, 'g_' + k, null, R.GLASS_RANKS, false, rep.glasses[k]);
     });
     // 8. 헤어
-    const s8 = step(8, '헤어 진단 + 추천 헤어스타일');
+    const isHM = /헤메/.test(s.service || '');
+    const s8 = step(8, isHM ? '헤어·메이크업 진단 (헤메 받기 전에 미리 확정)' : '헤어 진단 + 추천 헤어스타일');
     s8.append(el('p', 'cap', '모질 · 숱 · 곱슬기는 고객이 사전질문지에서 고른 값이 먼저 눌려 있어요. 만져 보고 다르면 바꾸세요. 앞머리 기장 · 다운펌 · 추천 헤어 · 요청 멘트는 "AI 초안 채우기"가 미리 골라 둬요.'));
     R.HAIR.forEach(([k, l, opts]) => chipRow(s8, k, l, opts, false, rep[k] || s[k]));
     chipRow(s8, 'hair_head', '두상 · 헤어라인 (선택 — 해당하는 것만)', R.HAIR_HEAD || [], true, rep.hair_head);
@@ -572,6 +574,16 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     txt(s8, 'hair_perm', '펌', '예) 필요 없음 / 윗머리 볼륨펌');
     txt(s8, 'hair_request', '헤어샵 요청 멘트 (AI 초안 — 고쳐 쓸 수 있어요)', '예) 옆머리 볼륨 살려주세요', true);
     txt(s8, 'hair_home', '집에서 손질하는 법 (3줄)', '예) 1. 뿌리부터 말리기  2. 앞머리는 옆으로 넘기며 드라이  3. 왁스는 콩알만큼', true);
+    if (isHM) { // 메이크업 (서비스에 '헤메'가 있는 고객만) — 메이크업 선생님 요청서 + 리포트
+      s8.append(el('p', 'sub', '메이크업 진단'));
+      txt(s8, 'mk_diag', '메이크업 진단 한 줄 (고객용)', '예) 피부 톤은 고른 편이고, 눈썹 숱이 적어 인상이 흐려 보여요', true);
+      txt(s8, 'mk_skin', '피부 표현', '예) 얇게, 코 옆 붉은 기만 가리기');
+      txt(s8, 'mk_brow', '눈썹', '예) 일자에 가깝게, 앞쪽 빈 곳 채우기, 다크브라운');
+      txt(s8, 'mk_shade', '음영 · 쉐딩', '예) 턱선 아래 살짝');
+      txt(s8, 'mk_point', '그 밖에', '예) 입술 보습, 다크서클 컨실러');
+      txt(s8, 'mk_request', '메이크업 선생님 요청 멘트 (AI 초안 — 고쳐 쓸 수 있어요)', '예) 티 나지 않게 피부만 정돈해 주세요', true);
+      txt(s8, 'mk_home', '혼자 할 때 순서 (3줄)', '예) 1. 선크림  2. 쿠션 얇게  3. 눈썹 빈 곳만', true);
+    }
     // 9. 스타일 방향성
     const s9s = step(9, '입혀 보면서 스타일 방향성 (상의 · 하의 · 아우터)', '여러 개 골라도 돼요.');
     R.STYLE.forEach(([group, rows]) => { s9s.append(el('p', 'sub', group)); rows.forEach(([k, l, opts]) => chipRow(s9s, k, l, opts, true, rep[k])); });
@@ -640,7 +652,8 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       }
     };
     showNotes();
-    aiBtn.onclick = async () => {
+    const aiBtn0 = aiBtn, aiMsg0 = aiMsg;
+    const runDraft = async (onlyHm = false, aiBtn = aiBtn0, aiMsg = aiMsg0) => {
       aiBtn.disabled = true; aiMsg.textContent = '저장하고 AI에게 묻는 중… (30초~1분)';
       try {
         await saveOnsite();
@@ -655,22 +668,63 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
           [].concat(vals || []).forEach((v) => { const c = [...row.querySelectorAll('.chip')].find((x) => x.textContent === v); if (c) { c.setAttribute('aria-pressed', 'true'); n++; } });
           if (!row.dataset.multi) { const on = row.querySelectorAll('.chip[aria-pressed="true"]'); on.forEach((c, i) => { if (i) c.setAttribute('aria-pressed', 'false'); }); }
         };
-        { const row = root.querySelector('[data-pick="body_type"]'); if (row && d.body_type && !row.querySelector('.chip[aria-pressed="true"]')) { const c = [...row.querySelectorAll('.chip')].find((x) => x.textContent === d.body_type); if (c) { c.setAttribute('aria-pressed', 'true'); n++; } } }
-        fill('image', d.image);
-        R.GLASSES.forEach(([k]) => fill('g_' + k, d.glasses?.[k]));
+        if (!onlyHm) { const row = root.querySelector('[data-pick="body_type"]'); if (row && d.body_type && !row.querySelector('.chip[aria-pressed="true"]')) { const c = [...row.querySelectorAll('.chip')].find((x) => x.textContent === d.body_type); if (c) { c.setAttribute('aria-pressed', 'true'); n++; } } }
+        if (!onlyHm) { fill('image', d.image); R.GLASSES.forEach(([k]) => fill('g_' + k, d.glasses?.[k])); }
         fill('hair_forehead', d.hair_forehead);
         fill('hair_bangs', d.hair_bangs); fill('hair_down', d.hair_down); fill('hair_head', d.hair_head);
         { const pr = root.querySelector('[data-rkey="hair_pick"]'); const had = pr && pr.querySelector('.chip[aria-pressed="true"]'); fill('hair_pick', (d.hair_pick || []).slice(0, 3)); if (pr && !had) pr.dataset.order = (d.hair_pick || []).slice(0, 3).join('|'); }
         (d.hair_why || []).slice(0, 3).forEach((v, i) => { d['hair_why' + i] = v; });
-        for (const k of ['hair_request', 'hair_diag', 'hair_side', 'hair_back', 'hair_perm', 'hair_home', 'hair_why0', 'hair_why1', 'hair_why2']) { const i = root.querySelector(`[data-rtxt="${k}"]`); if (i && !i.value.trim() && d[k]) { i.value = d[k]; n++; } }
-        for (const k of ['top_neck', 'top_fit', 'top_fabric', 'top_detail', 'bottom_width', 'bottom_shape', 'outer_length', 'outer_shoulder', 'outer_fabric']) fill(k, d[k]);
-        rep.ai_notes = { image: d.image_reason, glasses: d.glasses_reason, hair: d.hair_reason, style: d.style_reason };
+        for (const k of ['hair_request', 'hair_diag', 'hair_side', 'hair_back', 'hair_perm', 'hair_home', 'hair_why0', 'hair_why1', 'hair_why2', 'mk_diag', 'mk_skin', 'mk_brow', 'mk_shade', 'mk_point', 'mk_request', 'mk_home']) { const i = root.querySelector(`[data-rtxt="${k}"]`); if (i && !i.value.trim() && d[k]) { i.value = d[k]; n++; } }
+        if (!onlyHm) for (const k of ['top_neck', 'top_fit', 'top_fabric', 'top_detail', 'bottom_width', 'bottom_shape', 'outer_length', 'outer_shoulder', 'outer_fabric']) fill(k, d[k]);
+        rep.ai_notes = onlyHm ? { ...rep.ai_notes, hair: d.hair_reason } : { image: d.image_reason, glasses: d.glasses_reason, hair: d.hair_reason, style: d.style_reason };
         showNotes();
         aiMsg.textContent = n ? `AI가 ${n}칸을 채웠어요. 틀린 것만 눌러서 고치세요.` : '비어 있는 칸이 없어서 바꾼 게 없어요. (이유 메모만 붙였어요)';
         saveOnsite();
       } catch (e) { aiMsg.textContent = '⚠ ' + e.message; }
       aiBtn.disabled = false;
     };
+    aiBtn.onclick = () => runDraft();
+
+    // 헤메 사전 진단 → 선생님 요청서 확정 (헤메 받기 전에 진단을 먼저 끝냄)
+    if (isHM) {
+      const box = f('hmbrief'); box.replaceChildren();
+      box.append(el('p', 'sub', '헤메 전 사전 진단 → 선생님 요청서'),
+        el('p', 'cap', '헤메 받기 전날 해 주세요. ① "헤어·메이크업 AI 초안"(설문 셀카로 진단, 누를 때마다 AI 사용료 수백 원) → ② 현장 기록 8단계에서 확인·수정 → ③ "요청서 확정"을 누르면 선생님 링크 화면에 바로 보여요.'));
+      const row = el('div'); row.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+      const bAi = el('button', 'btn', '✨ 헤어·메이크업 AI 초안'), bGo = el('button', 'btn', '8단계 열어서 고치기'), bOk = el('button', 'btn primary', '✅ 요청서 확정 → 선생님께 보이기');
+      [bAi, bGo, bOk].forEach((b) => { b.type = 'button'; }); const msg = el('span', 'cap');
+      row.append(bAi, bGo, bOk, msg); const view = el('div', 'cap'); view.style.cssText = 'white-space:pre-line;border:1px solid var(--line);border-radius:10px;padding:10px'; box.append(row, view);
+      const build = (r) => ({
+        // 순서가 지켜지도록 [이름, 내용] 목록으로 저장
+        hair: [['추천 헤어', r.hair_style], ['앞머리', r.hair_bangs], ['옆머리', r.hair_side], ['뒷머리', r.hair_back], ['펌', r.hair_perm], ['진단', r.hair_diag], ['요청', r.hair_request]].filter(([, v]) => v),
+        makeup: [['진단', r.mk_diag], ['피부 표현', r.mk_skin], ['눈썹', r.mk_brow], ['음영·쉐딩', r.mk_shade], ['그 밖에', r.mk_point], ['요청', r.mk_request]].filter(([, v]) => v),
+      });
+      const lines = (o) => (o || []).map(([k, v]) => `· ${k}: ${v}`).join('\n') || '(비어 있음)';
+      const draw = () => {
+        const b = rep.hm_brief;
+        if (!b) { view.textContent = '아직 확정한 요청서가 없어요. 선생님 화면에는 아무것도 안 보여요.'; return; }
+        const now = JSON.stringify(build(collect().report)), was = JSON.stringify({ hair: b.hair, makeup: b.makeup });
+        view.textContent = `✓ ${new Date(b.at).toLocaleString('ko-KR')} 확정 — 선생님 화면에 보이는 내용${now !== was ? '\n⚠ 확정한 뒤 8단계 내용이 바뀌었어요. 다시 "요청서 확정"을 눌러야 선생님 화면에 반영돼요.' : ''}
+
+[헤어 선생님]
+${lines(b.hair)}
+
+[메이크업 선생님]
+${lines(b.makeup)}`;
+      };
+      bAi.onclick = async () => { await runDraft(true, bAi, msg); draw(); };
+      bGo.onclick = () => { const t = [...document.querySelectorAll('[data-f="toc"] button')].find((x) => x.textContent.includes('현장 기록')); if (t) t.click(); setTimeout(() => steps[8].scrollIntoView({ behavior: 'smooth', block: 'start' }), 150); };
+      bOk.onclick = async () => {
+        const r = collect().report;
+        if (!(r.hair_pick || []).length) { msg.textContent = '⚠ 8단계에서 추천 헤어스타일을 먼저 골라 주세요.'; return; }
+        bOk.disabled = true; msg.textContent = '저장 중…';
+        rep.hm_brief = { at: new Date().toISOString(), ...build(r) };
+        const ok = await saveOnsite(); bOk.disabled = false;
+        msg.textContent = ok ? '✓ 확정했어요. 선생님 링크에서 이 고객을 누르면 보여요.' : '⚠ 저장 실패 — 다시 눌러 주세요.';
+        draw();
+      };
+      setTimeout(draw, 0); // collect()는 아래에서 정의되므로 다 그린 뒤에
+    }
 
     // 공식 (리포트 마무리)
     const fBox = f('formulas');
@@ -739,7 +793,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       root.querySelectorAll('[data-on]').forEach((i) => { row[i.dataset.on] = i.value === '' ? null : (i.type === 'number' ? parseFloat(i.value) : i.value); });
       root.querySelectorAll('[data-pick]').forEach((r) => { row[r.dataset.pick] = r.querySelector('.chip[aria-pressed="true"]')?.textContent || null; });
       row.color = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map((k) => row[k]).filter(Boolean).join(' · ') || null;
-      const out = { face: rep.face, body_photo: rep.body_photo, glass_photos: rep.glass_photos, tag_photos: rep.tag_photos, shop_photos: rep.shop_photos, ai_notes: rep.ai_notes };
+      const out = { face: rep.face, body_photo: rep.body_photo, glass_photos: rep.glass_photos, tag_photos: rep.tag_photos, shop_photos: rep.shop_photos, ai_notes: rep.ai_notes, hm_brief: rep.hm_brief };
       root.querySelectorAll('[data-rkey]').forEach((r) => { const v = [...r.querySelectorAll('.chip[aria-pressed="true"]')].map((c) => c.textContent); out[r.dataset.rkey] = r.dataset.multi ? v : (v[0] || null); });
       out.glasses = {}; R.GLASSES.forEach(([k]) => { out.glasses[k] = out['g_' + k]; delete out['g_' + k]; });
       root.querySelectorAll('[data-rtxt]').forEach((i) => { out[i.dataset.rtxt] = i.value.trim(); });
