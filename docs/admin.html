@@ -634,17 +634,17 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const rowInfo = (w) => Object.fromEntries([...w.querySelectorAll('[data-k]')].map((i) => [i.dataset.k, i.value.trim()]));
     { const r = el('div'); r.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
       const b = el('button', 'btn primary', '📷 구매한 옷 사진 찾기'); b.type = 'button'; const m = el('span', 'cap'); r.append(b, m);
-      s9.append(el('p', 'sub', '구매한 옷 사진'), el('p', 'cap', '구매 리스트를 채운 뒤 누르면, AI가 쇼핑몰에서 같은 상품을 찾아 사진을 붙여요 (사진 없는 옷만, 아이템당 약 100~200원). 틀린 사진은 사진 아래 "올리기"나 "링크"로 바꾸세요.'), r);
+      s9.append(el('p', 'sub', '구매한 옷 사진'), el('p', 'cap', '구매 리스트를 채운 뒤 누르면, AI가 쇼핑몰에서 같은 상품을 찾아 사진을 붙여요 (사진 없는 옷만, 아이템당 약 200~300원). 색이 맞고 옷만 나온 사진을 고르고, 맞는 사진이 없으면 붙이지 않아요. 틀린 사진은 사진 아래 "올리기"나 "링크"로 바꾸세요.'), r);
       b.onclick = async () => {
         const rows = buyRows().filter((w) => !w.querySelector('[data-k="photo"]').value);
         if (!rows.length) { m.textContent = '사진이 없는 옷이 없어요.'; return; }
         b.disabled = true; await saveOnsite();
         let ok = 0; const miss = [];
-        for (let i = 0; i < rows.length; i += 3) {
-          const batch = rows.slice(i, i + 3); m.textContent = `찾는 중… (${i}/${rows.length}, 묶음마다 30초~1분)`;
+        for (let i = 0; i < rows.length; i += 2) {
+          const batch = rows.slice(i, i + 2); m.textContent = `찾는 중… (${i}/${rows.length}, 묶음마다 30초~1분)`;
           try {
             const j = await postAI('find_photos', { items: batch.map((w) => { const x = rowInfo(w); return { key: x.pid, brand: x.brand, item: x.item }; }) });
-            batch.forEach((w) => { const x = rowInfo(w); const p = j.photos?.[x.pid]; if (p) { w.querySelector('[data-k="photo"]').value = p; w.drawThumb(); ok++; } else miss.push(x.item || x.brand); });
+            batch.forEach((w) => { const x = rowInfo(w); const p = j.photos?.[x.pid]; if (p) { w.querySelector('[data-k="photo"]').value = p; w.drawThumb(); ok++; } else miss.push((x.item || x.brand) + (j.why?.[x.pid] ? ` (${j.why[x.pid]})` : '')); });
           } catch (e) { batch.forEach((w) => miss.push(rowInfo(w).item || rowInfo(w).brand)); m.textContent = '⚠ ' + e.message; }
           await saveOnsite();
         }
