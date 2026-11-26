@@ -98,6 +98,7 @@ a.home { color:inherit; text-decoration:none; } a.home:hover { text-decoration:u
 .layout.collapsed { grid-template-columns:minmax(0,1fr); } .layout.collapsed > nav { display:none; }
 .listbar { display:flex; gap:8px; align-items:center; }
 dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.edit dd textarea { min-height:60px; }
+.hmrole { border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px; } .hmhead { display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; } .hmba { display:grid; grid-template-columns:1fr 1fr; gap:12px; } .hmba .media img { height:120px; } @media (max-width:600px) { .hmba { grid-template-columns:1fr; } } .hmnote { margin:0; background:var(--bg); border-radius:8px; padding:8px 10px; font-size:.92rem; white-space:pre-line; }
 .media .tag { font-size:.72rem; color:var(--muted); display:block; padding:2px 6px; }
 .media figure { margin:0; }
 </style>
@@ -574,7 +575,10 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     txt(s8, 'hair_perm', '펌', '예) 필요 없음 / 윗머리 볼륨펌');
     txt(s8, 'hair_request', '헤어샵 요청 멘트 (AI 초안 — 고쳐 쓸 수 있어요)', '예) 옆머리 볼륨 살려주세요', true);
     txt(s8, 'hair_home', '집에서 손질하는 법 (3줄)', '예) 1. 뿌리부터 말리기  2. 앞머리는 옆으로 넘기며 드라이  3. 왁스는 콩알만큼', true);
-    if (isHM) { // 메이크업 (서비스에 '헤메'가 있는 고객만) — 메이크업 선생님 요청서 + 리포트
+    if (isHM) { // 헤메 당일 손질 + 메이크업 (서비스에 '헤메'가 있는 고객만) — 선생님 요청서 + 리포트
+      s8.append(el('p', 'sub', '헤메 당일 헤어 손질 (컷·펌 없이 드라이만)'), el('p', 'cap', '위쪽 칸은 "이상적인 헤어"(다음에 미용실에서 할 컷·펌)예요. 여기는 헤메 날 지금 머리 기장 그대로 드라이로 만들 스타일이에요.'));
+      txt(s8, 'hd_style', '오늘 손질 스타일', '예) 5:5 가르마가 보일 듯 말 듯, 앞머리는 내려 이마를 살짝 덮기, 옆머리는 눌러 드라이', true);
+      txt(s8, 'hd_request', '헤어 선생님 요청 멘트 (드라이)', '예) 앞머리는 자연스럽게 내려 주시고, 옆머리는 뜨지 않게 눌러 주세요', true);
       s8.append(el('p', 'sub', '메이크업 진단'));
       txt(s8, 'mk_diag', '메이크업 진단 한 줄 (고객용)', '예) 피부 톤은 고른 편이고, 눈썹 숱이 적어 인상이 흐려 보여요', true);
       txt(s8, 'mk_skin', '피부 표현', '예) 얇게, 코 옆 붉은 기만 가리기');
@@ -674,7 +678,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
         fill('hair_bangs', d.hair_bangs); fill('hair_down', d.hair_down); fill('hair_head', d.hair_head);
         { const pr = root.querySelector('[data-rkey="hair_pick"]'); const had = pr && pr.querySelector('.chip[aria-pressed="true"]'); fill('hair_pick', (d.hair_pick || []).slice(0, 3)); if (pr && !had) pr.dataset.order = (d.hair_pick || []).slice(0, 3).join('|'); }
         (d.hair_why || []).slice(0, 3).forEach((v, i) => { d['hair_why' + i] = v; });
-        for (const k of ['hair_request', 'hair_diag', 'hair_side', 'hair_back', 'hair_perm', 'hair_home', 'hair_why0', 'hair_why1', 'hair_why2', 'mk_diag', 'mk_skin', 'mk_brow', 'mk_shade', 'mk_point', 'mk_request', 'mk_home']) { const i = root.querySelector(`[data-rtxt="${k}"]`); if (i && !i.value.trim() && d[k]) { i.value = d[k]; n++; } }
+        for (const k of ['hair_request', 'hair_diag', 'hair_side', 'hair_back', 'hair_perm', 'hair_home', 'hair_why0', 'hair_why1', 'hair_why2', 'hd_style', 'hd_request', 'mk_diag', 'mk_skin', 'mk_brow', 'mk_shade', 'mk_point', 'mk_request', 'mk_home']) { const i = root.querySelector(`[data-rtxt="${k}"]`); if (i && !i.value.trim() && d[k]) { i.value = d[k]; n++; } }
         if (!onlyHm) for (const k of ['top_neck', 'top_fit', 'top_fabric', 'top_detail', 'bottom_width', 'bottom_shape', 'outer_length', 'outer_shoulder', 'outer_fabric']) fill(k, d[k]);
         rep.ai_notes = onlyHm ? { ...rep.ai_notes, hair: d.hair_reason } : { image: d.image_reason, glasses: d.glasses_reason, hair: d.hair_reason, style: d.style_reason };
         showNotes();
@@ -696,7 +700,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       row.append(bAi, bGo, bOk, msg); const view = el('div', 'cap'); view.style.cssText = 'white-space:pre-line;border:1px solid var(--line);border-radius:10px;padding:10px'; box.append(row, view);
       const build = (r) => ({
         // 순서가 지켜지도록 [이름, 내용] 목록으로 저장
-        hair: [['추천 헤어', r.hair_style], ['앞머리', r.hair_bangs], ['옆머리', r.hair_side], ['뒷머리', r.hair_back], ['펌', r.hair_perm], ['진단', r.hair_diag], ['요청', r.hair_request]].filter(([, v]) => v),
+        hair: [['오늘 손질 스타일 (드라이만)', r.hd_style], ['요청', r.hd_request], ['진단', r.hair_diag], ['참고 — 어울리는 컷 (다음 미용실)', r.hair_style]].filter(([, v]) => v),
         makeup: [['진단', r.mk_diag], ['피부 표현', r.mk_skin], ['눈썹', r.mk_brow], ['음영·쉐딩', r.mk_shade], ['그 밖에', r.mk_point], ['요청', r.mk_request]].filter(([, v]) => v),
       });
       const lines = (o) => (o || []).map(([k, v]) => `· ${k}: ${v}`).join('\n') || '(비어 있음)';
@@ -716,7 +720,7 @@ ${lines(b.makeup)}`;
       bGo.onclick = () => { const t = [...document.querySelectorAll('[data-f="toc"] button')].find((x) => x.textContent.includes('현장 기록')); if (t) t.click(); setTimeout(() => steps[8].scrollIntoView({ behavior: 'smooth', block: 'start' }), 150); };
       bOk.onclick = async () => {
         const r = collect().report;
-        if (!(r.hair_pick || []).length) { msg.textContent = '⚠ 8단계에서 추천 헤어스타일을 먼저 골라 주세요.'; return; }
+        if (!r.hd_style && !r.hd_request) { msg.textContent = '⚠ 8단계 "오늘 손질 스타일"을 먼저 채워 주세요.'; return; }
         bOk.disabled = true; msg.textContent = '저장 중…';
         rep.hm_brief = { at: new Date().toISOString(), ...build(r) };
         const ok = await saveOnsite(); bOk.disabled = false;
@@ -971,24 +975,29 @@ ${lines(b.makeup)}`;
     const rows = up.data || [];
     const signed = rows.length ? (await sb.storage.from('stylist-uploads').createSignedUrls(rows.map((r) => r.path), 3600)).data : [];
     const urlOf = Object.fromEntries((signed || []).map((s) => [s.path, s.signedUrl]));
-    // 헤어·메이크업을 합쳐 비포 / 애프터 두 칸으로 (사진 아래 작게 헤어·메이크업 표시)
-    const groups = [['before', '헤어·메이크업 · 비포'], ['after', '헤어·메이크업 · 애프터']];
-    const grid = el('div', 'grid2'); listBox.append(grid);
-    for (const [kind, label] of groups) {
-      const items = rows.filter((r) => r.kind === kind);
-      const wrap = el('div', 'style'); const media = el('div', 'media');
-      wrap.append(el('b', null, `${label} (${items.length})`), media);
-      grid.append(wrap);
-      if (!items.length) { media.append(el('span', 'cap', '아직 없어요')); continue; }
-      items.forEach((r) => {
-        const u = urlOf[r.path]; if (!u) return;
-        const who = r.role === 'hair' ? '헤어' : '메이크업'; const fig = el('figure');
-        if ((r.content_type || '').startsWith('video/')) { const v = document.createElement('video'); v.src = u; v.controls = true; v.preload = 'metadata'; v.playsInline = true; fig.append(v); }
-        else { const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; const im = document.createElement('img'); im.src = u; im.alt = `${who} ${label}`; im.loading = 'lazy'; a.append(im); fig.append(a); }
-        fig.append(el('span', 'tag', who)); media.append(fig);
-      });
-      const notes = [...new Set(items.map((r) => [(r.role === 'hair' ? '헤어' : '메이크업') + (r.uploader ? ' ' + r.uploader : ''), r.note].filter(Boolean).join(': ')).filter((n) => n.includes(':')))];
-      notes.forEach((n) => wrap.append(el('p', 'cap', '메모 — ' + n)));
+    // 역할별(헤어 / 메이크업) 한 묶음: 비포 | 애프터 나란히, 메모는 한 번만
+    if (!rows.length) { listBox.append(el('p', 'cap', '아직 선생님이 보낸 사진이 없어요.')); return; }
+    for (const [role, rname] of [['hair', '헤어'], ['makeup', '메이크업']]) {
+      const mine = rows.filter((r) => r.role === role);
+      const box = el('div', 'hmrole'); listBox.append(box);
+      const hdr = el('div', 'hmhead'); hdr.append(el('b', null, rname));
+      const who = [...new Set(mine.map((r) => r.uploader).filter(Boolean))].join(', '); if (who) hdr.append(el('span', 'cap', who));
+      box.append(hdr);
+      if (!mine.length) { box.append(el('span', 'cap', '아직 없어요')); continue; }
+      const ba = el('div', 'hmba'); box.append(ba);
+      for (const [kind, kname] of [['before', '비포'], ['after', '애프터']]) {
+        const items = mine.filter((r) => r.kind === kind);
+        const col = el('div'); const media = el('div', 'media'); col.append(el('span', 'cap', `${kname} (${items.length})`), media); ba.append(col);
+        if (!items.length) media.append(el('span', 'cap', '없음'));
+        items.forEach((r) => {
+          const u = urlOf[r.path]; if (!u) return; const fig = el('figure');
+          if ((r.content_type || '').startsWith('video/')) { const v = document.createElement('video'); v.src = u; v.controls = true; v.preload = 'metadata'; v.playsInline = true; fig.append(v); }
+          else { const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; const im = document.createElement('img'); im.src = u; im.alt = `${rname} ${kname}`; im.loading = 'lazy'; a.append(im); fig.append(a); }
+          media.append(fig);
+        });
+      }
+      const notes = [...new Set(mine.map((r) => (r.note || '').trim()).filter(Boolean))];
+      if (notes.length) { const n = el('p', 'hmnote'); n.textContent = notes.join('\n'); box.append(el('span', 'cap', '선생님 메모'), n); }
     }
   }
 
