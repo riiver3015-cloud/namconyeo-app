@@ -588,11 +588,25 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       txt(s8, 'mk_concealer', '컨실러', '예) 코 옆 붉은기 · 다크서클에 1.5호', true);
       txt(s8, 'mk_steps', '맞춤 메이크업 순서', '예) 1. 스킨·로션  2. 쿠션 얇게  3. 컨실러 톡톡  4. 눈썹 빈 곳  5. 립밤', true);
     }
-    // 향수 (코디·올인원 공통, 리포트에 나감)
-    s8.append(el('p', 'sub', '향수'));
-    txt(s8, 'pf_pick', '추천 향수', '예) 우디 머스크 계열 — ○○ 오드퍼퓸');
-    txt(s8, 'pf_why', '어울리는 이유', '예) 차분한 댄디 이미지와 잘 맞는 은은한 잔향', true);
-    txt(s8, 'pf_how', '뿌리는 법', '예) 손목·목 뒤에 1~2번, 데이트 30분 전');
+    // 향수 (코디·올인원 공통, 리포트에 그대로 나감) — 대표님 향수 추천 기준으로 AI가 카톡 문구를 씀
+    s8.append(el('p', 'sub', '향수'), el('p', 'cap', '10단계 구매 리스트까지 넣은 뒤 누르면, 이미지·스타일·컬러·소재·산 옷을 보고 향수 3개를 카톡 문구로 써 줘요. 고쳐 쓴 그대로 리포트에 나가요. 누를 때마다 AI 사용료 수백 원.'));
+    { const r = el('div'); r.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+      const b = el('button', 'btn', '✨ 향수 추천 AI'); b.type = 'button'; const m = el('span', 'cap'); r.append(b, m); s8.append(r);
+      const ta = txt(s8, 'pf_text', '향수 추천 문구 (리포트·카톡용)', '', true); ta.rows = 12;
+      b.onclick = async () => {
+        if (ta.value.trim() && !confirm('지금 문구를 AI가 새로 쓴 문구로 바꿀까요?')) return;
+        b.disabled = true; m.textContent = '저장하고 AI가 쓰는 중… (20초~1분)';
+        try {
+          await saveOnsite();
+          const { data: { session } } = await sb.auth.getSession();
+          const res = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ survey_id: id, mode: 'perfume' }) });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok || !j.text) throw new Error(j.error || ('응답 오류 ' + res.status));
+          ta.value = j.text; m.textContent = '✓ 썼어요. 읽어 보고 고칠 곳만 고치세요.'; saveOnsite();
+        } catch (e) { m.textContent = '⚠ ' + e.message; }
+        b.disabled = false;
+      };
+    }
     // 9. 스타일 방향성
     const s9s = step(9, '입혀 보면서 스타일 방향성 (상의 · 하의 · 아우터)', '여러 개 골라도 돼요.');
     R.STYLE.forEach(([group, rows]) => { s9s.append(el('p', 'sub', group)); rows.forEach(([k, l, opts]) => chipRow(s9s, k, l, opts, true, rep[k])); });
