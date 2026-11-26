@@ -191,7 +191,9 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       <ul class="checks" data-f="checks" style="margin-top:8px"></ul>
       <label class="field">현장 메모 (계획과 달랐던 점 — 리포트에 안 나가요)<textarea data-on="memo"></textarea></label>
     </details>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" data-act="open-report">고객 리포트 보기</button><button class="btn" data-act="save-onsite">지금 저장</button></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" data-act="finish-report">✨ 리포트 완성하기</button><button class="btn" data-act="open-report">고객 리포트 보기</button><button class="btn" data-act="save-onsite">지금 저장</button></div>
+    <p class="cap" data-f="finishmsg" style="margin:0">현장 기록 · 구매 리스트까지 넣고 누르면, AI가 공식 · TIP · 헤어 문장 · 향수를 한 번에 쓰고 리포트를 열어요. 고쳐 쓴 칸은 그대로 둬요.</p>
+    <details><summary class="cap" style="cursor:pointer">하나씩 다시 쓰기</summary><div data-f="redobox" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div></details>
   </div>
 </template>
 
@@ -570,27 +572,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       pickRow.dataset.order = [].concat(rep.hair_pick || []).join('|');
       pickRow.addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (!c) return; setTimeout(() => { const on = [...pickRow.querySelectorAll('.chip[aria-pressed="true"]')].map((x) => x.textContent); const old = (pickRow.dataset.order || '').split('|').filter((x) => on.includes(x)); pickRow.dataset.order = [...old, ...on.filter((x) => !old.includes(x))].join('|'); }, 0); });
     } else s8.append(el('p', 'cap', '가르마 · 앞머리 덮기/까기 · 추천 헤어스타일 · 추천 손질 아이템은 헤어 선생님이, 눈썹 모양 · 베이스 · 컨실러 · 립 제품은 메이크업 선생님이 고정 링크에서 골라요. "헤어·메이크업 결과" 칸에서 볼 수 있어요.'));
-    // 어울리는 이유(1~3순위)는 AI가 씀 — 고친 칸 없음. 요청법(·손질법)도 같이 씀
-    const hairTexts = async (b, m) => {
-      const reqI = root.querySelector('[data-rtxt="hair_request"]'), homeI = root.querySelector('[data-rtxt="hair_home"]');
-      const overwrite = !((reqI?.value.trim() || homeI?.value.trim()) && !confirm('지금 적힌 요청법' + (isHM ? '·손질법' : '') + '을 AI가 새로 쓴 것으로 바꿀까요? (취소하면 어울리는 이유만 새로 써요)'));
-      b.disabled = true; m.textContent = '저장하고 AI가 쓰는 중… (20초~1분)';
-      try {
-        await saveOnsite();
-        const { data: { session } } = await sb.auth.getSession();
-        const res = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ survey_id: id, mode: 'hair_texts' }) });
-        const j = await res.json().catch(() => ({}));
-        if (!res.ok || !j.why) throw new Error(j.error || ('응답 오류 ' + res.status));
-        rep.hair_why_map = { ...(rep.hair_why_map || {}), ...j.why };
-        if (overwrite) { if (reqI && j.request) reqI.value = j.request; if (homeI && j.home) homeI.value = j.home; }
-        await saveOnsite();
-        m.textContent = `✓ ${Object.keys(j.why).join(' · ')} 어울리는 이유` + (overwrite ? ', 요청법' + (isHM ? '·손질법' : '') : '') + '을 썼어요.';
-      } catch (e) { m.textContent = '⚠ ' + e.message; }
-      b.disabled = false;
-    };
-    { const r = el('div'); r.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
-      const b = el('button', 'btn', isHM ? '✨ 선생님이 고른 헤어로 이유·요청법·손질법 쓰기' : '✨ 고른 헤어로 이유·요청법 쓰기'); b.type = 'button'; const m = el('span', 'cap');
-      r.append(b, m); s8.append(r); b.onclick = () => hairTexts(b, m); }
+    s8.append(el('p', 'cap', '어울리는 이유 · 요청법' + (isHM ? ' · 손질법' : '') + '은 마지막에 "✨ 리포트 완성하기"가 써요. 고쳐 쓴 칸은 그대로 둬요.'));
     txt(s8, 'hair_request', '요청법 — 미용실에서 이렇게 말하기 (리포트에 나가요)', '예) 옆머리 볼륨 살려주세요', true);
     if (isHM) {
       txt(s8, 'hair_home', '손질법 (올인원 리포트)', '예) 1. 뿌리부터 말리기  2. 앞머리는 옆으로 넘기며 드라이  3. 왁스는 콩알만큼', true);
@@ -598,25 +580,9 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       { const i = txt(s8, 'mk_brow_shop', '눈썹 정리 매장 추천', R.BROW_SHOP || ''); if (!i.value) i.value = R.BROW_SHOP || ''; }
       txt(s8, 'mk_steps', '맞춤 메이크업 순서', '예) 1. 스킨·로션  2. 쿠션 얇게  3. 컨실러 톡톡  4. 눈썹 빈 곳  5. 립밤', true);
     }
-    // 향수 (코디·올인원 공통, 리포트에 그대로 나감) — 대표님 향수 추천 기준으로 AI가 카톡 문구를 씀
-    s8.append(el('p', 'sub', '향수'), el('p', 'cap', '10단계 구매 리스트까지 넣은 뒤 누르면, 이미지·스타일·컬러·소재·산 옷을 보고 향수 3개를 카톡 문구로 써 줘요. 고쳐 쓴 그대로 리포트에 나가요. 누를 때마다 AI 사용료 수백 원.'));
-    { const r = el('div'); r.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
-      const b = el('button', 'btn', '✨ 향수 추천 AI'); b.type = 'button'; const m = el('span', 'cap'); r.append(b, m); s8.append(r);
-      const ta = txt(s8, 'pf_text', '향수 추천 문구 (리포트·카톡용)', '', true); ta.rows = 12;
-      b.onclick = async () => {
-        if (ta.value.trim() && !confirm('지금 문구를 AI가 새로 쓴 문구로 바꿀까요?')) return;
-        b.disabled = true; m.textContent = '저장하고 AI가 쓰는 중… (20초~1분)';
-        try {
-          await saveOnsite();
-          const { data: { session } } = await sb.auth.getSession();
-          const res = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ survey_id: id, mode: 'perfume' }) });
-          const j = await res.json().catch(() => ({}));
-          if (!res.ok || !j.text) throw new Error(j.error || ('응답 오류 ' + res.status));
-          ta.value = j.text; m.textContent = '✓ 썼어요. 읽어 보고 고칠 곳만 고치세요.'; saveOnsite();
-        } catch (e) { m.textContent = '⚠ ' + e.message; }
-        b.disabled = false;
-      };
-    }
+    // 향수 (코디·올인원 공통, 리포트에 그대로 나감) — "✨ 리포트 완성하기"가 대표님 향수 기준으로 씀
+    s8.append(el('p', 'sub', '향수'), el('p', 'cap', '마지막에 "✨ 리포트 완성하기"가 향수 3개를 카톡 문구로 써요. 고쳐 쓴 그대로 리포트에 나가요.'));
+    { const ta = txt(s8, 'pf_text', '향수 추천 문구 (리포트·카톡용)', '', true); ta.rows = 12; }
     // 9. 스타일 방향성
     const s9s = step(9, '입혀 보면서 스타일 방향성 (상의 · 하의 · 아우터)', '여러 개 골라도 돼요.');
     R.STYLE.forEach(([group, rows]) => { s9s.append(el('p', 'sub', group)); rows.forEach(([k, l, opts]) => chipRow(s9s, k, l, opts, true, rep[k])); });
@@ -731,14 +697,8 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     };
     if (isHM) {
       const box = f('hmbrief'); box.replaceChildren();
-      box.append(el('p', 'sub', '고객용 초안 → 선생님 코멘트'),
-        el('p', 'cap', '① "헤어·메이크업 AI 초안"(설문 셀카로, 누를 때마다 AI 사용료 수백 원) → ② 현장 기록 8단계에서 고객이 볼 내용으로 고치기 → ③ "선생님께 초안 보내기" → 선생님이 고정 링크에서 코멘트를 달면 아래에 보여요 → ④ 코멘트 보고 8단계를 고치면 리포트(완성본)에 반영돼요.'));
-      const row = el('div'); row.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
-      const bAi = el('button', 'btn', '✨ 헤어·메이크업 AI 초안'), bGo = el('button', 'btn', '8단계 열어서 고치기'), bOk = el('button', 'btn primary', '📨 선생님께 초안 보내기');
-      [bAi, bGo, bOk].forEach((b) => { b.type = 'button'; }); const msg = el('span', 'cap');
-      row.append(bAi, bGo, bOk, msg); const view = el('div', 'cap'); view.style.cssText = 'white-space:pre-line;border:1px solid var(--line);border-radius:10px;padding:10px';
-      const pickBox = el('div'); const cmtBox = el('div'); box.append(row, view, pickBox, cmtBox); cmtBoxes.push(cmtBox, cmtBox8);
-      // 선생님이 링크에서 고른 것 (리포트에 그대로 나감)
+      box.append(el('p', 'cap', '선생님이 고정 링크에서 고른 것과 코멘트가 여기 보여요. 고른 것은 리포트에 그대로 나가요. 리포트는 현장 기록 맨 아래 "✨ 리포트 완성하기"로 만들어요.'));
+      const pickBox = el('div'); const cmtBox = el('div'); box.append(pickBox, cmtBox); cmtBoxes.push(cmtBox, cmtBox8);
       (async () => {
         const { data } = await sb.from('stylist_picks').select('*').eq('survey_id', id);
         const H = (data || []).find((x) => x.role === 'hair'), M = (data || []).find((x) => x.role === 'makeup');
@@ -747,76 +707,63 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
         const hl = [['가르마', hd.part], ['앞머리', hd.cover], ['추천 헤어스타일', (hd.pick || []).map((n, i) => `${i + 1}순위 ${n}`).join(' / ')], ['추천 손질 아이템', hd.items]];
         const ml = [['눈썹 모양', md.brow_shape], ['베이스', md.base], ['컨실러', md.concealer], ['립 제품', md.lip]];
         const n = el('p', 'hmnote'); n.textContent = `[헤어 선생님 선택${when(H)}]\n` + hl.map(([k, v]) => `· ${k}: ${v || '—'}`).join('\n') + `\n\n[메이크업 선생님 선택${when(M)}]\n` + ml.map(([k, v]) => `· ${k}: ${v || '—'}`).join('\n');
-        const r2 = el('div'); r2.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
-        const b2 = el('button', 'btn', '✨ 선생님이 고른 헤어로 이유·요청법·손질법 쓰기'); b2.type = 'button'; const m2 = el('span', 'cap'); r2.append(b2, m2); b2.onclick = () => hairTexts(b2, m2);
-        pickBox.replaceChildren(el('p', 'sub', '선생님 선택 (리포트에 그대로 나가요)'), n, r2);
+        pickBox.replaceChildren(el('p', 'sub', '선생님 선택 (리포트에 그대로 나가요)'), n);
       })();
-      const build = (r) => ({
-        // 순서가 지켜지도록 [이름, 내용] 목록으로 저장. 가르마·스타일·제품은 선생님이 링크에서 직접 고름
-        hair: [['진단', r.hair_diag], ['요청법 (대표님 초안)', r.hair_request], ['손질법 (대표님 초안)', r.hair_home]].filter(([, v]) => v),
-        makeup: [['눈썹 정리 매장', r.mk_brow_shop], ['메이크업 순서 (대표님 초안)', r.mk_steps]].filter(([, v]) => v),
-      });
-      const lines = (o) => (o || []).map(([k, v]) => `· ${k}: ${v}`).join('\n') || '(비어 있음)';
-      const draw = () => {
-        const b = rep.hm_brief;
-        if (!b) { view.textContent = '아직 선생님께 보낸 초안이 없어요.'; return; }
-        const now = JSON.stringify(build(collect().report)), was = JSON.stringify({ hair: b.hair, makeup: b.makeup });
-        view.textContent = `✓ ${new Date(b.at).toLocaleString('ko-KR')}에 보낸 초안 — 선생님 화면에 보이는 내용` + (now !== was ? '\n⚠ 보낸 뒤 8단계 내용이 바뀌었어요. 선생님께도 보이게 하려면 "선생님께 초안 보내기"를 다시 누르세요. (리포트에는 바로 반영돼요)' : '') + `\n\n[헤어 선생님]\n${lines(b.hair)}\n\n[메이크업 선생님]\n${lines(b.makeup)}`;
-      };
-      bAi.onclick = async () => { await runDraft(true, bAi, msg); draw(); };
-      bGo.onclick = () => { const t = [...document.querySelectorAll('[data-f="toc"] button')].find((x) => x.textContent.includes('현장 기록')); if (t) t.click(); setTimeout(() => steps[8].scrollIntoView({ behavior: 'smooth', block: 'start' }), 150); };
-      bOk.onclick = async () => {
-        const r = collect().report;
-        if (!r.hair_diag && !r.hair_request) { msg.textContent = '⚠ 8단계 헤어 진단이나 요청법을 먼저 채워 주세요.'; return; }
-        bOk.disabled = true; msg.textContent = '저장 중…';
-        rep.hm_brief = { at: new Date().toISOString(), ...build(r) };
-        const ok = await saveOnsite(); bOk.disabled = false;
-        msg.textContent = ok ? '✓ 보냈어요. 선생님 링크에서 이 고객을 누르면 초안과 코멘트 칸이 보여요.' : '⚠ 저장 실패 — 다시 눌러 주세요.';
-        draw();
-      };
-      setTimeout(draw, 0); // collect()는 아래에서 정의되므로 다 그린 뒤에
       drawComments();
     }
 
     // 공식 (리포트 마무리)
     const fBox = f('formulas');
     const fIns = [0, 1, 2].map((i) => { const t = txt(fBox, 'formula' + i, `공식 ${i + 1}`, '', true); t.value = (rep.formulas || [])[i] || ''; return t; });
-    const autoBtn = el('button', 'btn', '고른 것으로 공식 자동 작성'); autoBtn.type = 'button'; fBox.append(autoBtn);
-    const sel = (attr, k) => [...root.querySelectorAll(`[data-${attr}="${k}"] .chip[aria-pressed="true"]`)].map((c) => c.textContent);
-    autoBtn.onclick = () => {
-      const g = (k) => sel('rkey', k), j = (a) => a.join('·');
-      const top = [j(g('top_neck')), j(g('top_fit'))].filter(Boolean).join(' ');
-      const f1 = top ? `${top} 상의에${g('top_fabric').length ? ` ${j(g('top_fabric'))} 소재와` : ''}${g('top_detail').length ? ` ${j(g('top_detail'))} 디자인을` : ''} 활용해주세요.`.replace('소재와 활용', '소재를 활용') : '';
-      const outer = [j(g('outer_length')) && j(g('outer_length')) + ' 기장', j(g('outer_shoulder')) && (j(g('outer_shoulder')) + (/어깨/.test(j(g('outer_shoulder'))) ? '' : ' 어깨선'))].filter(Boolean).join('에 ');
-      const bw = j(g('bottom_width')), bs = j(g('bottom_shape'));
-      const pants = bs ? `${bw ? bw + ' 너비의 ' : ''}${bs}` : (bw ? `${bw} 핏` : '');
-      const f2 = (pants || outer) ? `바지는 ${pants || '지금 핏'}으로${outer ? `, 아우터는 ${outer} 디자인을 추천합니다.` : ' 입어주세요.'}` : '';
-      const col = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map((k) => sel('pick', k)[0]).filter(Boolean);
-      const f3 = col.length ? `${col.join(' · ')} 범위의 컬러가 잘 어울려요. 이 톤으로 입어주세요 :)` : '';
-      [f1, f2, f3].forEach((t, i) => { if (t && !fIns[i].value.trim()) fIns[i].value = t; });
-      queueSave();
+    // ===== 리포트 완성하기: 공식·TIP + 헤어 문장 + 향수를 AI로 한 번에 쓰고 리포트를 엶 =====
+    // 비어 있거나 AI가 쓴 그대로인 칸만 씀 (대표님이 고친 칸은 그대로). rep.ai_last = AI가 마지막으로 쓴 값
+    const aiLast = () => (rep.ai_last = rep.ai_last || {});
+    const aiPut = (key, inp, val, force) => { if (!inp || !val) return false; const cur = inp.value.trim(); if (!force && cur && cur !== (aiLast()[key] || '').trim()) return false; inp.value = val; aiLast()[key] = val; return true; };
+    const callAI = async (mode) => {
+      const { data: { session } } = await sb.auth.getSession();
+      const r = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ survey_id: id, mode }) });
+      const j = await r.json().catch(() => ({})); if (!r.ok || j.error) throw new Error(j.error || ('응답 오류 ' + r.status)); return j;
     };
-    // AI 공식·TIP: 비어 있는 공식 칸과 비어 있는 아이템 TIP만 채움
-    const tipRow = el('div'); tipRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px';
-    const tipBtn = el('button', 'btn primary', '✨ AI로 공식 · 아이템별 TIP 쓰기'); tipBtn.type = 'button'; const tipMsg = el('span', 'cap');
-    tipRow.append(tipBtn, tipMsg); fBox.append(el('p', 'cap', '5단계 컬러와 9~10단계(스타일 방향성·구매 리스트)까지 하고 누르면, AI가 비어 있는 공식 칸과 10단계 아이템별 팁 칸을 채워요. 직접 쓴 건 그대로예요.'), tipRow);
-    tipBtn.onclick = async () => {
-      tipBtn.disabled = true; tipMsg.textContent = '저장하고 AI가 쓰는 중… (20초~1분)';
-      try {
-        await saveOnsite();
-        const rows = [...buyBox.querySelectorAll('[data-buy]')].filter((w) => ['brand', 'item'].some((k) => w.querySelector(`[data-k="${k}"]`).value.trim()));
-        const { data: { session } } = await sb.auth.getSession();
-        const r = await fetch(`${cfg.SUPABASE_URL}/functions/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ survey_id: id, mode: 'write_tips' }) });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || !j.result) throw new Error(j.error || ('응답 오류 ' + r.status));
-        let nf = 0, nt = 0;
-        (j.result.formulas || []).slice(0, 3).forEach((t, i) => { if (t && !fIns[i].value.trim()) { fIns[i].value = t; nf++; } });
-        for (const t of j.result.tips || []) { const w = rows[t.index]; const ta = w && w.querySelector('[data-k="tip"]'); if (ta && t.tip && !ta.value.trim()) { ta.value = t.tip; nt++; } }
-        tipMsg.textContent = (nf || nt) ? `공식 ${nf}줄, TIP ${nt}개를 채웠어요. 읽어 보고 말투만 다듬으세요.` : '비어 있는 칸이 없어서 바꾼 게 없어요.';
-        saveOnsite();
-      } catch (e) { tipMsg.textContent = '⚠ ' + e.message; }
-      tipBtn.disabled = false;
+    const doTips = async (force) => {
+      const rows = [...buyBox.querySelectorAll('[data-buy]')].filter((w) => ['brand', 'item'].some((k) => w.querySelector(`[data-k="${k}"]`).value.trim()));
+      const j = await callAI('write_tips'); let nf = 0, nt = 0;
+      (j.result?.formulas || []).slice(0, 3).forEach((v, i) => { if (aiPut('formula' + i, fIns[i], v, force)) nf++; });
+      for (const x of j.result?.tips || []) { const w = rows[x.index]; if (!w) continue; const key = 'tip:' + ['brand', 'item'].map((k) => w.querySelector(`[data-k="${k}"]`).value.trim()).join('|'); if (aiPut(key, w.querySelector('[data-k="tip"]'), x.tip, force)) nt++; }
+      return `공식 ${nf}줄 · TIP ${nt}개`;
     };
+    const doHair = async (force) => {
+      const j = await callAI('hair_texts');
+      rep.hair_why_map = { ...(rep.hair_why_map || {}), ...(j.why || {}) };
+      let n = 0; if (aiPut('hair_request', root.querySelector('[data-rtxt="hair_request"]'), j.request, force)) n++; if (isHM && aiPut('hair_home', root.querySelector('[data-rtxt="hair_home"]'), j.home, force)) n++;
+      return `헤어 이유 ${Object.keys(j.why || {}).length}개` + (n ? ' · 요청법' + (isHM ? '·손질법' : '') : '');
+    };
+    const doPerfume = async (force) => { const j = await callAI('perfume'); return aiPut('pf_text', root.querySelector('[data-rtxt="pf_text"]'), (j.text || '').trim(), force) ? '향수 문구' : '향수(고친 문구라 그대로 둠)'; };
+    const finMsg = root.querySelector('[data-f="finishmsg"]');
+    const finBtn = root.querySelector('[data-act="finish-report"]');
+    finBtn.onclick = async () => {
+      const w = window.open('', '_blank'); // 팝업 차단을 피하려고 클릭 순간 먼저 엶
+      try { if (w) w.document.write('<meta name="viewport" content="width=device-width"><p style="font:16px sans-serif;padding:24px;line-height:1.6">리포트를 완성하는 중이에요…<br>AI가 공식 · 헤어 · 향수를 쓰고 있어요 (1분 정도)</p>'); } catch (e) {}
+      finBtn.disabled = true; finMsg.textContent = '저장하고 AI가 공식 · 헤어 · 향수를 쓰는 중… (1분 정도, AI 사용료 약 500~1,000원)';
+      if (!(await saveOnsite())) { finBtn.disabled = false; finMsg.textContent = '⚠ 저장이 안 돼서 멈췄어요. 인터넷 연결을 확인해 주세요.'; if (w) w.close(); return; }
+      const names = ['공식·TIP', '헤어', '향수'];
+      const rs = await Promise.allSettled([doTips(false), doHair(false), doPerfume(false)]);
+      const ok = await saveOnsite(); finBtn.disabled = false;
+      finMsg.textContent = (ok ? '✓ 완성: ' : '⚠ 저장 실패 — "지금 저장"을 눌러 주세요. ') + rs.map((r, i) => r.status === 'fulfilled' ? r.value : `⚠ ${names[i]} 못 씀 (${r.reason?.message || ''})`).join(' / ');
+      if (w) w.location = 'report.html?id=' + id; else if (ok) location.href = 'report.html?id=' + id;
+    };
+    { // 하나씩 다시 쓰기 (직접 고친 내용도 AI 문장으로 바뀜)
+      const box = root.querySelector('[data-f="redobox"]');
+      [['공식 · TIP 다시 쓰기', doTips], ['헤어 이유 · 요청법 다시 쓰기', doHair], ['향수 다시 쓰기', doPerfume]].forEach(([label, fn]) => {
+        const b = el('button', 'btn', label); b.type = 'button';
+        b.onclick = async () => {
+          if (!confirm(label.replace(' 다시 쓰기', '') + '을 AI가 새로 써요. 직접 고친 내용도 바뀌어요. 할까요?')) return;
+          b.disabled = true; finMsg.textContent = '저장하고 AI가 쓰는 중… (20초~1분)';
+          try { await saveOnsite(); const m = await fn(true); await saveOnsite(); finMsg.textContent = '✓ ' + m + '을 새로 썼어요.'; } catch (e) { finMsg.textContent = '⚠ ' + e.message; }
+          b.disabled = false;
+        };
+        box.append(b);
+      });
+    }
 
     // 체크리스트
     state.checks = (p?.plan?.checklist || ['어깨·허리·골반 실측', '퍼스널컬러 천 대보기', '보유 옷 확인', '실제 쓸 예산 확인']);
@@ -845,7 +792,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       root.querySelectorAll('[data-on]').forEach((i) => { row[i.dataset.on] = i.value === '' ? null : (i.type === 'number' ? parseFloat(i.value) : i.value); });
       root.querySelectorAll('[data-pick]').forEach((r) => { row[r.dataset.pick] = r.querySelector('.chip[aria-pressed="true"]')?.textContent || null; });
       row.color = ['color_chroma', 'color_value', 'color_clarity', 'color_temp'].map((k) => row[k]).filter(Boolean).join(' · ') || null;
-      const out = { face: rep.face, body_photo: rep.body_photo, glass_photos: rep.glass_photos, tag_photos: rep.tag_photos, shop_photos: rep.shop_photos, ai_notes: rep.ai_notes, hm_brief: rep.hm_brief };
+      const out = { face: rep.face, body_photo: rep.body_photo, glass_photos: rep.glass_photos, tag_photos: rep.tag_photos, shop_photos: rep.shop_photos, ai_notes: rep.ai_notes, hm_brief: rep.hm_brief, ai_last: rep.ai_last };
       root.querySelectorAll('[data-rkey]').forEach((r) => { const v = [...r.querySelectorAll('.chip[aria-pressed="true"]')].map((c) => c.textContent); out[r.dataset.rkey] = r.dataset.multi ? v : (v[0] || null); });
       out.glasses = {}; R.GLASSES.forEach(([k]) => { out.glasses[k] = out['g_' + k]; delete out['g_' + k]; });
       root.querySelectorAll('[data-rtxt]').forEach((i) => { out[i.dataset.rtxt] = i.value.trim(); });
