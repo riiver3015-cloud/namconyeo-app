@@ -41,7 +41,8 @@ $$
         'sent', (select count(*) from public.stylist_uploads u where u.survey_id = s.id and u.role = st.role),
         -- 대표님이 확정한 사전 진단 요청서 (자기 역할 것만)
         'brief', (select o.report->'hm_brief'->(case when st.role = 'hair' then 'hair' else 'makeup' end) from public.onsite o where o.survey_id = s.id),
-        'brief_at', (select o.report->'hm_brief'->>'at' from public.onsite o where o.survey_id = s.id)
+        'brief_at', (select o.report->'hm_brief'->>'at' from public.onsite o where o.survey_id = s.id),
+        'comments', (select json_agg(json_build_object('body', c.body, 'at', c.created_at) order by c.created_at) from public.stylist_comments c where c.survey_id = s.id and c.role = st.role)
       ) order by s.consult_date desc, s.consult_time desc)
       from public.surveys s
       where public.stylist_customer_ok(s.id)
@@ -73,3 +74,34 @@ grant execute on function public.stylist_customer_ok(uuid), public.staff_info(te
 drop policy if exists "admin delete files" on storage.objects;
 create policy "admin delete files" on storage.objects for delete to authenticated
   using (bucket_id in ('survey-photos', 'stylist-uploads') and public.is_admin());
+
+-- 선생님 코멘트 (올인원 초안에 다는 의견). 대표님만 읽고, 선생님은 링크로만 씀
+create table if not exists public.stylist_comments (
+  id bigint generated always as identity primary key,
+  survey_id uuid not null references public.surveys(id) on delete cascade,
+  role text not null,
+  author text,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.stylist_comments enable row level security;
+grant select, insert, update, delete on public.stylist_comments to authenticated;
+grant all on public.stylist_comments to service_role;
+drop policy if exists "admin stylist comments" on public.stylist_comments;
+create policy "admin stylist comments" on public.stylist_comments for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+create or replace function public.staff_comment(t text, p_survey uuid, p_body text)
+returns boolean language plpgsql security definer set search_path = public as
+$$
+declare st public.stylist_staff;
+begin
+  select * into st from public.stylist_staff where token = t and active;
+  if st.token is null then raise exception '링크가 올바르지 않아요'; end if;
+  if not public.stylist_customer_ok(p_survey) then raise exception '선택할 수 없는 고객이에요'; end if;
+  if coalesce(trim(p_body), '') = '' then raise exception '코멘트를 적어 주세요'; end if;
+  insert into public.stylist_comments (survey_id, role, author, body)
+  values (p_survey, st.role, coalesce(st.salon || ' ', '') || st.name, left(p_body, 2000));
+  return true;
+end
+$$;
+grant execute on function public.staff_comment(text, uuid, text) to anon, authenticated;
