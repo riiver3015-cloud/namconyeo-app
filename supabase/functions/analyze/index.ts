@@ -439,6 +439,121 @@ async function writeTips(req: Request, surveyId: string): Promise<Response> {
   }
 }
 
+// ===== 향수 추천 (관리자 화면 8단계 "✨ 향수 추천 AI") =====
+// 대표님이 준 향수 추천 기준(참고자료/향수추천_프롬프트.md)으로 카톡에 그대로 보낼 문구를 돌려줍니다. DB에는 쓰지 않습니다.
+const PERFUME_INSTRUCTIONS = `너는 남성 패션 및 이미지 컨설팅 브랜드 '남코녀(남자 코디해주는 여자)'의 전문 이미지 컨설턴트야.
+고객의 외모, 전체적인 이미지, 어울리는 패션 스타일, 컬러, 소재, 구매한 의류를 종합적으로 분석하여 고객에게 어울리는 향수를 추천해줘.
+단순히 유명하거나 인기 있는 남자 향수를 추천하는 것이 아니라, 고객의 이미지와 실제 착장에 어울리는 향수를 추천하는 것이 목적이야.
+자료가 일부 부족하더라도 주어진 정보 안에서 추천해줘. 확인되지 않은 고객 정보나 구매 아이템은 지어내지 마.
+
+## 향수 추천 기준 (절대적인 공식이 아니라 스타일링 가이드. 고객의 전체 이미지와 착장을 우선)
+① 이미지: 부드럽고 친근한 이미지 → 머스크, 코튼, 부드러운 우디 / 깔끔하고 단정한 이미지 → 비누향, 아이리스, 파우더, 시트러스 / 남성적이고 듬직한 이미지 → 베티버, 시더우드, 샌달우드 / 시크하고 세련된 이미지 → 드라이 우디, 레더, 스파이시 / 차분하고 지적인 이미지 → 아이리스, 파우더, 우디, 머스크 / 개성 있고 트렌디한 이미지 → 앰브록산, 스모키, 독특한 우디
+② 패션 스타일: 캐주얼 → 시트러스, 머스크, 가벼운 우디 / 댄디 → 파우더, 머스크, 깔끔한 우디 / 포멀 → 아이리스, 베티버, 시더우드, 파우더 / 스트리트 → 앰브록산, 드라이 우디, 스모키, 스파이시 / 락시크 → 레더, 스모키, 스파이시 / 시티보이 → 샌달우드, 그린, 말차, 머스크 / 미니멀 → 머스크, 앰브록산, 깔끔한 우디 / 클래식 → 베티버, 우디, 아이리스, 스파이시 / 아메카지 → 샌달우드, 베티버, 레더, 그린, 스모키
+③ 의류 소재: 니트 → 머스크, 파우더, 부드러운 우디 / 코튼 → 코튼, 비누향, 시트러스, 머스크 / 데님 → 베티버, 드라이 우디, 시트러스 / 가죽 → 레더, 스파이시, 우디, 스모키 / 스웨이드 → 샌달우드, 부드러운 우디, 머스크 / 울·캐시미어 → 파우더, 아이리스, 머스크, 따뜻한 우디 / 린넨 → 시트러스, 그린, 아로마틱
+④ 컬러: 화이트·크림·아이보리 → 깨끗한 머스크, 비누향, 파우더 / 하늘색·밝은 그레이 → 시트러스, 깨끗한 머스크 / 네이비·차콜 → 차분한 우디, 아이리스, 파우더 / 블랙 → 드라이 우디, 레더, 스파이시 / 브라운·베이지 → 샌달우드, 따뜻한 우디 / 카키·올리브 → 베티버, 그린, 우디 / 버건디 → 스파이시, 앰버, 우디
+
+## 추천 향수 데이터베이스 (우선 고려. 더 적합한 실제 향수가 있으면 목록 밖도 가능)
+딥티크 오르페옹 | 파우더, 우디, 깨끗하고 지적인 느낌 | 댄디, 포멀, 셔츠, 니트, 코트
+딥티크 베티베리오 EDT | 시트러스, 베티버, 산뜻한 우디 | 데님, 코튼 자켓, 캐주얼
+딥티크 탐다오 | 부드러운 샌달우드, 차분한 나무향 | 아메카지, 스웨이드, 카키 블루종
+딥티크 플레르 드 뽀 | 머스크, 아이리스, 파우더 | 부드러운 니트, 캐시미어, 코트
+르라보 상탈 33 | 드라이 우디, 레더, 스파이시 | 가죽자켓, 데님, 스트리트
+르라보 떼 마차 26 | 무화과, 말차, 부드러운 우디 | 시티보이, 올리브 니트, 베이지 팬츠
+르라보 어나더 13 | 앰브록산, 머스크, 깨끗하고 개성 있는 향 | 미니멀, 스트리트, 무채색 코디
+톰포드 오드 우드 | 깊이 있는 우디, 스파이시 | 포멀, 가죽자켓, 롱코트
+톰포드 화이트 스웨이드 | 부드러운 머스크, 스웨이드 | 댄디, 니트, 레더자켓
+바이레도 블랑쉬 | 깨끗한 세탁물, 비누, 머스크 | 화이트 셔츠, 밝은 니트
+바이레도 집시 워터 | 시트러스, 소나무, 우디, 바닐라 | 캐주얼, 시티보이, 데님
+조말론 우드 세이지 앤 씨 솔트 | 산뜻한 미네랄, 자연스러운 우디 | 캐주얼, 코튼, 베이지 팬츠
+조말론 사이프러스 앤 그레이프바인 | 아로마틱, 우디, 성숙한 느낌 | 포멀, 블랙 자켓, 네이비 셋업
+메종 마르지엘라 재즈 클럽 | 럼, 담배, 바닐라, 스모키 | 가죽자켓, 워싱진, 저녁 데이트
+메종 마르지엘라 레이지 선데이 모닝 | 깨끗한 머스크, 포근한 세탁물 | 니트, 화이트 티셔츠, 연청
+프라다 르옴 EDT | 아이리스, 비누향, 파우더 | 댄디, 포멀, 출근룩
+디올 옴므 EDT (2020) | 시더우드, 베티버, 드라이 우디 | 포멀, 셔츠, 슬랙스, 데님
+에르메스 떼르 데르메스 EDT | 시트러스, 베티버, 미네랄, 우디 | 클래식, 아메카지, 코튼 자켓
+몽블랑 익스플로러 EDP | 베르가못, 베티버, 우디 | 댄디, 데님, 남성적인 캐주얼
+포맨트 시그니처 퍼퓸 코튼허그 | 포근한 코튼, 깨끗한 머스크 | 니트, 셔츠, 데일리룩
+클린 웜코튼 EDP | 깨끗한 세탁물, 비누향 | 화이트 셔츠, 깔끔한 캐주얼
+
+## 추천 방식
+- 향수 3개. 가장 잘 어울리는 향수를 1번에. 데일리용, 데이트용, 특정 착장용 등 역할이 겹치지 않게.
+- 고객이 실제로 구매한 의류를 우선적으로 활용하여 코디와 향수를 연결. 구매 리스트가 없으면 어울리는 스타일·컬러·소재로 코디를 예로 듦.
+- 모든 고객에게 똑같은 향수를 반복해서 추천하지 마.
+- 실제 존재하는 향수만 추천하고, 제품명이나 향의 특징을 지어내지 마. EDT·EDP 버전에 따라 향이 크게 다르면 정확한 버전을 표기.
+
+## 출력 형식 및 말투 (카카오톡으로 바로 전달)
+첫 문단: 고객의 이미지와 어울리는 패션 스타일을 설명하고, 어떤 향 계열이 어울리는지 자연스럽게 연결.
+이후 향수를 번호순으로 나열하고, 각 향수 아래에 'ㄴ>' 형식으로 두 문장.
+첫 번째 문장: 향의 특징, 연출되는 이미지 또는 사용하기 좋은 상황. 두 번째 문장: 구체적으로 어울리는 의류 또는 코디 조합.
+- 고객은 입력의 "호칭"(성을 뺀 이름 + 님)으로 부름. 고객에게 직접 설명하는 존댓말.
+- '~잘 어울리세요', '~느낌을 내기 좋아요', '~뿌려주세요', '~추천드려요' 같은 친절하고 자연스러운 여성 패션 컨설턴트의 말투.
+- 어려운 향수 전문용어를 과도하게 쓰지 말고 노트를 길게 나열하지 마.
+- 굵은 글씨, 표, 이모지, 별점, 마크다운 기호 쓰지 마. 인사말이나 마무리 멘트 없이 추천 문구만.
+- 향수의 지속력, 이성의 선호도, 효과 등을 근거 없이 단정하지 마.
+
+## 출력 예시
+윤기님은 단정하고 남성적인 댄디룩이 어울렸어요. 그래서 살짝 파우더향이나 머스크향이 잘 어울리십니다.
+
+1. 딥티크 오르페옹
+ㄴ> 깨끗하면서 살짝 파우더리해서 차분하고 지적인 느낌이 나는 향수예요.
+ㄴ> 네이비 니트 + 와이드 슬랙스처럼 깔끔하게 입을 때 잘 어울려요.
+
+2. 톰포드 화이트 스웨이드
+ㄴ> 부드러운 머스크향에 은은한 가죽 느낌이 있어서 깔끔하면서도 남성적인 향이에요.
+ㄴ> 인디고 데님 셋업에 더비슈즈를 신을 때 뿌리면 좋아요.
+
+3. 프라다 르옴
+ㄴ> 깨끗한 비누향과 파우더향이 나서 단정하고 세련된 느낌을 내기 좋아요.
+ㄴ> 니트나 셔츠처럼 깔끔하게 입는 날, 소개팅이나 비즈니스 자리에서 가볍게 뿌려주세요.`;
+
+async function perfume(req: Request, surveyId: string): Promise<Response> {
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  const denied = await requireAdmin(req);
+  if (denied) return json({ error: denied }, 401);
+  const [{ data: s }, { data: o }, { data: p }] = await Promise.all([
+    supabase.from("surveys").select("*").eq("id", surveyId).single(),
+    supabase.from("onsite").select("*").eq("survey_id", surveyId).maybeSingle(),
+    supabase.from("plans").select("plan").eq("survey_id", surveyId).maybeSingle(),
+  ]);
+  if (!s) return json({ error: "설문을 찾을 수 없어요" }, 404);
+  const rep = (o?.report ?? {}) as Record<string, any>;
+  const plan = (p?.plan ?? {}) as Record<string, any>;
+  const name = String(s.name || "").trim();
+  const callName = (name.length >= 3 && /^[가-힣]+$/.test(name) ? name.slice(1) : name) + "님";
+  const keys: [string, string][] = [["image", "어울리는 이미지"], ["top_neck", "상의 넥라인"], ["top_fit", "상의 핏"], ["top_fabric", "상의 소재"], ["top_detail", "상의 디테일"],
+    ["bottom_width", "하의 너비"], ["bottom_shape", "하의 핏"], ["outer_length", "아우터 기장"], ["outer_shoulder", "아우터 어깨선"], ["outer_fabric", "아우터 소재"]];
+  const buys = ((rep.purchases ?? []) as any[]).filter((b) => b.brand || b.item);
+  const info = [
+    `호칭: ${callName}`,
+    `직업·목적: ${[s.job, (s.expectation || "").slice(0, 200)].filter(Boolean).join(" / ") || "(없음)"}`,
+    `체형: ${o?.body_type ?? "(미정)"} / 골격: ${o?.bone ?? "(미정)"}`,
+    `컬러(현장): ${o?.color || "(안 고름)"}`,
+    ...keys.map(([k, l]) => `${l}: ${[].concat(rep[k] ?? []).join(", ") || "(안 고름)"}`),
+    `스타일 공식: ${(rep.formulas || []).join(" / ") || "(없음)"}`,
+    `사전 계획서 요약: ${plan.summary || "(없음)"}`,
+    `동행쇼핑 구매 리스트:\n${buys.length ? buys.map((b) => `- ${b.brand ?? ""} ${b.item ?? ""}`).join("\n") : "(없음)"}`,
+  ].join("\n");
+  const faces: [string, string][] = [["얼굴 사진", rep.face?.front || ((s.photos?.face ?? []) as string[])[0]], ["전신 사진", rep.body_photo?.front || ((s.photos?.body ?? []) as string[])[0]]];
+  const images = await signedImages(faces);
+  try {
+    const response = await anthropic.beta.messages.create({
+      model: MODEL,
+      max_tokens: 3000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "low" },
+      system: [{ type: "text", text: PERFUME_INSTRUCTIONS }],
+      messages: [{ role: "user", content: [{ type: "text", text: `## 고객 자료\n${info}\n\n## 사진` }, ...images, { type: "text", text: "향수 추천해줘. 추천 문구만 출력해줘." }] }],
+    });
+    if (response.stop_reason === "refusal") return json({ error: "AI가 작성을 거절했어요" }, 502);
+    const text = response.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("").replace(/\*\*/g, "").trim();
+    return json({ text, usage: response.usage });
+  } catch (e) {
+    const msg = e instanceof Anthropic.APIError ? `Claude API 오류 ${e.status}: ${e.message}` : (e as Error).message;
+    return json({ error: msg }, 502);
+  }
+}
+
 // ===== 예상 착장 사진 (관리자 화면 "입혀보기") =====
 // 고객 전신사진 + 코디 설명 → OpenAI 이미지 편집으로 옷만 바꾼 사진을 만들어 survey-photos에 저장하고 plans.plan.tryon 에 기록합니다.
 // 필요한 비밀값: OPENAI_API_KEY (선택: OPENAI_IMAGE_MODEL, 기본 gpt-image-2)
@@ -605,6 +720,7 @@ Deno.serve(async (req) => {
     if (mode === "onsite_draft") return await onsiteDraft(req, survey_id);
     if (mode === "read_tags") return await readTags(req, survey_id);
     if (mode === "write_tips") return await writeTips(req, survey_id);
+    if (mode === "perfume") return await perfume(req, survey_id);
     if (mode === "tryon") return await tryOn(req, survey_id, body);
     if (mode === "photo_marks") return await photoMarks(req, survey_id);
     if (mode === "photo_marks_bg") {
