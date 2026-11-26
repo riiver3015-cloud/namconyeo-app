@@ -51,6 +51,10 @@ ul, ol { margin:0; padding-left:1.2em; }
 .thumbs { display:flex; flex-wrap:wrap; gap:6px; }
 .thumb { width:64px; height:84px; padding:0; border:2px solid transparent; border-radius:6px; overflow:hidden; cursor:pointer; background:none; }
 .thumb img { width:100%; height:100%; object-fit:cover; display:block; } .thumb[aria-pressed="true"] { border-color:var(--fg); }
+.thumbs.sortable { min-height:88px; padding:2px; border:1px dashed var(--line); border-radius:8px; }
+.thumb { position:relative; touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+.thumb .tg { position:absolute; left:2px; bottom:2px; font-size:10px; line-height:1; padding:3px 4px; border-radius:4px; background:rgba(0,0,0,.65); color:#fff; pointer-events:none; }
+.thumb.sort-ghost { opacity:.35; } .thumb.sort-chosen { outline:2px solid var(--fg); }
 .form { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; }
 .field { display:flex; flex-direction:column; gap:4px; font-size:.82rem; color:var(--muted); }
 .result { border:1px dashed var(--line); border-radius:10px; padding:10px 12px; display:flex; flex-wrap:wrap; gap:10px; align-items:baseline; }
@@ -164,7 +168,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
   <nav class="tabs" data-f="toc" aria-label="목록" role="tablist"></nav>
   <div data-f="day" style="display:flex;flex-direction:column;gap:16px"></div>
   <div class="card"><details class="fold"><summary><h3>사전설문</h3><span class="cap"> 눌러서 펼치기</span></summary><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;margin:8px 0"><span class="cap" data-f="factsmsg"></span><button class="btn" type="button" data-act="edit-facts">답변 수정</button></div><dl class="facts" data-f="facts"></dl></details></div>
-  <div class="card"><details class="fold"><summary><h3>설문 사진</h3><span class="cap"> 눌러서 펼치기</span></summary><div class="photos" data-f="photos" style="margin-top:8px"></div></details></div>
+  <div class="card"><details class="fold" data-f="phfold"><summary><h3>설문 사진</h3><span class="cap"> 눌러서 펼치기</span></summary><div class="photos" data-f="photos" style="margin-top:8px"></div></details></div>
   <div class="card" data-f="hmcard">
     <h3 style="margin:0">헤어·메이크업 결과</h3>
     <details><summary class="cap" style="cursor:pointer">선생님 고정 링크 보기</summary><div data-f="slink" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div></details>
@@ -189,6 +193,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
 </template>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script src="config.js"></script>
 <script src="nk-report.js?v=11"></script>
 <script>
@@ -358,23 +363,46 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     };
     drawFacts(false);
 
-    // 사진 (비공개 저장소 → 10분짜리 열람 주소)
+    // 사진 (비공개 저장소 → 10분짜리 열람 주소). 길게 눌러(마우스는 그냥) 끌면 순서·칸을 바꿀 수 있음
     const ph = f('photos'); const big = el('div', 'big'); const bigImg = document.createElement('img'); bigImg.alt = '선택한 사진'; big.append(bigImg);
     const side = el('div'); ph.append(big, side);
-    const btns = [];
+    if (window.__nkPhOpen === id) f('phfold').open = true;
+    const btns = [], rows = {};
+    const TAGS = { body: ['정면', '측면'], face: ['정면', '왼쪽', '오른쪽'], style: [] };
+    const retag = () => { for (const [key, row] of Object.entries(rows)) [...row.children].forEach((b, i) => { b.querySelector('.tg').textContent = TAGS[key][i] || String(i + 1); }); };
+    side.append(el('p', 'cap', '↔ 사진을 길게 눌러 끌면 순서를 바꿀 수 있어요 (다른 칸으로도 옮길 수 있어요). 전신은 1번=정면·2번=측면, 셀카는 1번=정면·2번=왼쪽·3번=오른쪽으로 쓰여요.'));
+    const phMsg = el('p', 'cap'); 
     for (const [key, label] of [['body', '체형 전신'], ['face', '셀카'], ['style', '평소 스타일']]) {
-      const paths = s.photos?.[key] || []; if (!paths.length) continue;
-      const { data } = await sb.storage.from('survey-photos').createSignedUrls(paths, 600);
-      const row = el('div', 'thumbs');
+      const paths = s.photos?.[key] || [];
+      const { data } = paths.length ? await sb.storage.from('survey-photos').createSignedUrls(paths, 600) : { data: [] };
+      const row = el('div', 'thumbs sortable'); row.dataset.key = key; rows[key] = row;
       (data || []).forEach((d, i) => {
-        if (!d.signedUrl) return;
-        const b = el('button', 'thumb'); b.type = 'button'; b.setAttribute('aria-label', `${label} ${i + 1}`);
-        const im = document.createElement('img'); im.src = d.signedUrl; im.alt = ''; im.loading = 'lazy'; b.append(im);
-        b.onclick = () => { bigImg.src = d.signedUrl; btns.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); };
+        const b = el('button', 'thumb'); b.type = 'button'; b.dataset.path = paths[i]; b.setAttribute('aria-label', `${label} ${i + 1}`);
+        const im = document.createElement('img'); im.src = d.signedUrl || ''; im.alt = ''; im.loading = 'lazy'; im.draggable = false; b.append(im, el('span', 'tg'));
+        b.onclick = () => { if (d.signedUrl) bigImg.src = d.signedUrl; btns.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); };
         btns.push(b); row.append(b);
       });
-      side.append(el('p', 'cap', `${label} (${paths.length})`), row);
+      side.append(el('p', 'cap', label), row);
     }
+    side.append(phMsg); retag();
+    const savePhotoOrder = async () => {
+      const before = JSON.stringify(s.photos || {});
+      const next = { ...(s.photos || {}) };
+      for (const [key, row] of Object.entries(rows)) next[key] = [...row.children].map((b) => b.dataset.path).filter(Boolean);
+      if (JSON.stringify(next) === before) return;
+      retag(); phMsg.textContent = '순서 저장 중…';
+      const { error } = await sb.from('surveys').update({ photos: next }).eq('id', id);
+      if (error) { phMsg.textContent = '⚠ 순서 저장 실패: ' + error.message; return; }
+      const old = s.photos || {};
+      const keyChanged = (old.body || [])[0] !== next.body[0] || (old.body || [])[1] !== next.body[1] || (old.face || [])[0] !== next.face[0];
+      s.photos = next;
+      if (window.__nkFlush) { window.__nkFlush(); await new Promise((r) => setTimeout(r, 400)); }
+      window.__nkPhOpen = id; window.__nkPhMsg = keyChanged ? '✓ 순서 저장됨. 정면·측면 사진이 바뀌었어요 — 설명 모드의 선·도형은 "📐 사진 선·도형 다시 만들기"를 눌러야 새 사진으로 그려져요 (그 전엔 무료 자동 그림).' : '✓ 순서 저장됨';
+      renderDetail(id);
+    };
+    if (window.__nkPhMsg && window.__nkPhOpen === id) { phMsg.textContent = window.__nkPhMsg; window.__nkPhMsg = ''; }
+    if (window.Sortable) Object.values(rows).forEach((row) => window.Sortable.create(row, { group: 'nk-survey-photos', animation: 150, delay: 250, delayOnTouchOnly: true, ghostClass: 'sort-ghost', chosenClass: 'sort-chosen', onEnd: savePhotoOrder }));
+    else phMsg.textContent = '⚠ 순서 바꾸기 도구를 못 불러왔어요. 새로고침해 주세요.';
     if (btns[0]) btns[0].click(); else ph.replaceChildren(el('p', 'cap', '사진이 없어요.'));
 
     // 헤어·메이크업 결과 (서비스에 '헤메'가 있는 고객만)
