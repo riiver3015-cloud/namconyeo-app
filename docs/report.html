@@ -79,7 +79,7 @@ figure.sq img { aspect-ratio:1/1; object-position:center 30%; }
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="nk-report.js?v=9"></script>
+<script src="nk-report.js?v=12"></script>
 <script>
 // PDF 모드(?pdf=1): 숨은 창에서 A4 폭으로 리포트를 그린 뒤 한 장씩 사진으로 찍어 PDF로 묶어요
 const PDF_MODE = new URLSearchParams(location.search).has('pdf');
@@ -286,45 +286,62 @@ if (PDF_MODE) {
     if (rows.length) { hd(p6, '이렇게 입어 보세요'); await lookGrid(p6, rows, (r) => (r.items || '').split(',')[0].trim(), 'g4'); p6.lastElementChild.querySelectorAll('figure').forEach((f) => f.classList.add('sq')); }
   }
 
-  // ---- 06 헤어스타일 ----
+  // ---- 06 헤어 (+ 07 메이크업) + 향수 ----
+  // 코디만: 06 헤어 · 향수 한 장 (1순위 + 요청법 + 향수)
+  // 올인원: 06 헤어 두 장 (가르마·앞머리·1~3순위·요청법 / 손질법·추천템·비포애프터) → 07 메이크업 · 향수
   const isHM = /헤메/.test(s.service || '');
-  const p7 = page(); head(p7, '06 헤어스타일', isHM ? '이상적인 헤어 — 다음에 미용실 갈 때' : '');
-  hd(p7, '헤어 진단'); table(p7, R.HAIR.map(([k, l, opts]) => [l, chips(opts, rep[k])]));
-  hd(p7, '추천하는 헤어스타일'); table(p7, [['진단', rep.hair_diag], ['추천하는 헤어스타일', rep.hair_style], ['앞머리 기장', rep.hair_bangs], ['옆머리', rep.hair_side], ['뒷머리', rep.hair_back], ['펌', rep.hair_perm], ['헤어샵 요청 멘트', rep.hair_request], ['집에서 손질하는 법', rep.hair_home]].filter(([, v]) => v));
-  { // 고른 헤어스타일 사진 (없으면 추천 문구에 이름이 들어 있는 스타일로)
-    const list = R.HAIR_STYLES || [];
-    let names = [].concat(rep.hair_pick || []).filter(Boolean);
-    if (!names.length && rep.hair_style) names = list.map(([n]) => n).filter((n) => rep.hair_style.replace(/\s/g, '').includes(n.replace(/\s|\(.*\)/g, '')));
+  const hairList = R.HAIR_STYLES || [];
+  let hairNames = [].concat(rep.hair_pick || []).filter(Boolean);
+  if (!hairNames.length && rep.hair_style) hairNames = hairList.map(([n]) => n).filter((n) => rep.hair_style.replace(/\s/g, '').includes(n.replace(/\s|\(.*\)/g, '')));
+  hairNames = hairNames.slice(0, isHM ? 3 : 1);
+  const hairPhotos = async (p) => {
     const picks = [];
-    names = names.slice(0, 3);
-    for (const [ni, n] of names.entries()) {
-      const nums = (list.find(([x]) => x === n) || [, []])[1].slice(0, names.length > 2 ? 1 : 2);
+    for (const [ni, n] of hairNames.entries()) {
+      const nums = (hairList.find(([x]) => x === n) || [, []])[1].slice(0, hairNames.length > 2 ? 1 : 2);
       if (!nums.length) continue;
-      (await sign('lookbook', nums.map((x) => `hair/IMG_${x}.jpg`))).filter(Boolean).forEach((u) => picks.push([`${ni + 1}순위 · ${n}`, u, (rep.hair_why || [])[ni]]));
+      (await sign('lookbook', nums.map((x) => `hair/IMG_${x}.jpg`))).filter(Boolean).forEach((u) => picks.push([isHM ? `${ni + 1}순위 · ${n}` : n, u, (rep.hair_why || [])[ni]]));
     }
-    if (picks.length) {
-      hd(p7, '추천 헤어스타일 사진');
-      const g = el('div', 'grid opt ' + (names.length > 2 ? 'g3' : 'g4')); picks.forEach(([n, u, why]) => { const f = img(u, n, 'ph'); f.append(el('figcaption', null, n)); if (why) f.append(el('figcaption', 'small', why)); g.append(f); }); p7.append(g);
-    }
-  }
-  if (uHair.length && !isHM) { hd(p7, '헤어 시술 후'); const g = el('div', 'grid g2'); uHair.slice(0, 2).forEach((u, i) => g.append(img(u, '헤어 시술 후 ' + (i + 1), 'ph'))); p7.append(g); }
+    if (!picks.length) return;
+    const g = el('div', 'grid opt ' + (picks.length > 2 ? 'g3' : 'g4')); picks.forEach(([n, u, why]) => { const f = img(u, n, 'ph'); f.append(el('figcaption', null, n)); if (why) f.append(el('figcaption', 'small', why)); g.append(f); }); p.append(g);
+  };
+  // 선생님이 보낸 비포·애프터 (역할별 첫 장씩)
+  const beforeAfter = async (p, role, title) => {
+    const up = (st.data || []).filter((r) => r.role === role && !/\.(mp4|mov|webm)$/i.test(r.path));
+    const ba = ['before', 'after'].map((k) => [up.find((r) => r.kind === k)?.path, k === 'before' ? 'BEFORE' : 'AFTER']).filter(([x]) => x);
+    if (!ba.length) return;
+    const us = await sign('stylist-uploads', ba.map(([x]) => x));
+    hd(p, title); const g = el('div', 'grid g4'); ba.forEach(([, cap], i) => { if (!us[i]) return; const f = img(us[i], cap, 'ph'); f.append(el('figcaption', null, cap)); g.append(f); }); p.append(g);
+  };
+  const perfume = (p) => { const rows = [['추천 향수', rep.pf_pick], ['어울리는 이유', rep.pf_why], ['뿌리는 법', rep.pf_how]].filter(([, v]) => v); if (!rows.length) return; hd(p, '향수'); table(p, rows); };
+  const styleName = hairNames.length ? hairNames[0] + (rep.hair_down === '필요' ? ' + 다운펌' : '') : rep.hair_style;
 
-  // ---- 07 헤어·메이크업 (서비스에 '헤메'가 있는 고객만) ----
   if (isHM) {
-    const pm = page(); head(pm, '07 헤어 · 메이크업');
-    const up = (st.data || []).filter((r) => !/\.(mp4|mov|webm)$/i.test(r.path));
-    const pick = (role, kind) => up.filter((r) => r.role === role && r.kind === kind).slice(0, 1).map((r) => [r.path, `${role === 'hair' ? '헤어' : '메이크업'} ${kind === 'before' ? '전' : '후'}`]);
-    const ba = [...pick('hair', 'before'), ...pick('hair', 'after'), ...pick('makeup', 'before'), ...pick('makeup', 'after')];
-    if (ba.length) { const us = await sign('stylist-uploads', ba.map(([x]) => x)); const g = el('div', 'grid g4'); ba.forEach(([, cap], i) => { if (!us[i]) return; const f = img(us[i], cap, 'ph'); f.append(el('figcaption', null, cap)); g.append(f); }); pm.append(g); }
-    const memo = (role) => [...new Set(up.filter((r) => r.role === role && r.note).map((r) => r.note))].join(' / ');
-    const br = rep.hm_brief || {};
-    const reqH = rep.hd_request || ''; // 예전 요청서의 '요청'은 컷 요청일 수 있어서 쓰지 않음
-    hd(pm, '헤어 — 오늘 손질한 스타일 (드라이)');
-    table(pm, [['오늘 손질 스타일', rep.hd_style], ['선생님께 요청한 내용', reqH], ['선생님 메모', memo('hair')], ['집에서 손질하는 법', rep.hair_home]].filter(([, v]) => v));
-    const pm2 = page(); head(pm2, '07 헤어 · 메이크업'); // A4 한 장을 넘어서 메이크업은 다음 장으로
-    hd(pm2, '메이크업 진단');
-    const reqM = rep.mk_request || (br.makeup || []).find(([k]) => k === '요청')?.[1];
-    table(pm2, [['진단', rep.mk_diag], ['피부 표현', rep.mk_skin], ['눈썹', rep.mk_brow], ['음영 · 쉐딩', rep.mk_shade], ['그 밖에', rep.mk_point], ['선생님께 요청한 내용', reqM], ['선생님 메모', memo('makeup')], ['혼자 할 때 순서', rep.mk_home]].filter(([, v]) => v));
+    const p7 = page(); head(p7, '06 헤어스타일');
+    const diag = [['진단', rep.hair_diag], ['가르마', rep.hair_part], ['앞머리', rep.hair_cover]].filter(([, v]) => v);
+    if (diag.length) { hd(p7, '헤어 진단'); table(p7, diag); }
+    if (hairNames.length) { hd(p7, '추천 헤어스타일 (1~3순위)'); await hairPhotos(p7); }
+    if (rep.hair_request) { hd(p7, '요청법'); table(p7, [['미용실에서 이렇게 말해 보세요', rep.hair_request]]); }
+    const p7b = page(); head(p7b, '06 헤어스타일');
+    const care = [['손질법', rep.hair_home], ['헤어스타일링 추천템', rep.hair_items]].filter(([, v]) => v);
+    if (care.length) { hd(p7b, '손질법 · 추천템'); table(p7b, care); }
+    await beforeAfter(p7b, 'hair', '헤어 BEFORE · AFTER');
+
+    const pm = page(); head(pm, '07 메이크업 · 향수');
+    if (rep.mk_brow_shape || rep.mk_brow_shop) {
+      hd(pm, '어울리는 눈썹 모양'); pm.append(chips(R.BROW_SHAPES || [], rep.mk_brow_shape));
+      if (rep.mk_brow_shop) table(pm, [['눈썹 정리 매장 추천', rep.mk_brow_shop]]);
+    }
+    const cos = [['베이스', rep.mk_base], ['컨실러', rep.mk_concealer]].filter(([, v]) => v);
+    if (cos.length) { hd(pm, '화장품 추천'); table(pm, cos); }
+    if (rep.mk_steps) { hd(pm, '맞춤 메이크업 순서'); table(pm, [['순서', rep.mk_steps]]); }
+    await beforeAfter(pm, 'makeup', '메이크업 BEFORE · AFTER');
+    perfume(pm);
+  } else {
+    const p7 = page(); head(p7, '06 헤어스타일 · 향수');
+    if (hairNames.length) { hd(p7, '추천 헤어스타일'); await hairPhotos(p7); }
+    const rows = [['추천 헤어스타일', styleName], ['미용실 요청법', rep.hair_request]].filter(([, v]) => v);
+    if (rows.length) table(p7, rows);
+    perfume(p7);
   }
 
   // ---- 동행쇼핑 ----
