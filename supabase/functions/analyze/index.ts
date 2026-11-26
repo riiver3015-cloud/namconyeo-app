@@ -652,6 +652,40 @@ async function storeBuyImage(surveyId: string, key: string, g: { bytes: Uint8Arr
   const { error } = await supabase.storage.from(BUCKET).upload(path, g.bytes, { contentType: g.type, upsert: false });
   return error ? null : path;
 }
+// 상품 페이지에서 사진 후보 주소 모으기 (og:image, 상품 정보(JSON-LD), 큰 상품 이미지 태그)
+async function pageImageUrls(url: string): Promise<string[]> {
+  if (!isPublicUrl(url)) return [];
+  const r = await fetch(url, { headers: { "User-Agent": BROWSER_UA, "Accept-Language": "ko-KR,ko;q=0.9" }, signal: AbortSignal.timeout(10000), redirect: "follow" }).catch(() => null);
+  if (!r || !r.ok || !isPublicUrl(r.url)) return [];
+  const ct = r.headers.get("content-type") || "";
+  if (ct.startsWith("image/")) return [r.url];
+  if (!ct.includes("html")) return [];
+  const html = (await r.text()).slice(0, 1500000);
+  const out: string[] = [];
+  const add = (u: string) => { try { const x = new URL(u.replace(/&amp;/g, "&").replace(/\\u002F/gi, "/").replace(/\\\//g, "/"), r.url).href; if (isPublicUrl(x) && !out.includes(x)) out.push(x); } catch { /* 무시 */ } };
+  for (const m of html.matchAll(/<meta[^>]+(?:property|name)=["'](?:og:image(?::secure_url)?|twitter:image)["'][^>]*content=["']([^"']+)["']/gi)) add(m[1]);
+  for (const m of html.matchAll(/<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["'](?:og:image|twitter:image)["']/gi)) add(m[1]);
+  for (const m of html.matchAll(/"image"\s*:\s*(\[[^\]]{0,4000}\]|"[^"]{8,600}")/g)) for (const u of m[1].matchAll(/"((?:https?:)?\/\/[^"]+|\/[^"]+\.(?:jpe?g|png|webp)[^"]*)"/gi)) add(u[1]);
+  for (const m of html.matchAll(/<img[^>]+(?:data-src|data-original|data-zoom-image|src)=["']([^"']+\.(?:jpe?g|png|webp)(?:\?[^"']*)?)["']/gi)) { if (!/logo|icon|sprite|banner|btn|badge|blank|loading|common|event/i.test(m[1])) add(m[1]); }
+  return out.slice(0, 30);
+}
+async function downloadImage(u: string, referer?: string): Promise<{ bytes: Uint8Array; type: string } | null> {
+  if (!isPublicUrl(u)) return null;
+  const r = await fetch(u, { headers: { "User-Agent": BROWSER_UA, ...(referer ? { Referer: referer } : {}) }, signal: AbortSignal.timeout(8000) }).catch(() => null);
+  if (!r || !r.ok || !isPublicUrl(r.url)) return null;
+  const ct = (r.headers.get("content-type") || "").split(";")[0];
+  if (!/^image\/(jpeg|png|webp|gif)$/.test(ct)) return null;
+  const b = new Uint8Array(await r.arrayBuffer());
+  return b.length > 12000 && b.length < 3.5e6 ? { bytes: b, type: ct } : null;
+}
+const b64 = (b: Uint8Array) => { let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); };
+const pickSchema = obj({ pick: { type: "integer" }, reason: str });
+const PICK_INSTRUCTIONS = `당신은 남성 패션 컨설팅 '남코녀'의 보조입니다. 고객이 산 옷 하나의 리포트용 사진을 후보 사진 중에서 고릅니다.
+- 1순위: 그 제품만 단독으로 나온 상품 사진(배경 위 옷만, 마네킹 없이 펼친 사진, 신발만 나온 사진). 색이 정확히 맞아야 합니다.
+- 2순위: 옷만 단독 사진이 없으면, 같은 색의 제품이 가장 크게·분명히 보이는 사진(모델 착용 가능).
+- 색이 다르거나(예: 화이트를 샀는데 블랙), 다른 제품이거나, 로고·배너·여러 상품 목록이면 고르지 않습니다.
+- 맞는 사진이 하나도 없으면 pick은 0. 있으면 후보 번호(1부터). reason은 한 줄.`;
+
 async function findPhotos(req: Request, surveyId: string, body: Record<string, unknown>): Promise<Response> {
   const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
   const denied = await requireAdmin(req);
@@ -680,14 +714,34 @@ async function findPhotos(req: Request, surveyId: string, body: Record<string, u
     const start = text.search(/\{\s*"items"\s*:(?![\s\S]*\{\s*"items"\s*:)/), end = text.lastIndexOf("}");
     if (start < 0 || end < start) return json({ error: "AI 답을 읽지 못했어요. 한 번 더 눌러 주세요." }, 502);
     const found = JSON.parse(text.slice(start, end + 1));
-    const photos: Record<string, string> = {}, pages: Record<string, string> = {};
+    // 아이템마다: 상품 페이지 사진 후보(최대 8장)를 받아 → AI가 사진을 보고 색이 맞는 '옷만 나온 사진'을 고름 → 맞는 게 없으면 붙이지 않음
+    const photos: Record<string, string> = {}, pages: Record<string, string> = {}, why: Record<string, string> = {};
     await Promise.all((found.items ?? []).filter((it: any) => items.some((x) => x.key === it.key)).map(async (it: any) => {
+      const info = items.find((x) => x.key === it.key)!;
+      const cands: { img: { bytes: Uint8Array; type: string }; page: string }[] = [];
       for (const u of ((it.urls ?? []) as string[]).slice(0, 3)) {
-        const g = await grabImage(String(u)); if (!g) continue;
-        const p = await storeBuyImage(surveyId, it.key, g); if (p) { photos[it.key] = p; pages[it.key] = String(u); return; }
+        if (cands.length >= 8) break;
+        const urls = await pageImageUrls(String(u));
+        for (const iu of urls) { if (cands.length >= 8) break; const img = await downloadImage(iu, String(u)); if (img && !cands.some((c) => c.img.bytes.length === img.bytes.length)) cands.push({ img, page: String(u) }); }
       }
+      if (!cands.length) { why[it.key] = "쇼핑몰에서 사진을 받지 못했어요"; return; }
+      try {
+        const res = await anthropic.beta.messages.create({
+          model: MODEL, max_tokens: 800, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default",
+          output_config: { effort: "low", format: { type: "json_schema", schema: pickSchema } },
+          system: [{ type: "text", text: PICK_INSTRUCTIONS }],
+          messages: [{ role: "user", content: [
+            { type: "text", text: `산 옷: ${info.brand} ${info.item}\n후보 사진 ${cands.length}장` },
+            ...cands.flatMap((c, i) => [{ type: "text", text: `[${i + 1}]` }, { type: "image", source: { type: "base64", media_type: c.img.type, data: b64(c.img.bytes) } }] as Anthropic.Beta.BetaContentBlockParam[]),
+          ] }],
+        });
+        const r = JSON.parse(res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join(""));
+        const c = cands[(r.pick | 0) - 1];
+        if (!c) { why[it.key] = r.reason || "색이 맞는 사진이 없어요"; return; }
+        const p = await storeBuyImage(surveyId, it.key, c.img); if (p) { photos[it.key] = p; pages[it.key] = c.page; }
+      } catch (e) { why[it.key] = (e as Error).message; }
     }));
-    return json({ photos, pages, usage: response.usage });
+    return json({ photos, pages, why, usage: response.usage });
   } catch (e) {
     const msg = e instanceof Anthropic.APIError ? `Claude API 오류 ${e.status}: ${e.message}` : (e as Error).message;
     return json({ error: msg }, 502);
