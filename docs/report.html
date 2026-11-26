@@ -318,11 +318,11 @@ if (PDF_MODE) {
     if (ba.length) { const us = await sign('stylist-uploads', ba.map(([x]) => x)); const g = el('div', 'grid g4'); ba.forEach(([, cap], i) => { if (!us[i]) return; const f = img(us[i], cap, 'ph'); f.append(el('figcaption', null, cap)); g.append(f); }); pm.append(g); }
     const memo = (role) => [...new Set(up.filter((r) => r.role === role && r.note).map((r) => r.note))].join(' / ');
     const br = rep.hm_brief || {};
-    const reqH = (br.hair || []).find(([k]) => k === '요청')?.[1] || rep.hd_request;
+    const reqH = rep.hd_request || ''; // 예전 요청서의 '요청'은 컷 요청일 수 있어서 쓰지 않음
     hd(pm, '헤어 — 오늘 손질한 스타일 (드라이)');
     table(pm, [['오늘 손질 스타일', rep.hd_style], ['선생님께 요청한 내용', reqH], ['선생님 메모', memo('hair')], ['집에서 손질하는 법', rep.hair_home]].filter(([, v]) => v));
     hd(pm, '메이크업 진단');
-    const reqM = (br.makeup || []).find(([k]) => k === '요청')?.[1] || rep.mk_request;
+    const reqM = rep.mk_request || (br.makeup || []).find(([k]) => k === '요청')?.[1];
     table(pm, [['진단', rep.mk_diag], ['피부 표현', rep.mk_skin], ['눈썹', rep.mk_brow], ['음영 · 쉐딩', rep.mk_shade], ['그 밖에', rep.mk_point], ['선생님께 요청한 내용', reqM], ['선생님 메모', memo('makeup')], ['혼자 할 때 순서', rep.mk_home]].filter(([, v]) => v));
   }
 
