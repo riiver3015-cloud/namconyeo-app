@@ -38,6 +38,7 @@ textarea { width:100%; font:inherit; color:var(--fg); background:transparent; bo
 .submit[disabled] { opacity:.5; cursor:progress; }
 .brief { margin:0; display:grid; grid-template-columns:auto 1fr; gap:6px 12px; } .brief dt { color:var(--muted); font-size:.9rem; white-space:nowrap; } .brief dd { margin:0; }
 .cmt { background:var(--bg); border-radius:10px; padding:8px 12px; font-size:.92rem; white-space:pre-line; } .cmt small { color:var(--muted); display:block; }
+.opts { display:flex; flex-wrap:wrap; gap:6px; } .opt { font:inherit; font-size:.92rem; border:1px solid var(--line); border-radius:999px; padding:6px 12px; background:transparent; color:var(--fg); cursor:pointer; } .opt[aria-pressed="true"] { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); } .opt b { font-size:.75rem; margin-right:4px; } .fld { display:flex; flex-direction:column; gap:4px; } .fld input { font:inherit; color:var(--fg); background:transparent; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
 .err { color:var(--bad); font-size:.9rem; } .ok { color:var(--ok); }
 button:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outline-offset:2px; }
 </style>
@@ -69,6 +70,12 @@ button:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outl
         <h2>남코녀 초안 (고객에게 갈 내용)</h2>
         <p class="hint" id="briefat"></p>
         <dl class="brief" id="briefdl"></dl>
+        <div id="picks" style="display:flex;flex-direction:column;gap:12px">
+          <h2 style="margin-top:6px">선생님 선택 (고객 리포트에 그대로 나가요)</h2>
+          <div id="pickbody" style="display:flex;flex-direction:column;gap:12px"></div>
+          <button type="button" class="pick" id="picksave">선택 저장</button>
+          <p class="hint" id="pickmsg" role="status"></p>
+        </div>
         <div id="cmtwrap" style="display:flex;flex-direction:column;gap:8px">
           <h2 style="margin-top:6px">선생님 코멘트</h2>
           <p class="hint">고칠 점·추가할 점을 적어 주세요. 대표님이 보고 고객 리포트에 반영해요. (예: 제품명, 컨실러 호수, 손질 팁)</p>
@@ -110,6 +117,7 @@ button:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outl
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
+<script src="nk-report.js?v=12"></script>
 <script>
 (() => {
   const cfg = window.NK_CONFIG;
@@ -161,8 +169,46 @@ button:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outl
     $('#briefat').textContent = rows.length ? `대표님이 ${new Date(c.brief_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}에 보낸 초안이에요. 보시고 아래에 코멘트를 남겨 주세요.` : '아직 대표님이 초안을 보내지 않았어요. 코멘트는 지금도 남길 수 있어요.';
     const cl = $('#cmtlist'); cl.replaceChildren(); (c.comments || []).forEach((m) => { const d = el('div', 'cmt'); d.append(el('small', null, new Date(m.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })), m.body); cl.append(d); });
     $('#cmtmsg').textContent = '';
+    renderPicks(c);
     rows.forEach(([k, v]) => dl.append(el('dt', null, k), el('dd', null, v)));
   }
+  // 선생님이 직접 고르는 칸 (헤어: 가르마·앞머리·추천 헤어 3개·손질 아이템 / 메이크업: 눈썹 모양·베이스·컨실러·립)
+  const R = window.NK_REPORT || {};
+  let draft = {};
+  function renderPicks(c) {
+    draft = JSON.parse(JSON.stringify(c.picks || {})); $('#pickmsg').textContent = '';
+    const box = $('#pickbody'); box.replaceChildren();
+    const group = (label, key, opts, multi) => {
+      const f = el('div', 'fld'); f.append(el('b', null, label)); const row = el('div', 'opts'); f.append(row); box.append(f);
+      const draw = () => { row.replaceChildren(); opts.forEach((v) => {
+        const on = multi ? (draft[key] || []).includes(v) : draft[key] === v;
+        const b = el('button', 'opt'); b.type = 'button'; b.setAttribute('aria-pressed', String(on));
+        if (multi && on) b.append(el('b', null, (draft[key].indexOf(v) + 1) + '순위')); b.append(v);
+        b.onclick = () => { if (multi) { const a = draft[key] || []; draft[key] = a.includes(v) ? a.filter((x) => x !== v) : (a.length >= 3 ? a : [...a, v]); } else draft[key] = on ? null : v; draw(); };
+        row.append(b); }); };
+      draw();
+    };
+    const input = (label, key, ph, area) => { const f = el('label', 'fld'); f.append(el('b', null, label)); const i = el(area ? 'textarea' : 'input'); i.placeholder = ph; i.value = draft[key] || ''; i.oninput = () => { draft[key] = i.value; }; f.append(i); box.append(f); };
+    if (me.role === 'hair') {
+      group('가르마', 'part', R.HAIR_PART || [], false);
+      group('앞머리 덮기 / 까기', 'cover', R.HAIR_COVER || [], false);
+      group('추천 헤어스타일 (누른 순서대로 1~3순위)', 'pick', (R.HAIR_STYLES || []).map(([n]) => n), true);
+      input('추천 손질 아이템', 'items', '예) 포뮤드 텍스처 쉐이크 스프레이, 우에보 디자인 큐브 드라이 왁스', true);
+    } else {
+      group('어울리는 눈썹 모양', 'brow_shape', R.BROW_SHAPES || [], false);
+      input('베이스 화장품', 'base', '예) VDL V03');
+      input('컨실러', 'concealer', '예) 더샘 컨실러 1.5');
+      input('립 제품', 'lip', '예) AOU 립밤');
+    }
+  }
+  $('#picksave').addEventListener('click', async () => {
+    if (!picked) return; const btn = $('#picksave'); btn.disabled = true; $('#pickmsg').textContent = '저장 중…';
+    const { error } = await sb.rpc('staff_save_picks', { t: token, p_survey: picked.id, p_data: draft });
+    btn.disabled = false;
+    if (error) { $('#pickmsg').textContent = '저장하지 못했어요: ' + error.message; return; }
+    const pid = picked.id; await load(); picked = (me.customers || []).find((x) => x.id === pid) || picked; renderCustomers(); showBrief(picked);
+    $('#pickmsg').textContent = '✓ 저장했어요. 대표님 화면과 고객 리포트에 반영돼요.';
+  });
   $('#cmtsend').addEventListener('click', async () => {
     const body = $('#cmt').value.trim(); if (!picked) return; if (!body) { $('#cmtmsg').textContent = '코멘트를 적어 주세요.'; return; }
     const btn = $('#cmtsend'); btn.disabled = true; $('#cmtmsg').textContent = '보내는 중…';
