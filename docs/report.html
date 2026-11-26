@@ -379,7 +379,16 @@ if (PDF_MODE) {
 
   if (innerWidth > 640 && p8tail.length) { // 동행쇼핑 장이 A4를 넘치면 공식 · TIP을 다음 장으로
     const mm = el('div'); mm.style.height = '297mm'; document.body.append(mm); const lim = mm.getBoundingClientRect().height + 1; mm.remove();
-    if (p8.getBoundingClientRect().height > lim) { const p8b = el('section', 'page'); p8.after(p8b); head(p8b, shopTitle); p8tail.forEach((n) => p8b.append(n)); }
+    if (p8.getBoundingClientRect().height > lim) {
+      let cur = el('section', 'page'); p8.after(cur); head(cur, shopTitle); p8tail.forEach((n) => cur.append(n));
+      // 그래도 넘치면 TIP 표의 뒤쪽 줄을 다음 장으로 (이어서)
+      for (let guard = 0; guard < 5 && cur.getBoundingClientRect().height > lim; guard++) {
+        const tb = [...cur.querySelectorAll('table')].pop(); if (!tb || tb.rows.length < 2) break;
+        const nx = el('section', 'page'); cur.after(nx); head(nx, shopTitle); hd(nx, '아이템별 스타일링 TIP (이어서)'); const t2 = el('table'); nx.append(t2);
+        while (cur.getBoundingClientRect().height > lim && tb.rows.length > 1) t2.prepend(tb.rows[tb.rows.length - 1]);
+        cur = nx;
+      }
+    }
   }
   // 한 페이지(A4)를 넘치면: 코디 사진을 정사각형으로 → 그래도 넘치면 뒤에서부터 사진을 뺌
   if (innerWidth > 640) {
