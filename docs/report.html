@@ -316,7 +316,18 @@ if (PDF_MODE) {
     const us = await sign('stylist-uploads', ba.map(([x]) => x));
     hd(p, title); const g = el('div', 'grid g4'); ba.forEach(([, cap], i) => { if (!us[i]) return; const f = img(us[i], cap, 'ph'); f.append(el('figcaption', null, cap)); g.append(f); }); p.append(g);
   };
-  const perfume = (p) => { if (!rep.pf_text) return; hd(p, '어울리는 향수'); p.append(el('p', 'pftext', rep.pf_text)); };
+  // 향수: AI 문구(첫 문단 + "1. 이름" + "ㄴ> 두 줄")를 첫 문단 + 향수별 표로 보여 줌. 형식이 다르면 문구 그대로
+  const perfume = (p) => {
+    if (!rep.pf_text) return; hd(p, '어울리는 향수');
+    const intro = [], items = [];
+    rep.pf_text.split('\n').map((l) => l.trim()).filter(Boolean).forEach((l) => {
+      const m = l.match(/^(\d+)[.)]\s*(.+)$/);
+      if (m) items.push([m[2], []]); else if (/^ㄴ\s*>?/.test(l) && items.length) items[items.length - 1][1].push(l.replace(/^ㄴ\s*>?\s*/, '')); else if (!items.length) intro.push(l); else items[items.length - 1][1].push(l);
+    });
+    if (!items.length) { p.append(el('p', 'pftext', rep.pf_text)); return; }
+    if (intro.length) p.append(el('p', 'pftext', intro.join(' ')));
+    table(p, items.map(([n, ls], i) => [`${i + 1}. ${n}`, ls.join(' ')]));
+  };
   const styleName = hairNames[0] || rep.hair_style;
 
   if (isHM) {
@@ -350,7 +361,9 @@ if (PDF_MODE) {
   }
 
   // ---- 동행쇼핑 ----
-  const p8 = page(); head(p8, (isHM ? (rep.pf_text ? '09' : '08') : '07') + ' 동행쇼핑');
+  const shopTitle = (isHM ? (rep.pf_text ? '09' : '08') : '07') + ' 동행쇼핑';
+  const p8 = page(); head(p8, shopTitle);
+  const p8tail = []; const mark = (fn) => { const n0 = p8.childNodes.length; fn(); p8tail.push(...[...p8.childNodes].slice(n0)); }; // A4를 넘치면 다음 장으로 옮길 부분 (공식 · TIP)
   if (uShop.length) { const g = el('div', 'grid g3'); uShop.slice(0, 6).forEach((u, i) => g.append(img(u, '동행쇼핑 ' + (i + 1), 'ph'))); p8.append(g); }
   const buys = rep.purchases || [];
   if (buys.length) {
@@ -359,11 +372,15 @@ if (PDF_MODE) {
     const total = buys.reduce((a, b) => a + (b.price || 0), 0); if (total) td3.append(el('div', 'note', `총 ${buys.length}개 · ${won(total)}`));
     const tr3 = el('tr'); tr3.append(td3); t3.append(tr3); p8.append(t3);
   }
-  if (has(rep.formulas)) { hd(p8, '나만의 스타일링 공식'); const t4 = el('table'); const td4 = el('td'); const ol = el('ol', 'formula'); rep.formulas.forEach((x) => ol.append(el('li', null, x))); td4.append(ol); const tr4 = el('tr'); tr4.append(td4); t4.append(tr4); p8.append(t4); }
+  if (has(rep.formulas)) mark(() => { hd(p8, '나만의 스타일링 공식'); const t4 = el('table'); const td4 = el('td'); const ol = el('ol', 'formula'); rep.formulas.forEach((x) => ol.append(el('li', null, x))); td4.append(ol); const tr4 = el('tr'); tr4.append(td4); t4.append(tr4); p8.append(t4); });
   const tips = buys.filter((b) => b.tip);
-  if (tips.length) { hd(p8, '아이템별 스타일링 TIP'); table(p8, tips.map((b) => [`${b.brand}\n${b.item}`, b.tip])).querySelectorAll('td.k').forEach((x) => { x.style.whiteSpace = 'pre-line'; }); }
+  if (tips.length) mark(() => { hd(p8, '아이템별 스타일링 TIP'); table(p8, tips.map((b) => [`${b.brand}\n${b.item}`, b.tip])).querySelectorAll('td.k').forEach((x) => { x.style.whiteSpace = 'pre-line'; }); });
   if (!buys.length && !uShop.length) p8.append(el('p', 'note noprint', '구매 리스트와 동행쇼핑 사진은 관리자 화면 현장 기록에서 입력하면 여기에 나와요.'));
 
+  if (innerWidth > 640 && p8tail.length) { // 동행쇼핑 장이 A4를 넘치면 공식 · TIP을 다음 장으로
+    const mm = el('div'); mm.style.height = '297mm'; document.body.append(mm); const lim = mm.getBoundingClientRect().height + 1; mm.remove();
+    if (p8.getBoundingClientRect().height > lim) { const p8b = el('section', 'page'); p8.after(p8b); head(p8b, shopTitle); p8tail.forEach((n) => p8b.append(n)); }
+  }
   // 한 페이지(A4)를 넘치면: 코디 사진을 정사각형으로 → 그래도 넘치면 뒤에서부터 사진을 뺌
   if (innerWidth > 640) {
     const mm = el('div'); mm.style.height = '297mm'; document.body.append(mm); const limit = mm.getBoundingClientRect().height + 1; mm.remove();
