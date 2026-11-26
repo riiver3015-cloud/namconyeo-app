@@ -345,7 +345,7 @@ if (PDF_MODE) {
     const pm = page(); head(pm, '07 메이크업');
     const brow = M.brow_shape || rep.mk_brow_shape;
     if (brow || rep.mk_brow_shop) {
-      hd(pm, '어울리는 눈썹 모양'); pm.append(chips(R.BROW_SHAPES || [], brow));
+      hd(pm, brow ? '어울리는 눈썹 모양' : '눈썹'); if (brow) pm.append(chips(R.BROW_SHAPES || [], brow));
       if (rep.mk_brow_shop) table(pm, [['눈썹 정리 매장 추천', rep.mk_brow_shop]]);
     }
     const cos = [['베이스', M.base || rep.mk_base], ['컨실러', M.concealer || rep.mk_concealer], ['립 제품', M.lip]].filter(([, v]) => v);
