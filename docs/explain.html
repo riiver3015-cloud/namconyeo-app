@@ -89,7 +89,7 @@ figure { margin:0; }
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="nk-report.js?v=9"></script>
+<script src="nk-report.js?v=12"></script>
 <script>
 (async () => {
   const cfg = window.NK_CONFIG, R = window.NK_REPORT;
@@ -139,7 +139,7 @@ figure { margin:0; }
   let hairNames = [].concat(rep.hair_pick || []).filter(Boolean);
   if (!hairNames.length && rep.hair_style) hairNames = (R.HAIR_STYLES || []).map(([n]) => n).filter((n) => rep.hair_style.replace(/\s/g, '').includes(n.replace(/\s|\(.*\)/g, '')));
   hairNames = hairNames.slice(0, 3);
-  const hasHair = hairNames.length > 0 || !!rep.hair_style;
+  const hasHair = false; // 설명 모드에서는 헤어를 보여주지 않음 (대표님 지시 2026-11-27, 코디·올인원 공통)
 
   // ---- 표지 ----
   const toc = [];
