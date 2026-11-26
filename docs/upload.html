@@ -67,11 +67,10 @@ button:focus-visible, textarea:focus-visible { outline:2px solid var(--fg); outl
 
     <form id="f" hidden style="display:flex;flex-direction:column;gap:14px">
       <section class="card" id="brief">
-        <h2>남코녀 초안 (고객에게 갈 내용)</h2>
-        <p class="hint" id="briefat"></p>
-        <dl class="brief" id="briefdl"></dl>
+        <p class="hint" id="briefat" hidden></p>
+        <dl class="brief" id="briefdl" hidden></dl>
         <div id="picks" style="display:flex;flex-direction:column;gap:12px">
-          <h2 style="margin-top:6px">선생님 선택 (고객 리포트에 그대로 나가요)</h2>
+          <h2>선생님 선택 (고객 리포트에 그대로 나가요)</h2>
           <div id="pickbody" style="display:flex;flex-direction:column;gap:12px"></div>
           <button type="button" class="pick" id="picksave">선택 저장</button>
           <p class="hint" id="pickmsg" role="status"></p>
