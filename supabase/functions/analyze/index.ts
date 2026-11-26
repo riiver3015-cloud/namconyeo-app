@@ -439,6 +439,66 @@ async function writeTips(req: Request, surveyId: string): Promise<Response> {
   }
 }
 
+// ===== 헤어 문장 쓰기 (관리자 화면 "✨ … 이유·요청법·손질법 쓰기") =====
+// 고른 추천 헤어(올인원은 헤어 선생님이 링크에서 고른 것)마다 어울리는 이유 + 요청법 + 손질법을 돌려줍니다. DB에는 쓰지 않습니다.
+const hairTextSchema = obj({ why: { type: "array", items: obj({ name: str, why: str }) }, request: str, home: str });
+const HAIR_TEXT_INSTRUCTIONS = `당신은 남성 스타일 컨설팅 브랜드 '남코녀'의 리포트 작성 보조입니다. 고객이 직접 읽는 헤어 문장을 씁니다.
+- 추천 헤어는 이미 정해졌습니다(순서 그대로 1~3순위). 바꾸거나 빼지 않습니다.
+- why: 추천 헤어마다 하나씩, name은 입력의 이름 그대로. "왜 이 고객의 얼굴형·이마·두상·모질에 어울리는지 + 왜 매일 관리할 수 있는지"를 고객에게 보여 줄 한 문장으로. 아래 남코녀 분석 기준을 따릅니다.
+- request: 1순위 헤어로 미용실에서 그대로 말할 2~3문장(존댓말). 가르마·앞머리 덮기/까기·앞머리 기장이 정해져 있으면 반영합니다.
+- home: 1순위 헤어 손질법 3줄 "1. … 2. … 3. …"(드라이 방향, 제품 쓰는 양, 순서). 가르마·앞머리 방향과 선생님이 추천한 손질 아이템이 있으면 그 제품으로, 고객의 손질 시간 안에 끝나게.
+- 고객 이름은 쓰지 않습니다. 체형·외모 약점을 직접 지적하지 않고 긍정적으로 씁니다. 이모지는 쓰지 않습니다.`;
+
+async function hairTexts(req: Request, surveyId: string): Promise<Response> {
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  const denied = await requireAdmin(req);
+  if (denied) return json({ error: denied }, 401);
+  const [{ data: s }, { data: o }, { data: sp }] = await Promise.all([
+    supabase.from("surveys").select("*").eq("id", surveyId).single(),
+    supabase.from("onsite").select("*").eq("survey_id", surveyId).maybeSingle(),
+    supabase.from("stylist_picks").select("role,data").eq("survey_id", surveyId),
+  ]);
+  if (!s) return json({ error: "설문을 찾을 수 없어요" }, 404);
+  const rep = (o?.report ?? {}) as Record<string, any>;
+  const H = ((sp ?? []).find((r: any) => r.role === "hair")?.data ?? {}) as Record<string, any>;
+  const isHM = /헤메/.test(s.service || "");
+  const picks = ((isHM && (H.pick ?? []).length ? H.pick : rep.hair_pick) ?? []).slice(0, 3) as string[];
+  if (!picks.length) return json({ error: isHM ? "헤어 선생님이 아직 추천 헤어스타일을 고르지 않았어요" : "8단계에서 추천 헤어스타일을 먼저 골라 주세요" }, 400);
+  const info = [
+    `추천 헤어 (1~3순위): ${picks.map((n, i) => `${i + 1}. ${n}`).join(" / ")}`,
+    `가르마: ${H.part || rep.hair_part || "(정하지 않음)"} / 앞머리: ${H.cover || rep.hair_cover || "(정하지 않음)"} / 앞머리 기장: ${rep.hair_bangs || "(정하지 않음)"}`,
+    `선생님 추천 손질 아이템: ${H.items || "(없음)"}`,
+    `모질/숱/곱슬: ${[rep.hair_thick || s.hair_thick, rep.hair_amount || s.hair_amount, rep.hair_curl || s.hair_curl].map((x) => x || "?").join(" / ")} / 이마: ${rep.hair_forehead || "?"}`,
+    `두상·헤어라인: ${(rep.hair_head || []).join(", ") || "(없음)"} / 헤어 진단: ${rep.hair_diag || "(없음)"}`,
+    `얼굴형: ${rep.face_shape || "(없음)"} / 얼굴 비율 상:중:하 ${rep.face_ratio || "(없음)"} / 가로:세로 ${rep.face_wh || "(없음)"}`,
+    `머리 손질 시간: ${s.hair_care || "(모름)"}`,
+  ].join("\n");
+  const criteria = await loadCriteria();
+  try {
+    const response = await anthropic.beta.messages.create({
+      model: MODEL,
+      max_tokens: 3000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "low", format: { type: "json_schema", schema: hairTextSchema } },
+      system: [
+        { type: "text", text: HAIR_TEXT_INSTRUCTIONS },
+        { type: "text", text: `## 남코녀 분석 기준\n\n${criteria}`, cache_control: { type: "ephemeral" } },
+      ],
+      messages: [{ role: "user", content: `## 고객 헤어 정보\n${info}` }],
+    });
+    if (response.stop_reason === "refusal") return json({ error: "AI가 작성을 거절했어요" }, 502);
+    const text = response.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
+    const r = JSON.parse(text);
+    const why: Record<string, string> = {};
+    for (const x of r.why ?? []) if (picks.includes(x.name) && x.why) why[x.name] = x.why;
+    return json({ why, request: r.request, home: r.home, usage: response.usage });
+  } catch (e) {
+    const msg = e instanceof Anthropic.APIError ? `Claude API 오류 ${e.status}: ${e.message}` : (e as Error).message;
+    return json({ error: msg }, 502);
+  }
+}
+
 // ===== 향수 추천 (관리자 화면 8단계 "✨ 향수 추천 AI") =====
 // 대표님이 준 향수 추천 기준(참고자료/향수추천_프롬프트.md)으로 카톡에 그대로 보낼 문구를 돌려줍니다. DB에는 쓰지 않습니다.
 const PERFUME_INSTRUCTIONS = `너는 남성 패션 및 이미지 컨설팅 브랜드 '남코녀(남자 코디해주는 여자)'의 전문 이미지 컨설턴트야.
@@ -721,6 +781,7 @@ Deno.serve(async (req) => {
     if (mode === "read_tags") return await readTags(req, survey_id);
     if (mode === "write_tips") return await writeTips(req, survey_id);
     if (mode === "perfume") return await perfume(req, survey_id);
+    if (mode === "hair_texts") return await hairTexts(req, survey_id);
     if (mode === "tryon") return await tryOn(req, survey_id, body);
     if (mode === "photo_marks") return await photoMarks(req, survey_id);
     if (mode === "photo_marks_bg") {
