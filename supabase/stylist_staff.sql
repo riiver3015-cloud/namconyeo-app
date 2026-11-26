@@ -38,7 +38,10 @@ $$
         'label', case when char_length(s.name) >= 3 then left(s.name, 1) || repeat('*', char_length(s.name) - 2) || right(s.name, 1)
                       when char_length(s.name) = 2 then left(s.name, 1) || '*' else s.name end,
         'date', s.consult_date, 'time', s.consult_time, 'service', s.service,
-        'sent', (select count(*) from public.stylist_uploads u where u.survey_id = s.id and u.role = st.role)
+        'sent', (select count(*) from public.stylist_uploads u where u.survey_id = s.id and u.role = st.role),
+        -- 대표님이 확정한 사전 진단 요청서 (자기 역할 것만)
+        'brief', (select o.report->'hm_brief'->(case when st.role = 'hair' then 'hair' else 'makeup' end) from public.onsite o where o.survey_id = s.id),
+        'brief_at', (select o.report->'hm_brief'->>'at' from public.onsite o where o.survey_id = s.id)
       ) order by s.consult_date desc, s.consult_time desc)
       from public.surveys s
       where public.stylist_customer_ok(s.id)
