@@ -81,7 +81,7 @@ label.btn.up { display:inline-flex; align-items:center; justify-content:center; 
 .repbox { display:flex; flex-direction:column; gap:10px; margin-top:12px; } .repbox h4 { margin:10px 0 0; font-size:.9rem; }
 .buy { display:grid; grid-template-columns:64px 1fr 1.4fr .7fr .8fr auto; gap:6px; align-items:start; } .buy textarea { grid-column:2 / -2; min-height:44px; }
 @media (max-width:640px) { .buy { grid-template-columns:64px 1fr 1fr; } .buy textarea { grid-column:2 / -1; } .buy .bthumb { grid-row:span 3; } }
-.bthumb { grid-row:span 2; width:64px; display:flex; flex-direction:column; align-items:center; gap:2px; } .bthumb img { width:64px; height:64px; object-fit:contain; background:#fff; border:1px solid var(--line); border-radius:6px; } .bthumb .cap { font-size:.7rem; text-align:center; } .bacts { display:flex; gap:6px; } .lnk { font:inherit; font-size:.72rem; background:none; border:0; color:var(--muted); text-decoration:underline; cursor:pointer; padding:0; }
+.bthumb { grid-row:span 2; width:64px; display:flex; flex-direction:column; align-items:center; gap:2px; } .bthumb img { width:64px; height:64px; object-fit:contain; background:#fff; border:1px solid var(--line); border-radius:6px; } .bthumb .cap { font-size:.7rem; text-align:center; } .bacts { display:flex; gap:4px; flex-wrap:wrap; justify-content:center; } .lnk { font:inherit; font-size:.72rem; background:none; border:0; color:var(--muted); text-decoration:underline; cursor:pointer; padding:0; }
 .board { display:flex; flex-direction:column; gap:12px; } .outfit { border:1px solid var(--line); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:8px; } .ohead { display:flex; gap:8px; } .ohead input { flex:1; } .opick { display:flex; flex-wrap:wrap; gap:6px; } .ochip { font:inherit; font-size:.75rem; display:flex; flex-direction:column; align-items:center; gap:2px; width:84px; padding:4px; border:1px solid var(--line); border-radius:8px; background:transparent; color:var(--fg); cursor:pointer; } .ochip img { width:72px; height:72px; object-fit:contain; background:#fff; border-radius:4px; } .ochip span { max-width:76px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .ochip[aria-pressed="true"] { border:2px solid var(--fg); background:var(--bg); }
 .shop { display:flex; flex-wrap:wrap; gap:8px; } .shop figure { margin:0; position:relative; } .shop img { height:120px; border-radius:8px; display:block; } .shop button { position:absolute; top:4px; right:4px; padding:2px 8px; }
 .login { max-width:420px; margin:10vh auto; }
@@ -600,6 +600,57 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     s9.append(el('p', 'sub', '구매 리스트 (리포트에 나가는 목록)'), el('p', 'cap', '택 사진·메모를 넣고 "택 읽기"를 누르면 AI가 아래에 덧붙여요. 이미 있는 줄은 그대로 두고 새 옷만 추가해요. 틀린 칸은 직접 고치세요. 팁을 적으면 아이템별 TIP으로 나가요.'));
     const buyBox = el('div'); buyBox.style.cssText = 'display:flex;flex-direction:column;gap:8px'; s9.append(buyBox);
     let redrawBoard = () => {}; // 아래 코디 보드가 만들어지면 바뀜
+    // 착장 사진에서 옷 부분만 잘라 구매한 옷 사진으로 쓰기 (11단계 코디 사진 또는 휴대폰 사진)
+    const cropPick = () => new Promise((done) => {
+      const bg = el('div'); bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px';
+      const box = el('div'); box.style.cssText = 'background:var(--panel);color:var(--fg);border-radius:12px;padding:14px;width:100%;max-width:620px;max-height:94vh;overflow:auto;display:flex;flex-direction:column;gap:10px';
+      const close = (v) => { bg.remove(); done(v || null); };
+      bg.onclick = (e) => { if (e.target === bg) close(); };
+      const head = el('b', null, '착장 사진에서 잘라 쓰기');
+      const cap = el('p', 'cap', '① 사진을 고르고 ② 옷 부분을 손가락(마우스)으로 끌어 네모를 그리세요.');
+      const strip = el('div'); strip.style.cssText = 'display:flex;gap:6px;overflow-x:auto';
+      const stage = el('div'); stage.style.cssText = 'position:relative;align-self:center;touch-action:none;user-select:none;line-height:0';
+      const img = el('img'); img.alt = ''; img.draggable = false; img.style.cssText = 'max-width:100%;max-height:60vh;display:block';
+      const rect = el('div'); rect.style.cssText = 'position:absolute;border:2px solid #fff;outline:9999px solid rgba(0,0,0,.45);box-shadow:0 0 0 1px #000;display:none;pointer-events:none';
+      stage.append(img, rect);
+      const msg = el('span', 'cap');
+      const row = el('div'); row.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+      const ok = el('button', 'btn primary', '이 부분 쓰기'); ok.type = 'button'; ok.disabled = true;
+      const no = el('button', 'btn', '닫기'); no.type = 'button'; no.onclick = () => close();
+      const own = el('label', 'btn', '다른 사진 고르기'); const oi = el('input'); oi.type = 'file'; oi.accept = 'image/*'; oi.hidden = true; own.append(oi);
+      row.append(ok, own, no, msg);
+      box.append(head, cap, strip, stage, row); bg.append(box); document.body.append(bg);
+      let src = null, sel = null; // src: 원본 Blob, sel: 화면 좌표 네모
+      const show = async (blobOrUrl) => {
+        msg.textContent = '불러오는 중…'; sel = null; rect.style.display = 'none'; ok.disabled = true;
+        try { src = typeof blobOrUrl === 'string' ? await (await fetch(blobOrUrl)).blob() : blobOrUrl; img.src = URL.createObjectURL(src); await img.decode(); msg.textContent = ''; }
+        catch (e) { msg.textContent = '사진을 열지 못했어요: ' + e.message; }
+      };
+      oi.onchange = () => { if (oi.files[0]) show(oi.files[0]); };
+      signed(rep.shop_photos).then((urls) => {
+        if (!rep.shop_photos.length) { strip.append(el('span', 'cap', '11단계에 올린 코디 사진이 없어요. "다른 사진 고르기"로 휴대폰 사진을 골라 주세요.')); return; }
+        rep.shop_photos.forEach((p, i) => { const b = el('button'); b.type = 'button'; b.style.cssText = 'flex:none;padding:0;border:2px solid var(--line);border-radius:6px;background:none;cursor:pointer;line-height:0';
+          const im = el('img'); im.src = urls[p] || ''; im.alt = `코디 사진 ${i + 1}`; im.style.cssText = 'width:56px;height:72px;object-fit:cover;border-radius:4px'; b.append(im);
+          b.onclick = () => { strip.querySelectorAll('button').forEach((x) => { x.style.borderColor = x === b ? 'var(--accent)' : 'var(--line)'; }); show(urls[p]); }; strip.append(b); });
+        strip.querySelector('button')?.click();
+      });
+      let start = null;
+      const pos = (e) => { const r = img.getBoundingClientRect(); return [Math.max(0, Math.min(r.width, e.clientX - r.left)), Math.max(0, Math.min(r.height, e.clientY - r.top))]; };
+      stage.onpointerdown = (e) => { if (!src) return; stage.setPointerCapture(e.pointerId); start = pos(e); };
+      stage.onpointermove = (e) => { if (!start) return; const [x, y] = pos(e); sel = [Math.min(x, start[0]), Math.min(y, start[1]), Math.abs(x - start[0]), Math.abs(y - start[1])];
+        Object.assign(rect.style, { display: 'block', left: sel[0] + 'px', top: sel[1] + 'px', width: sel[2] + 'px', height: sel[3] + 'px' }); ok.disabled = !(sel[2] > 15 && sel[3] > 15); };
+      stage.onpointerup = () => { start = null; };
+      ok.onclick = async () => {
+        if (!sel) return; ok.disabled = true; msg.textContent = '자르는 중…';
+        try {
+          const bmp = await createImageBitmap(src, { imageOrientation: 'from-image' }); const k = bmp.width / img.getBoundingClientRect().width;
+          const [x, y, w, h] = sel.map((v) => Math.round(v * k)); const c = document.createElement('canvas'); c.width = w; c.height = h;
+          c.getContext('2d').drawImage(bmp, x, y, w, h, 0, 0, w, h);
+          const out = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9));
+          msg.textContent = '올리는 중…'; close(await upload(out, 'buy'));
+        } catch (e) { msg.textContent = '실패: ' + e.message; ok.disabled = false; }
+      };
+    });
     const addBuy = (r = {}) => {
       const w = el('div', 'buy'); w.dataset.buy = '1';
       const mk = (k, ph, type) => { const i = el('input'); i.dataset.k = k; i.placeholder = ph; i.value = r[k] ?? ''; if (type) i.type = type; return i; };
@@ -616,7 +667,9 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
         inp.onchange = async () => { if (!inp.files[0]) return; up.firstChild.textContent = '…'; try { ph.value = await upload(inp.files[0], 'buy'); queueSave(); } catch (e) { alert('올리기 실패: ' + e.message); } draw(); redrawBoard(); };
         const ln = el('button', 'lnk', '링크'); ln.type = 'button';
         ln.onclick = async () => { const url = prompt('상품 페이지나 사진 주소(https://…)를 붙여 넣어 주세요'); if (!url) return; ln.textContent = '…'; try { const j = await postAI('fetch_photo', { key: pid.value, url }); ph.value = j.path; queueSave(); } catch (e) { alert('가져오지 못했어요: ' + e.message + ' — 사진을 저장해서 "올리기"로 넣어 주세요.'); } draw(); redrawBoard(); };
-        acts.append(up, ln); th.append(acts);
+        const cr = el('button', 'lnk', '자르기'); cr.type = 'button'; cr.title = '착장 사진에서 옷 부분만 잘라 쓰기';
+        cr.onclick = async () => { const p = await cropPick(); if (p) { ph.value = p; queueSave(); draw(); redrawBoard(); } };
+        acts.append(up, ln, cr); th.append(acts);
       };
       w.drawThumb = draw; draw();
       w.append(th, mk('brand', '브랜드'), mk('item', '제품명·색'), mk('size', '사이즈'), mk('price', '가격(숫자)', 'number'), del, tip, pid, ph);
@@ -634,7 +687,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     const rowInfo = (w) => Object.fromEntries([...w.querySelectorAll('[data-k]')].map((i) => [i.dataset.k, i.value.trim()]));
     { const r = el('div'); r.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
       const b = el('button', 'btn primary', '📷 구매한 옷 사진 찾기'); b.type = 'button'; const m = el('span', 'cap'); r.append(b, m);
-      s9.append(el('p', 'sub', '구매한 옷 사진'), el('p', 'cap', '구매 리스트를 채운 뒤 누르면, AI가 쇼핑몰에서 같은 상품을 찾아 사진을 붙여요 (사진 없는 옷만, 아이템당 약 200~300원). 색이 맞고 옷만 나온 사진을 고르고, 맞는 사진이 없으면 붙이지 않아요. 틀린 사진은 사진 아래 "올리기"나 "링크"로 바꾸세요.'), r);
+      s9.append(el('p', 'sub', '구매한 옷 사진'), el('p', 'cap', '구매 리스트를 채운 뒤 누르면, AI가 쇼핑몰에서 같은 상품을 찾아 사진을 붙여요 (사진 없는 옷만, 아이템당 약 200~300원). 색이 맞고 옷만 나온 사진을 고르고, 맞는 사진이 없으면 붙이지 않아요. 틀린 사진이나 못 찾은 옷은 사진 아래 "자르기"(11단계 코디 사진에서 옷 부분만 잘라 쓰기) · "올리기" · "링크"로 넣으세요.'), r);
       b.onclick = async () => {
         const rows = buyRows().filter((w) => !w.querySelector('[data-k="photo"]').value);
         if (!rows.length) { m.textContent = '사진이 없는 옷이 없어요.'; return; }
