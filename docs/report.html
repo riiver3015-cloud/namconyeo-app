@@ -25,6 +25,7 @@ td { border:1px solid var(--line); padding:8px 10px; vertical-align:middle; }
 td.k { width:24%; text-align:center; font-weight:500; }
 .chips span { white-space:nowrap; } .chips span + span::before { content:" / "; color:var(--muted); }
 mark { background:var(--hl); padding:0 3px; font-weight:500; }
+.flat { margin:0; } .flat img { width:100%; aspect-ratio:1/1; object-fit:contain; background:#fff; border-radius:6px; } .flat .noimg { aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; text-align:center; padding:8px; background:#f3f0eb; border-radius:6px; font-size:.8rem; }
 .pftext { white-space:pre-line; line-height:1.7; font-size:.92rem; margin:0; }
 .grid { display:grid; gap:10px; } .g2 { grid-template-columns:repeat(2, minmax(0,1fr)); } .g3 { grid-template-columns:repeat(3, minmax(0,1fr)); } .g4 { grid-template-columns:repeat(4, minmax(0,1fr)); } .g5 { grid-template-columns:repeat(5, minmax(0,1fr)); }
 @media (max-width:640px) { .g4, .g5 { grid-template-columns:repeat(2, minmax(0,1fr)); } .g3 { grid-template-columns:repeat(2, minmax(0,1fr)); } }
@@ -377,6 +378,28 @@ if (PDF_MODE) {
   if (tips.length) mark(() => { hd(p8, '아이템별 스타일링 TIP'); table(p8, tips.map((b) => [`${b.brand}\n${b.item}`, b.tip])).querySelectorAll('td.k').forEach((x) => { x.style.whiteSpace = 'pre-line'; }); });
   if (!buys.length && !uShop.length) p8.append(el('p', 'note noprint', '구매 리스트와 동행쇼핑 사진은 관리자 화면 현장 기록에서 입력하면 여기에 나와요.'));
 
+  // ---- 구매한 옷으로 코디 (관리자 화면 10단계 코디 보드) ----
+  {
+    const outfits = (rep.outfits || []).filter((o) => (o.items || []).length || o.own);
+    if (outfits.length) {
+      const byPid = Object.fromEntries(buys.filter((b) => b.pid).map((b) => [b.pid, b]));
+      const paths = [...new Set(outfits.flatMap((o) => (o.items || []).map((k) => byPid[k]?.photo).filter(Boolean)))];
+      const us = await sign('survey-photos', paths); const urlOf = Object.fromEntries(paths.map((p, i) => [p, us[i]]));
+      const num = isHM ? (rep.pf_text ? '10' : '09') : '08';
+      const cat = (t) => /코트|자켓|재킷|블루종|점퍼|패딩|아우터|카디건|가디건|무스탕|베스트|트러커/.test(t) ? 0 : /팬츠|바지|슬랙스|치노|트라우저|쇼츠|데님|진/.test(t) ? 2 : /슈즈|신발|부츠|스니커즈|로퍼|더비|첼시|샌들|구두/.test(t) ? 3 : 1;
+      for (let i = 0; i < outfits.length; i += 2) {
+        const pg = page(); head(pg, num + ' 구매한 옷으로 이렇게 입어 보세요');
+        outfits.slice(i, i + 2).forEach((o, k) => {
+          hd(pg, o.title || `코디 ${i + k + 1}`);
+          const its = (o.items || []).map((x) => byPid[x]).filter(Boolean).sort((a, b) => cat(a.item || '') - cat(b.item || ''));
+          const g = el('div', 'grid ' + (its.length > 4 ? 'g5' : 'g4'));
+          its.forEach((b) => { const f = el('figure', 'flat'); if (b.photo && urlOf[b.photo]) { const im = el('img'); im.src = urlOf[b.photo]; im.alt = b.item || ''; f.append(im); } else f.append(el('div', 'noimg', b.item || '')); f.append(el('figcaption', 'small', `${b.brand || ''} ${b.item || ''}`.trim())); g.append(f); });
+          if (its.length) pg.append(g);
+          const extra = [o.own && `함께 입기 · ${o.own}`, o.note].filter(Boolean).join('  |  '); if (extra) pg.append(el('p', 'pftext', extra));
+        });
+      }
+    }
+  }
   if (innerWidth > 640 && p8tail.length) { // 동행쇼핑 장이 A4를 넘치면 공식 · TIP을 다음 장으로
     const mm = el('div'); mm.style.height = '297mm'; document.body.append(mm); const lim = mm.getBoundingClientRect().height + 1; mm.remove();
     if (p8.getBoundingClientRect().height > lim) {
