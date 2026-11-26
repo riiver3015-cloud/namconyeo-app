@@ -573,7 +573,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
       const pickRow = chipRow(s8, 'hair_pick', '추천 헤어스타일 (먼저 누른 것이 1순위, 3개까지)', (R.HAIR_STYLES || []).map(([n]) => n), true, rep.hair_pick);
       pickRow.dataset.order = [].concat(rep.hair_pick || []).join('|');
       pickRow.addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (!c) return; setTimeout(() => { const on = [...pickRow.querySelectorAll('.chip[aria-pressed="true"]')].map((x) => x.textContent); const old = (pickRow.dataset.order || '').split('|').filter((x) => on.includes(x)); pickRow.dataset.order = [...old, ...on.filter((x) => !old.includes(x))].join('|'); }, 0); });
-    } else s8.append(el('p', 'cap', '가르마 · 앞머리 덮기/까기 · 추천 헤어스타일 · 추천 손질 아이템은 헤어 선생님이, 눈썹 모양 · 베이스 · 컨실러 · 립 제품은 메이크업 선생님이 고정 링크에서 골라요. "헤어·메이크업 결과" 칸에서 볼 수 있어요.'));
+    } else s8.append(el('p', 'cap', '추천 헤어스타일 · 추천 손질 아이템은 헤어 선생님이, 베이스 · 컨실러 · 립 제품은 메이크업 선생님이 고정 링크에서 골라요. "헤어·메이크업 결과" 칸에서 볼 수 있어요.'));
     s8.append(el('p', 'cap', '어울리는 이유 · 요청법' + (isHM ? ' · 손질법' : '') + '은 마지막에 "✨ 리포트 완성하기"가 써요. 고쳐 쓴 칸은 그대로 둬요.'));
     txt(s8, 'hair_request', '요청법 — 미용실에서 이렇게 말하기 (리포트에 나가요)', '예) 옆머리 볼륨 살려주세요', true);
     if (isHM) {
@@ -781,8 +781,8 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
         const H = (data || []).find((x) => x.role === 'hair'), M = (data || []).find((x) => x.role === 'makeup');
         const when = (x) => x ? ` · ${x.author || ''} · ${new Date(x.updated_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : ' · 아직 안 고름';
         const hd = H?.data || {}, md = M?.data || {};
-        const hl = [['가르마', hd.part], ['앞머리', hd.cover], ['추천 헤어스타일', (hd.pick || []).map((n, i) => `${i + 1}순위 ${n}`).join(' / ')], ['추천 손질 아이템', hd.items]];
-        const ml = [['눈썹 모양', md.brow_shape], ['베이스', md.base], ['컨실러', md.concealer], ['립 제품', md.lip]];
+        const hl = [['추천 헤어스타일', (hd.pick || []).map((n, i) => `${i + 1}순위 ${n}`).join(' / ')], ['추천 손질 아이템', hd.items]];
+        const ml = [['베이스', md.base], ['컨실러', md.concealer], ['립 제품', md.lip]];
         const n = el('p', 'hmnote'); n.textContent = `[헤어 선생님 선택${when(H)}]\n` + hl.map(([k, v]) => `· ${k}: ${v || '—'}`).join('\n') + `\n\n[메이크업 선생님 선택${when(M)}]\n` + ml.map(([k, v]) => `· ${k}: ${v || '—'}`).join('\n');
         pickBox.replaceChildren(el('p', 'sub', '선생님 선택 (리포트에 그대로 나가요)'), n);
       })();
