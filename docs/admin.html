@@ -198,7 +198,7 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script src="config.js"></script>
-<script src="nk-report.js?v=11"></script>
+<script src="nk-report.js?v=12"></script>
 <script>
 (() => {
   const cfg = window.NK_CONFIG;
@@ -558,11 +558,14 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     });
     // 8. 헤어
     const isHM = /헤메/.test(s.service || '');
-    const s8 = step(8, isHM ? '헤어·메이크업 진단 (헤메 받기 전에 미리 확정)' : '헤어 진단 + 추천 헤어스타일');
+    const s8 = step(8, isHM ? '헤어 · 메이크업 · 향수 (고객용 초안 → 선생님 코멘트)' : '헤어 · 향수');
+    const cmtBox8 = el('div'); if (isHM) s8.append(cmtBox8);
     s8.append(el('p', 'cap', '모질 · 숱 · 곱슬기는 고객이 사전질문지에서 고른 값이 먼저 눌려 있어요. 만져 보고 다르면 바꾸세요. 앞머리 기장 · 다운펌 · 추천 헤어 · 요청 멘트는 "AI 초안 채우기"가 미리 골라 둬요.'));
     R.HAIR.forEach(([k, l, opts]) => chipRow(s8, k, l, opts, false, rep[k] || s[k]));
     chipRow(s8, 'hair_head', '두상 · 헤어라인 (선택 — 해당하는 것만)', R.HAIR_HEAD || [], true, rep.hair_head);
-    txt(s8, 'hair_diag', '헤어 진단 한 줄 (고객 화면 맨 위에 나가요)', '예) 상안부가 긴 편이고 옆머리가 뜨는 모질이에요', true);
+    txt(s8, 'hair_diag', '헤어 진단 한 줄', '예) 상안부가 긴 편이고 옆머리가 뜨는 모질이에요', true);
+    chipRow(s8, 'hair_part', '가르마', R.HAIR_PART || [], false, rep.hair_part);
+    chipRow(s8, 'hair_cover', '앞머리 덮기 / 까기', R.HAIR_COVER || [], false, rep.hair_cover);
     chipRow(s8, 'hair_bangs', '앞머리 기장', R.HAIR_BANGS || [], false, rep.hair_bangs);
     chipRow(s8, 'hair_down', '다운펌', R.HAIR_DOWN || [], false, rep.hair_down);
     // 추천 헤어: 누른 순서가 1순위 · 2순위 (리포트에는 "1순위 + 다운펌" 형태로 자동으로 적힘)
@@ -573,21 +576,23 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     txt(s8, 'hair_side', '옆머리 처방', '예) 귀를 반쯤 덮는 길이, 숱은 가볍게');
     txt(s8, 'hair_back', '뒷머리 처방', '예) 뒤통수 볼륨이 살게 층을 내기');
     txt(s8, 'hair_perm', '펌', '예) 필요 없음 / 윗머리 볼륨펌');
-    txt(s8, 'hair_request', '헤어샵 요청 멘트 (AI 초안 — 고쳐 쓸 수 있어요)', '예) 옆머리 볼륨 살려주세요', true);
-    txt(s8, 'hair_home', '집에서 손질하는 법 (3줄)', '예) 1. 뿌리부터 말리기  2. 앞머리는 옆으로 넘기며 드라이  3. 왁스는 콩알만큼', true);
-    if (isHM) { // 헤메 당일 손질 + 메이크업 (서비스에 '헤메'가 있는 고객만) — 선생님 요청서 + 리포트
-      s8.append(el('p', 'sub', '헤메 당일 헤어 손질 (컷·펌 없이 드라이만)'), el('p', 'cap', '위쪽 칸은 "이상적인 헤어"(다음에 미용실에서 할 컷·펌)예요. 여기는 헤메 날 지금 머리 기장 그대로 드라이로 만들 스타일이에요.'));
-      txt(s8, 'hd_style', '오늘 손질 스타일', '예) 5:5 가르마가 보일 듯 말 듯, 앞머리는 내려 이마를 살짝 덮기, 옆머리는 눌러 드라이', true);
-      txt(s8, 'hd_request', '헤어 선생님 요청 멘트 (드라이)', '예) 앞머리는 자연스럽게 내려 주시고, 옆머리는 뜨지 않게 눌러 주세요', true);
-      s8.append(el('p', 'sub', '메이크업 진단'));
-      txt(s8, 'mk_diag', '메이크업 진단 한 줄 (고객용)', '예) 피부 톤은 고른 편이고, 눈썹 숱이 적어 인상이 흐려 보여요', true);
-      txt(s8, 'mk_skin', '피부 표현', '예) 얇게, 코 옆 붉은 기만 가리기');
-      txt(s8, 'mk_brow', '눈썹', '예) 일자에 가깝게, 앞쪽 빈 곳 채우기, 다크브라운');
-      txt(s8, 'mk_shade', '음영 · 쉐딩', '예) 턱선 아래 살짝');
-      txt(s8, 'mk_point', '그 밖에', '예) 입술 보습, 다크서클 컨실러');
-      txt(s8, 'mk_request', '메이크업 선생님 요청 멘트 (AI 초안 — 고쳐 쓸 수 있어요)', '예) 티 나지 않게 피부만 정돈해 주세요', true);
-      txt(s8, 'mk_home', '혼자 할 때 순서 (3줄)', '예) 1. 선크림  2. 쿠션 얇게  3. 눈썹 빈 곳만', true);
+    txt(s8, 'hair_request', '요청법 — 미용실에서 이렇게 말하기 (리포트에 나가요)', '예) 옆머리 볼륨 살려주세요', true);
+    if (isHM) {
+      txt(s8, 'hair_home', '손질법 (올인원 리포트)', '예) 1. 뿌리부터 말리기  2. 앞머리는 옆으로 넘기며 드라이  3. 왁스는 콩알만큼', true);
+      txt(s8, 'hair_items', '헤어스타일링 추천템 (올인원 리포트)', '예) 매트 왁스 — 볼륨 유지 / 고정 스프레이 — 가볍게', true);
+      // 메이크업 (올인원) — 고객용 초안, 선생님 코멘트를 받아 고침
+      s8.append(el('p', 'sub', '메이크업 진단 (올인원)'));
+      chipRow(s8, 'mk_brow_shape', '어울리는 눈썹 모양', R.BROW_SHAPES || [], false, rep.mk_brow_shape);
+      { const i = txt(s8, 'mk_brow_shop', '눈썹 정리 매장 추천', R.BROW_SHOP || ''); if (!i.value) i.value = R.BROW_SHOP || ''; }
+      txt(s8, 'mk_base', '베이스 화장품', '예) 톤업 선크림 또는 얇은 쿠션 (21호보다 한 톤 어둡게)', true);
+      txt(s8, 'mk_concealer', '컨실러', '예) 코 옆 붉은기 · 다크서클에 1.5호', true);
+      txt(s8, 'mk_steps', '맞춤 메이크업 순서', '예) 1. 스킨·로션  2. 쿠션 얇게  3. 컨실러 톡톡  4. 눈썹 빈 곳  5. 립밤', true);
     }
+    // 향수 (코디·올인원 공통, 리포트에 나감)
+    s8.append(el('p', 'sub', '향수'));
+    txt(s8, 'pf_pick', '추천 향수', '예) 우디 머스크 계열 — ○○ 오드퍼퓸');
+    txt(s8, 'pf_why', '어울리는 이유', '예) 차분한 댄디 이미지와 잘 맞는 은은한 잔향', true);
+    txt(s8, 'pf_how', '뿌리는 법', '예) 손목·목 뒤에 1~2번, 데이트 30분 전');
     // 9. 스타일 방향성
     const s9s = step(9, '입혀 보면서 스타일 방향성 (상의 · 하의 · 아우터)', '여러 개 골라도 돼요.');
     R.STYLE.forEach(([group, rows]) => { s9s.append(el('p', 'sub', group)); rows.forEach(([k, l, opts]) => chipRow(s9s, k, l, opts, true, rep[k])); });
@@ -675,10 +680,11 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
         if (!onlyHm) { const row = root.querySelector('[data-pick="body_type"]'); if (row && d.body_type && !row.querySelector('.chip[aria-pressed="true"]')) { const c = [...row.querySelectorAll('.chip')].find((x) => x.textContent === d.body_type); if (c) { c.setAttribute('aria-pressed', 'true'); n++; } } }
         if (!onlyHm) { fill('image', d.image); R.GLASSES.forEach(([k]) => fill('g_' + k, d.glasses?.[k])); }
         fill('hair_forehead', d.hair_forehead);
+        fill('hair_part', d.hair_part); fill('hair_cover', d.hair_cover); fill('mk_brow_shape', d.mk_brow_shape);
         fill('hair_bangs', d.hair_bangs); fill('hair_down', d.hair_down); fill('hair_head', d.hair_head);
         { const pr = root.querySelector('[data-rkey="hair_pick"]'); const had = pr && pr.querySelector('.chip[aria-pressed="true"]'); fill('hair_pick', (d.hair_pick || []).slice(0, 3)); if (pr && !had) pr.dataset.order = (d.hair_pick || []).slice(0, 3).join('|'); }
         (d.hair_why || []).slice(0, 3).forEach((v, i) => { d['hair_why' + i] = v; });
-        for (const k of ['hair_request', 'hair_diag', 'hair_side', 'hair_back', 'hair_perm', 'hair_home', 'hair_why0', 'hair_why1', 'hair_why2', 'hd_style', 'hd_request', 'mk_diag', 'mk_skin', 'mk_brow', 'mk_shade', 'mk_point', 'mk_request', 'mk_home']) { const i = root.querySelector(`[data-rtxt="${k}"]`); if (i && !i.value.trim() && d[k]) { i.value = d[k]; n++; } }
+        for (const k of ['hair_request', 'hair_diag', 'hair_side', 'hair_back', 'hair_perm', 'hair_home', 'hair_why0', 'hair_why1', 'hair_why2', 'hair_items', 'mk_base', 'mk_concealer', 'mk_steps']) { const i = root.querySelector(`[data-rtxt="${k}"]`); if (i && !i.value.trim() && d[k]) { i.value = d[k]; n++; } }
         if (!onlyHm) for (const k of ['top_neck', 'top_fit', 'top_fabric', 'top_detail', 'bottom_width', 'bottom_shape', 'outer_length', 'outer_shoulder', 'outer_fabric']) fill(k, d[k]);
         rep.ai_notes = onlyHm ? { ...rep.ai_notes, hair: d.hair_reason } : { image: d.image_reason, glasses: d.glasses_reason, hair: d.hair_reason, style: d.style_reason };
         showNotes();
@@ -689,45 +695,51 @@ dl.facts.edit dd input, dl.facts.edit dd textarea { font-size:.9rem; } dl.facts.
     };
     aiBtn.onclick = () => runDraft();
 
-    // 헤메 사전 진단 → 선생님 요청서 확정 (헤메 받기 전에 진단을 먼저 끝냄)
+    // 올인원: 대표님이 고객용 초안을 만들고 → 선생님께 보내기 → 선생님 코멘트 → 고쳐서 리포트
+    const cmtBoxes = [];
+    const drawComments = async () => {
+      const { data } = await sb.from('stylist_comments').select('*').eq('survey_id', id).order('created_at');
+      const list = data || [];
+      cmtBoxes.forEach((b) => {
+        b.replaceChildren(el('p', 'sub', `선생님 코멘트 (${list.length})`));
+        if (!list.length) { b.append(el('p', 'cap', '아직 없어요. 초안을 보내면 선생님이 링크에서 코멘트를 달아요.')); return; }
+        list.forEach((c) => { const n = el('p', 'hmnote'); n.textContent = `[${c.role === 'hair' ? '헤어' : '메이크업'} · ${c.author || ''} · ${new Date(c.created_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}]\n${c.body}`; b.append(n); });
+      });
+    };
     if (isHM) {
       const box = f('hmbrief'); box.replaceChildren();
-      box.append(el('p', 'sub', '헤메 전 사전 진단 → 선생님 요청서'),
-        el('p', 'cap', '헤메 받기 전날 해 주세요. ① "헤어·메이크업 AI 초안"(설문 셀카로 진단, 누를 때마다 AI 사용료 수백 원) → ② 현장 기록 8단계에서 확인·수정 → ③ "요청서 확정"을 누르면 선생님 링크 화면에 바로 보여요.'));
+      box.append(el('p', 'sub', '고객용 초안 → 선생님 코멘트'),
+        el('p', 'cap', '① "헤어·메이크업 AI 초안"(설문 셀카로, 누를 때마다 AI 사용료 수백 원) → ② 현장 기록 8단계에서 고객이 볼 내용으로 고치기 → ③ "선생님께 초안 보내기" → 선생님이 고정 링크에서 코멘트를 달면 아래에 보여요 → ④ 코멘트 보고 8단계를 고치면 리포트(완성본)에 반영돼요.'));
       const row = el('div'); row.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
-      const bAi = el('button', 'btn', '✨ 헤어·메이크업 AI 초안'), bGo = el('button', 'btn', '8단계 열어서 고치기'), bOk = el('button', 'btn primary', '✅ 요청서 확정 → 선생님께 보이기');
+      const bAi = el('button', 'btn', '✨ 헤어·메이크업 AI 초안'), bGo = el('button', 'btn', '8단계 열어서 고치기'), bOk = el('button', 'btn primary', '📨 선생님께 초안 보내기');
       [bAi, bGo, bOk].forEach((b) => { b.type = 'button'; }); const msg = el('span', 'cap');
-      row.append(bAi, bGo, bOk, msg); const view = el('div', 'cap'); view.style.cssText = 'white-space:pre-line;border:1px solid var(--line);border-radius:10px;padding:10px'; box.append(row, view);
+      row.append(bAi, bGo, bOk, msg); const view = el('div', 'cap'); view.style.cssText = 'white-space:pre-line;border:1px solid var(--line);border-radius:10px;padding:10px';
+      const cmtBox = el('div'); box.append(row, view, cmtBox); cmtBoxes.push(cmtBox, cmtBox8);
       const build = (r) => ({
         // 순서가 지켜지도록 [이름, 내용] 목록으로 저장
-        hair: [['오늘 손질 스타일 (드라이만)', r.hd_style], ['요청', r.hd_request], ['진단', r.hair_diag], ['참고 — 어울리는 컷 (다음 미용실)', r.hair_style]].filter(([, v]) => v),
-        makeup: [['진단', r.mk_diag], ['피부 표현', r.mk_skin], ['눈썹', r.mk_brow], ['음영·쉐딩', r.mk_shade], ['그 밖에', r.mk_point], ['요청', r.mk_request]].filter(([, v]) => v),
+        hair: [['가르마', r.hair_part], ['앞머리', r.hair_cover], ['추천 스타일', (r.hair_pick || []).map((n, i) => `${i + 1}순위 ${n}`).join(' / ')], ['요청법', r.hair_request], ['손질법', r.hair_home], ['헤어스타일링 추천템', r.hair_items]].filter(([, v]) => v),
+        makeup: [['눈썹 모양', r.mk_brow_shape], ['눈썹 매장', r.mk_brow_shop], ['베이스', r.mk_base], ['컨실러', r.mk_concealer], ['메이크업 순서', r.mk_steps]].filter(([, v]) => v),
       });
       const lines = (o) => (o || []).map(([k, v]) => `· ${k}: ${v}`).join('\n') || '(비어 있음)';
       const draw = () => {
         const b = rep.hm_brief;
-        if (!b) { view.textContent = '아직 확정한 요청서가 없어요. 선생님 화면에는 아무것도 안 보여요.'; return; }
+        if (!b) { view.textContent = '아직 선생님께 보낸 초안이 없어요.'; return; }
         const now = JSON.stringify(build(collect().report)), was = JSON.stringify({ hair: b.hair, makeup: b.makeup });
-        view.textContent = `✓ ${new Date(b.at).toLocaleString('ko-KR')} 확정 — 선생님 화면에 보이는 내용${now !== was ? '\n⚠ 확정한 뒤 8단계 내용이 바뀌었어요. 다시 "요청서 확정"을 눌러야 선생님 화면에 반영돼요.' : ''}
-
-[헤어 선생님]
-${lines(b.hair)}
-
-[메이크업 선생님]
-${lines(b.makeup)}`;
+        view.textContent = `✓ ${new Date(b.at).toLocaleString('ko-KR')}에 보낸 초안 — 선생님 화면에 보이는 내용` + (now !== was ? '\n⚠ 보낸 뒤 8단계 내용이 바뀌었어요. 선생님께도 보이게 하려면 "선생님께 초안 보내기"를 다시 누르세요. (리포트에는 바로 반영돼요)' : '') + `\n\n[헤어 선생님]\n${lines(b.hair)}\n\n[메이크업 선생님]\n${lines(b.makeup)}`;
       };
       bAi.onclick = async () => { await runDraft(true, bAi, msg); draw(); };
       bGo.onclick = () => { const t = [...document.querySelectorAll('[data-f="toc"] button')].find((x) => x.textContent.includes('현장 기록')); if (t) t.click(); setTimeout(() => steps[8].scrollIntoView({ behavior: 'smooth', block: 'start' }), 150); };
       bOk.onclick = async () => {
         const r = collect().report;
-        if (!r.hd_style && !r.hd_request) { msg.textContent = '⚠ 8단계 "오늘 손질 스타일"을 먼저 채워 주세요.'; return; }
+        if (!(r.hair_pick || []).length) { msg.textContent = '⚠ 8단계에서 추천 헤어스타일을 먼저 골라 주세요.'; return; }
         bOk.disabled = true; msg.textContent = '저장 중…';
         rep.hm_brief = { at: new Date().toISOString(), ...build(r) };
         const ok = await saveOnsite(); bOk.disabled = false;
-        msg.textContent = ok ? '✓ 확정했어요. 선생님 링크에서 이 고객을 누르면 보여요.' : '⚠ 저장 실패 — 다시 눌러 주세요.';
+        msg.textContent = ok ? '✓ 보냈어요. 선생님 링크에서 이 고객을 누르면 초안과 코멘트 칸이 보여요.' : '⚠ 저장 실패 — 다시 눌러 주세요.';
         draw();
       };
       setTimeout(draw, 0); // collect()는 아래에서 정의되므로 다 그린 뒤에
+      drawComments();
     }
 
     // 공식 (리포트 마무리)
