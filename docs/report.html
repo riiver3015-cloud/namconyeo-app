@@ -306,10 +306,28 @@ if (PDF_MODE) {
       const g = el('div', 'grid opt ' + (names.length > 2 ? 'g3' : 'g4')); picks.forEach(([n, u, why]) => { const f = img(u, n, 'ph'); f.append(el('figcaption', null, n)); if (why) f.append(el('figcaption', 'small', why)); g.append(f); }); p7.append(g);
     }
   }
-  if (uHair.length) { hd(p7, '헤어 시술 후'); const g = el('div', 'grid g2'); uHair.slice(0, 2).forEach((u, i) => g.append(img(u, '헤어 시술 후 ' + (i + 1), 'ph'))); p7.append(g); }
+  const isHM = /헤메/.test(s.service || '');
+  if (uHair.length && !isHM) { hd(p7, '헤어 시술 후'); const g = el('div', 'grid g2'); uHair.slice(0, 2).forEach((u, i) => g.append(img(u, '헤어 시술 후 ' + (i + 1), 'ph'))); p7.append(g); }
 
-  // ---- 07 동행쇼핑 ----
-  const p8 = page(); head(p8, '07 동행쇼핑');
+  // ---- 07 헤어·메이크업 (서비스에 '헤메'가 있는 고객만) ----
+  if (isHM) {
+    const pm = page(); head(pm, '07 헤어 · 메이크업');
+    const up = (st.data || []).filter((r) => !/\.(mp4|mov|webm)$/i.test(r.path));
+    const pick = (role, kind) => up.filter((r) => r.role === role && r.kind === kind).slice(0, 1).map((r) => [r.path, `${role === 'hair' ? '헤어' : '메이크업'} ${kind === 'before' ? '전' : '후'}`]);
+    const ba = [...pick('hair', 'before'), ...pick('hair', 'after'), ...pick('makeup', 'before'), ...pick('makeup', 'after')];
+    if (ba.length) { const us = await sign('stylist-uploads', ba.map(([x]) => x)); const g = el('div', 'grid g4'); ba.forEach(([, cap], i) => { if (!us[i]) return; const f = img(us[i], cap, 'ph'); f.append(el('figcaption', null, cap)); g.append(f); }); pm.append(g); }
+    const memo = (role) => [...new Set(up.filter((r) => r.role === role && r.note).map((r) => r.note))].join(' / ');
+    const br = rep.hm_brief || {};
+    const reqH = (br.hair || []).find(([k]) => k === '요청')?.[1] || rep.hair_request;
+    hd(pm, '헤어 — 이렇게 시술했어요');
+    table(pm, [['추천 헤어스타일', rep.hair_style], ['선생님께 요청한 내용', reqH], ['선생님 메모', memo('hair')], ['집에서 손질하는 법', rep.hair_home]].filter(([, v]) => v));
+    hd(pm, '메이크업 진단');
+    const reqM = (br.makeup || []).find(([k]) => k === '요청')?.[1] || rep.mk_request;
+    table(pm, [['진단', rep.mk_diag], ['피부 표현', rep.mk_skin], ['눈썹', rep.mk_brow], ['음영 · 쉐딩', rep.mk_shade], ['그 밖에', rep.mk_point], ['선생님께 요청한 내용', reqM], ['선생님 메모', memo('makeup')], ['혼자 할 때 순서', rep.mk_home]].filter(([, v]) => v));
+  }
+
+  // ---- 동행쇼핑 ----
+  const p8 = page(); head(p8, (isHM ? '08' : '07') + ' 동행쇼핑');
   if (uShop.length) { const g = el('div', 'grid g3'); uShop.slice(0, 6).forEach((u, i) => g.append(img(u, '동행쇼핑 ' + (i + 1), 'ph'))); p8.append(g); }
   const buys = rep.purchases || [];
   if (buys.length) {
