@@ -110,11 +110,11 @@ function surveyText(s: Record<string, unknown>): string {
   return lines.map(([k, v]) => `- ${k}: ${v === undefined || v === null || v === "" ? "(공란)" : v}`).join("\n");
 }
 
-async function imageBlocks(photos: Record<string, string[]>): Promise<Anthropic.Beta.BetaContentBlockParam[]> {
+async function imageBlocks(photos: Record<string, string[]>, cap?: Record<string, number>): Promise<Anthropic.Beta.BetaContentBlockParam[]> {
   const blocks: Anthropic.Beta.BetaContentBlockParam[] = [];
   const groups: [string, string][] = [["body", "체형이 잘 드러나는 전신사진"], ["face", "셀카 (정면·측면)"], ["style", "평소 스타일 전신사진"]];
   for (const [key, label] of groups) {
-    const paths = photos?.[key] ?? [];
+    const paths = (photos?.[key] ?? []).slice(0, cap?.[key] ?? 99);
     if (!paths.length) continue;
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(paths, 600);
     if (error) throw new Error(`사진 주소 생성 실패: ${error.message}`);
@@ -137,7 +137,8 @@ async function analyze(surveyId: string) {
     const { data: s, error } = await supabase.from("surveys").select("*").eq("id", surveyId).single();
     if (error || !s) throw new Error(`설문을 찾을 수 없음: ${error?.message}`);
     const criteria = await loadCriteria();
-    const images = await imageBlocks(s.photos);
+    // 사진이 많으면 서버 시간 제한(몇 분)에 걸려 끊기므로 계획서에는 종류별로 몇 장만 씀
+    const images = await imageBlocks(s.photos, { body: 3, face: 2, style: 2 });
     const look = await loadLookbook();
 
     const response = await anthropic.beta.messages.create({
@@ -145,7 +146,7 @@ async function analyze(surveyId: string) {
       max_tokens: 16000,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
-      output_config: { effort: "medium", format: { type: "json_schema", schema: planSchema(look.keys) } },
+      output_config: { effort: "low", format: { type: "json_schema", schema: planSchema(look.keys) } }, // medium은 사진 많은 고객에서 시간 제한에 걸림
       system: [
         { type: "text", text: BASE_INSTRUCTIONS },
         { type: "text", text: `## 남코녀 분석 기준\n\n${criteria}\n\n## 남코녀 코디 사진 모음 (key | 스타일 | 계절 | 구성 | 색 | 잘 맞는 골격)\n${look.text || "(없음)"}`, cache_control: { type: "ephemeral" } },
