@@ -244,7 +244,7 @@ if (PDF_MODE) {
   if (mkFace) {
     const pair = await safe(async () => { const u = await one(pFace); return u ? DR.faceFigsM(await DR.loadImg(u), MK.face, faceShape, thirds?.ratio || '') : null; });
     if (pair) {
-      const g = el('div', 'grid g2'); const fnote = thirds?.src === '실측' ? '' : cleanNote(MK.face.note);
+      const g = el('div', 'grid g2 fit'); const fnote = thirds?.src === '실측' ? '' : cleanNote(MK.face.note);
       [[pair[0], faceShape ? `얼굴형 · ${faceShape}` : '얼굴 윤곽', ''], [pair[1], '상안부 · 중안부 · 하안부', fnote]].forEach(([u, cap, nt]) => { const f = img(u, cap, 'facefig'); f.append(el('figcaption', null, cap)); if (nt) f.append(el('p', 'mknote', nt)); g.append(f); });
       p4.append(g);
     }
@@ -486,6 +486,7 @@ if (PDF_MODE) {
       const over = () => p.getBoundingClientRect().height > limit;
       const grids = [...p.querySelectorAll('.grid.opt')];
       for (const g of grids.slice().reverse()) { if (!over()) break; g.querySelectorAll('figure').forEach((f) => f.classList.add('sq')); }
+      for (const g of [...p.querySelectorAll('.grid.fit')]) { for (let w = 92; w >= 64 && over(); w -= 4) { g.style.width = w + '%'; g.style.margin = '0 auto'; } } // 분석 그림은 빼지 않고 줄이기만
       for (const g of grids.slice().reverse()) { for (let w = 90; w >= 60 && over(); w -= 10) { g.style.width = w + '%'; g.style.margin = '0 auto'; } }
       for (const g of grids.slice().reverse()) {
         while (over() && g.children.length > 2) g.lastElementChild.remove();
