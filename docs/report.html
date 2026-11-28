@@ -233,7 +233,7 @@ if (PDF_MODE) {
   // 계절: 컨설팅 달 기준 (11월이면 가을·겨울 코디만). 맞는 사진이 없으면 계절 무시
   const mon = Number((s.consult_date || '').slice(5, 7)) || (new Date().getMonth() + 1);
   const seasons = mon >= 3 && mon <= 5 ? ['봄'] : mon >= 6 && mon <= 8 ? ['여름'] : ['가을', '겨울'];
-  const seasonOk = (r) => !r.season || seasons.some((x) => r.season.includes(x));
+  const seasonOk = (r) => (!r.season || seasons.some((x) => r.season.includes(x))) && !(seasons.includes('겨울') && /반팔|반바지|쇼츠|린넨|민소매|샌들/.test(r.items || ''));
   const lbPool = (lbAll || []).some(seasonOk) ? (lbAll || []).filter(seasonOk) : (lbAll || []);
   const opp = { '웜': '쿨', '쿨': '웜' }[o.color_temp];
   const colorScore = (c) => { c = c || ''; let n = 0; if (o.color_temp) n += c.includes(o.color_temp) ? 4 : c.includes('뉴트럴') ? 1 : 0; if (opp && c.includes(opp)) n -= 4; if (o.color_value && (c.includes(o.color_value) || (o.color_value !== '고명도' && c.includes('중저명도')))) n += 2; if (o.color_chroma && c.includes(o.color_chroma)) n += 1; if (o.color_clarity && c.includes(o.color_clarity)) n += 1; return n; };
