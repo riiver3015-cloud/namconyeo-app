@@ -53,6 +53,8 @@ figcaption { font-size:.85rem; margin-top:4px; text-align:center; }
 .pair { margin-top:12px; } .pair img { aspect-ratio:3/4; object-fit:contain; background:#f1ede7; } .boneimg img, .pair .boneimg img { background:#fff; }
 .duo { display:flex; aspect-ratio:3/4; background:#f1ede7; border-radius:4px; overflow:hidden; } .pair .duo img { flex:1 1 0; min-width:0; width:100%; height:100%; aspect-ratio:auto; object-fit:cover; border-radius:0; background:none; } .pair .duo:not(.two) img { object-fit:contain; }
 .bodytxt.boxed { border:1.5px solid var(--brown); padding:12px 14px; }
+.mknote { font-size:.82rem; color:var(--ink); text-align:center; margin:2px 0 0; line-height:1.5; }
+.facefig img { aspect-ratio:1/1; object-fit:cover; }
 figcaption.small { font-size:.75rem; color:var(--muted); line-height:1.45; text-align:left; }
 .sw { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; } .sw div { text-align:center; font-size:.78rem; } .sw i { display:block; height:44px; border-radius:6px; border:1px solid var(--line); margin-bottom:4px; }
 @media (max-width:640px) { .sw { grid-template-columns:repeat(3, minmax(0,1fr)); } }
@@ -86,6 +88,7 @@ table.buy td { padding:5px 8px; font-size:.86rem; } table.buy td.num { text-alig
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script src="nk-report.js?v=12"></script>
+<script src="nk-draw.js?v=1"></script>
 <script>
 // PDF 모드(?pdf=1): 숨은 창에서 A4 폭으로 리포트를 그린 뒤 한 장씩 사진으로 찍어 PDF로 묶어요
 const PDF_MODE = new URLSearchParams(location.search).has('pdf');
@@ -160,6 +163,14 @@ if (PDF_MODE) {
   const bp = rep.body_photo || {};
   const one = async (path) => path ? (await sign('survey-photos', [path]))[0] : null;
   const [uFront, uSide] = await Promise.all([one(bp.front || (photos.body || [])[0]), one(bp.side || (photos.body || [])[1])]); // 체형 사진: 현장 정면/측면 → 없으면 사전질문 전신 1·2번째
+  const DR = window.NK_MARKDRAW, MK = P.marks?.marks || null, MKP = P.marks?.paths || {};
+  const pFront = bp.front || (photos.body || [])[0], pSide = bp.side || (photos.body || [])[1], pFace = rep.face?.front || (photos.face || [])[0];
+  const hasM = (k, path) => !!(DR && MK && MK[k]?.found && path && MKP[k] === path);
+  const cleanNote = (x) => String(x || '').replace(/\([^()]*(❓|대표님|확인|규칙|기준)[^()]*\)/g, '').replace(/[📏🔶❓]/gu, '').replace(/최종\s*결정은\s*대표님\.?/g, '').replace(/\s{2,}/g, ' ').replace(/\s+([,.)])/g, '$1').trim();
+  const safe = async (f) => { try { return await f(); } catch (e) { console.warn('분석 그림', e); return null; } };
+  const imFront = hasM('body_front', pFront) && uFront ? await safe(() => DR.loadImg(uFront)) : null;
+  const bodyDraw = imFront ? await safe(() => DR.bodyFigM(imFront, MK.body_front)) : null;
+  const boneDraw = imFront ? await safe(async () => { const cs = [DR.boneStripM(imFront, MK.body_front, false)]; if (uSide && hasM('body_side', pSide)) cs.push(DR.boneStripM(await DR.loadImg(uSide), MK.body_side, true)); return { url: DR.joinStrips(cs), two: cs.length > 1 }; }) : null;
   const onGlass = Object.fromEntries(glassKeys.map(([k], i) => [k, uOnGlass[i]]));
   const [uBody, uStyle, uFace, uFigA, uFigG, uShop, uHair] = await Promise.all([
     sign('survey-photos', photos.body || []), sign('survey-photos', photos.style || []), sign('survey-photos', photos.face || []),
@@ -192,16 +203,16 @@ if (PDF_MODE) {
   hd(p3, '체형 (A · I · O · H · V)');
   table(p3, [['체형', chips(['A형', 'I형', 'O형', 'H형', 'V형'], bodyT)], ...(msr ? [['어깨 / 허리 / 골반', msr]] : [])]);
   // 체형 기준 사진 + 고객님 사진을 나란히, 설명은 아래 (고객 사진 없으면 기준 사진 옆에 설명)
-  const typeBlock = (p, info, label, refCls, mine) => {
+  const typeBlock = (p, info, label, refCls, mine, mineCap, mineNote) => {
     if (!info) return;
     const txt = el('div', 'bodytxt'); [['특징', info.look], ['코디 방향', info.how], ['피하면 좋은 것', info.avoid]].forEach(([k, v]) => { if (v) txt.append(el('h4', null, k), el('p', null, v)); });
     if (info.img && mine) {
       const g = el('div', 'grid g2 pair'); const a = img(info.img, label, refCls); a.append(el('figcaption', null, label));
-      const b = el('figure', 'mine'); const ims = el('div', 'duo'); [].concat(mine).filter(Boolean).forEach((u) => { const i = el('img'); i.src = u; i.alt = '고객님 사진'; ims.append(i); }); if (ims.children.length > 1) ims.classList.add('two'); b.append(ims, el('figcaption', null, `${s.name} 님`)); g.append(a, b); p.append(g);
+      const b = el('figure', 'mine'); const ims = el('div', 'duo'); [].concat(mine).filter(Boolean).forEach((u) => { const i = el('img'); i.src = u; i.alt = '고객님 사진'; ims.append(i); }); if (ims.children.length > 1) ims.classList.add('two'); b.append(ims, el('figcaption', null, mineCap || `${s.name} 님`)); if (mineNote) b.append(el('p', 'mknote', mineNote)); g.append(a, b); p.append(g);
       txt.classList.add('boxed'); p.append(txt);
     } else { const box = el('div', info.img ? 'grid bodyinfo' : 'grid'); if (info.img) box.append(img(info.img, label, refCls)); box.append(txt); p.append(box); }
   };
-  { const k = [].concat(bodyT || [])[0]; typeBlock(p3, (R.BODY_INFO || {})[k], `${k} 체형`, 'bodyimg', uFront); }
+  { const k = [].concat(bodyT || [])[0]; typeBlock(p3, (R.BODY_INFO || {})[k], `${k} 체형`, 'bodyimg', bodyDraw || uFront, bodyDraw ? `${s.name} 님 · 어깨 · 허리 · 골반` : '', bodyDraw ? cleanNote(MK.body_front.note) : ''); }
   const bodyFigs = figA.map((r, i) => [r, uFigA[i]]).filter(([r]) => /body_/.test(r.path));
   if (bodyFigs.length) { const g = el('div', 'grid g2'); bodyFigs.forEach(([r, u]) => { const f = img(u, r.caption); f.append(el('figcaption', null, r.caption)); g.append(f); }); p3.append(g); }
 
@@ -210,7 +221,7 @@ if (PDF_MODE) {
   hd(p3b, '골격 (스트레이트 · 웨이브 · 내추럴)');
   table(p3b, [['골격', chips(R.BONE, o.bone)]]);
   if (o.exception) p3b.append(el('p', 'note', o.exception));
-  { const k = [].concat(o.bone || [])[0]; typeBlock(p3b, (R.BONE_INFO || {})[k], `${k} 골격`, 'boneimg', uFront || uSide ? [uFront, uSide] : null); }
+  { const k = [].concat(o.bone || [])[0]; typeBlock(p3b, (R.BONE_INFO || {})[k], `${k} 골격`, 'boneimg', boneDraw ? boneDraw.url : (uFront || uSide ? [uFront, uSide] : null), boneDraw ? `${s.name} 님 · ${boneDraw.two ? '정면 / 측면' : '정면'}` : '', boneDraw?.two ? cleanNote(MK.body_side.note) : ''); }
 
   // ---- 02 얼굴 진단 ----
   const p4 = page(); head(p4, '02 얼굴 진단');
@@ -218,14 +229,35 @@ if (PDF_MODE) {
   if (faceKeys.length) { const g = el('div', 'grid g3'); faceKeys.forEach(([, l], i) => { const f = el('figure'); f.append(el('div', 'hd', l)); const im = img(uOnFace[i], l, 'ph sq'); f.append(im); g.append(f); }); p4.append(g); }
   else if (faceFigs.length) { const g = el('div', 'grid g3'); faceFigs.forEach(([r, u]) => { const f = img(u, r.caption); f.append(el('figcaption', null, r.caption)); g.append(f); }); p4.append(g); }
   else if (uFace.length) { const g = el('div', 'grid g3'); uFace.slice(0, 3).forEach((u, i) => g.append(img(u, '얼굴 ' + (i + 1), 'ph sq'))); p4.append(g); }
+  const mkFace = hasM('face', pFace) && (MK.face.outline || []).length >= 6;
+  const faceShape = rep.face_shape || (mkFace ? MK.face.shape : '') || '';
+  const thirds = (() => { // 상·중·하안부: 1단계 실측이 있으면 실측, 없으면 사진 위 선 기준
+    let r = null, src = '';
+    const m = String(rep.face_ratio || '').match(/([\d.]+)\s*:\s*([\d.]+)\s*:\s*([\d.]+)/);
+    if (m) { r = m.slice(1).map(Number); src = '실측'; }
+    else if (mkFace) { const F = MK.face; const d = [F.brow_line.y - F.hairline.y, F.nose_base.y - F.brow_line.y, F.chin.y - F.nose_base.y]; if (d.every((x) => x > 0)) { r = d; src = '사진'; } }
+    if (!r || !(r[0] > 0)) return null;
+    const mean = (r[0] + r[1] + r[2]) / 3; const w = r.map((x) => (x / mean > 1.06 ? '긴 편' : x / mean < 0.94 ? '짧은 편' : '보통'));
+    return { w, src, ratio: `1 : ${(r[1] / r[0]).toFixed(1)} : ${(r[2] / r[0]).toFixed(1)}` };
+  })();
+  const faceVal = (k) => has(rep[k]) ? rep[k] : k === 'face_shape' ? faceShape : thirds && { face_upper: thirds.w[0], face_middle: thirds.w[1], face_lower: thirds.w[2] }[k];
+  if (mkFace) {
+    const pair = await safe(async () => { const u = await one(pFace); return u ? DR.faceFigsM(await DR.loadImg(u), MK.face, faceShape, thirds?.ratio || '') : null; });
+    if (pair) {
+      const g = el('div', 'grid g2'); const fnote = thirds?.src === '실측' ? '' : cleanNote(MK.face.note);
+      [[pair[0], faceShape ? `얼굴형 · ${faceShape}` : '얼굴 윤곽', ''], [pair[1], '상안부 · 중안부 · 하안부', fnote]].forEach(([u, cap, nt]) => { const f = img(u, cap, 'facefig'); f.append(el('figcaption', null, cap)); if (nt) f.append(el('p', 'mknote', nt)); g.append(f); });
+      p4.append(g);
+    }
+  }
   { // 묶음별 표 (고른 값이 하나라도 있는 묶음만)
     const groups = []; R.FACE.forEach(([k, l, opts, , grp]) => { let gp = groups.find((x) => x.grp === grp); if (!gp) groups.push(gp = { grp, rows: [] }); gp.rows.push([k, l, opts]); });
     groups.forEach(({ grp, rows }) => {
       const extra = grp.startsWith('상') && rep.face_ratio ? [['실제 비율', rep.face_ratio]] : [];
-      if (!rows.some(([k]) => has(rep[k])) && !extra.length) return;
-      hd(p4, grp); table(p4, [...rows.map(([k, l, opts]) => [l, chips(opts, rep[k])]), ...extra]);
+      if (!rows.some(([k]) => has(faceVal(k))) && !extra.length) return;
+      hd(p4, grp); table(p4, [...rows.map(([k, l, opts]) => [l, chips(opts, faceVal(k))]), ...extra]);
     });
-    if (!R.FACE.some(([k]) => has(rep[k]))) warns.push('02 얼굴 진단: 얼굴형 · 상중하안부 · 이목구비 칸이 비어 있어 사진만 나가요.');
+    if (!R.FACE.some(([k]) => has(faceVal(k)))) warns.push('02 얼굴 진단: 얼굴형 · 상중하안부 · 이목구비 칸이 비어 있어 사진만 나가요.');
+    else if (!R.FACE.some(([k]) => has(rep[k]))) warns.push('02 얼굴 진단: 얼굴형 · 상중하안부는 AI가 사진에서 짚은 값이에요. 맞는지 확인하고, 이목구비는 현장 기록에서 골라 주세요.');
   }
 
   // 코디 모음(lookbook) — 페이지마다 겹치지 않게 골라 씀
